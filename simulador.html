@@ -558,6 +558,32 @@
       transition:color .15s, border-color .15s; white-space:nowrap; }
     .bu-tab:hover { color:#2563eb; }
     .bu-tab.active { color:#2563eb; border-bottom-color:#2563eb; }
+
+    /* ─── Evolución del Valor del Proyecto ─── */
+    .evolucion-section { margin-bottom: 28px; }
+    .evolucion-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
+    .evolucion-chart-container {
+      background: #fff; border-radius: 12px; padding: 18px 16px 14px;
+      position: relative; border: 1px solid #e2e8f0;
+      height: 340px;
+    }
+    .evolucion-chart-container canvas { width:100%!important; height:100%!important; }
+    .evolucion-legend {
+      display:flex; flex-wrap:wrap; gap:14px; justify-content:center;
+      padding: 10px 0 0; font-size:10.5px; color:#64748b;
+    }
+    .evolucion-legend span { display:flex; align-items:center; gap:5px; }
+    .evolucion-legend i {
+      display:inline-block; width:14px; height:3px; border-radius:2px;
+    }
+    .evolucion-legend i.bar { height:10px; width:10px; border-radius:2px; }
+    .btn-ppt {
+      padding:6px 16px; border-radius:8px; border:1px solid #cbd5e1;
+      background:#f8fafc; color:#334155; font-size:11px; font-weight:600;
+      cursor:pointer; transition:all .15s; display:inline-flex; align-items:center; gap:6px;
+    }
+    .btn-ppt:hover:not(:disabled) { background:#e2e8f0; border-color:#94a3b8; }
+    .btn-ppt:disabled { opacity:.45; cursor:not-allowed; }
     .bu-panel { display:none; padding:14px 20px 22px; }
     .bu-panel.active { display:block; }
     .bu-zone-filters { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:14px; }
@@ -871,9 +897,17 @@
     <div class="section-label">Ciudad Industrial · PDUC</div>
 
     <div class="field">
-      <div class="field-label">Valor lote industrial</div>
+      <div class="field-label">Valor lote Log. Menor</div>
       <div class="field-input-wrap">
-        <input type="number" id="precio-industrial" value="4.5" min="0.5" max="30" step="0.1" onchange="runAndRender()">
+        <input type="number" id="precio-ind-menor" value="3" min="0.5" max="30" step="0.1" onchange="runAndRender()">
+        <div class="field-unit">UF/m²</div>
+      </div>
+    </div>
+
+    <div class="field">
+      <div class="field-label">Valor lote Log. Mayor</div>
+      <div class="field-input-wrap">
+        <input type="number" id="precio-ind-mayor" value="4.5" min="0.5" max="30" step="0.1" onchange="runAndRender()">
         <div class="field-unit">UF/m²</div>
       </div>
     </div>
@@ -916,10 +950,18 @@
       </div>
     </div>
 
+    <div class="field" id="field-com-menor-price">
+      <div class="field-label">Valor comercio menor</div>
+      <div class="field-input-wrap">
+        <input type="number" id="precio-com-menor" value="15" min="1" max="50" step="0.5" onchange="runAndRender()">
+        <div class="field-unit">UF/m²</div>
+      </div>
+    </div>
+
     <div class="field" id="field-comm-price-otros">
       <div class="field-label">Valor suelo otros usos</div>
       <div class="field-input-wrap">
-        <input type="number" id="precio-otros-usos" value="10" min="0.5" max="50" step="0.1">
+        <input type="number" id="precio-otros-usos" value="4.5" min="0.5" max="50" step="0.1">
         <div class="field-unit">UF/m²</div>
       </div>
     </div>
@@ -1075,7 +1117,7 @@
       <div class="chart-header">
         <div>
           <div class="chart-title">Ingresos de Suelo por Producto</div>
-          <div class="chart-subtitle">Miles de UF</div>
+          <div class="chart-subtitle" id="revenue-subtitle">Miles de UF</div>
         </div>
         <div style="display:flex;align-items:center">
           <div class="chart-toggle">
@@ -1154,8 +1196,8 @@
     <div class="chart-panel chart-panel--wide" style="min-height:299px">
       <div class="chart-header">
         <div>
-          <div class="chart-title">Ciudad Industrial · Ingresos y Hectáreas</div>
-          <div class="chart-subtitle">Ingresos anuales en Miles de UF y Ha vendidas por escenario</div>
+          <div class="chart-title">Ciudad Industrial · Ingresos y Ha (Menor + Mayor)</div>
+          <div class="chart-subtitle" id="industrial-subtitle">Ingresos anuales en Miles de UF y Ha vendidas por escenario</div>
         </div>
         <button class="reset-zoom-btn" onclick="resetZoom('industrialChart')">↺</button>
       </div>
@@ -1183,7 +1225,7 @@
     <div class="chart-header">
       <div>
         <div class="chart-title">Flujo de Caja del Proyecto</div>
-        <div class="chart-subtitle">Ingresos anuales (barras) y acumulado (línea) en Miles de UF</div>
+        <div class="chart-subtitle" id="cashflow-subtitle">Ingresos anuales (barras) y acumulado (línea) en Miles de UF</div>
       </div>
       <button class="reset-zoom-btn" onclick="resetZoom('cashflowChart')">↺</button>
     </div>
@@ -1192,11 +1234,41 @@
     </div>
   </div>
 
+  <!-- Evolución del Valor del Proyecto -->
+  <div class="card evolucion-section" id="evolucion-section">
+    <div class="evolucion-header">
+      <div>
+        <div class="chart-title">Evolucion del Valor del Proyecto</div>
+        <div class="chart-subtitle" id="evolucion-subtitle">Flujo acumulado, VAN residual y costos parciales</div>
+      </div>
+      <button class="btn-ppt" id="btn-ppt" disabled onclick="downloadEvolucionPPT()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Descargar PPT
+      </button>
+    </div>
+    <div class="evolucion-chart-container">
+      <canvas id="evolucionChart" height="320"></canvas>
+    </div>
+    <div class="evolucion-legend" id="evolucion-legend">
+      <span><i style="background:#1e293b"></i> Flujo acumulado</span>
+      <span><i style="background:#22c55e"></i> VAN residual</span>
+      <span><i class="bar" style="background:#ef444488"></i> Costo total</span>
+    </div>
+  </div>
+
   <!-- Estado de Resultados + VAN por Año -->
   <div class="er-van-wrapper">
     <div class="er-section">
-      <div class="chart-title">Estado de Resultados</div>
-      <div class="chart-subtitle" id="eerr-subtitle">Totales acumulados del proyecto · UF</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+        <div>
+          <div class="chart-title">Estado de Resultados</div>
+          <div class="chart-subtitle" id="eerr-subtitle">Totales acumulados del proyecto · UF</div>
+        </div>
+        <button class="btn-ppt" id="btn-eerr-xlsx" onclick="downloadEERRXLSX()" disabled style="flex-shrink:0">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><polyline points="9 15 12 18 15 15"/></svg>
+          Excel
+        </button>
+      </div>
       <div id="erContainer"></div>
     </div>
     <div class="er-van-chart">
@@ -1337,13 +1409,26 @@
         <div class="chart-title">Detalle de Ingresos y Costos</div>
         <div class="chart-subtitle" id="fin-table-subtitle">Valores en UF</div>
       </div>
-      <button class="btn-csv" id="btn-csv" onclick="downloadFinancialCSV()" disabled>
+      <button class="btn-csv" id="btn-csv" onclick="downloadFinancialXLSX()" disabled>
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-        Descargar CSV
+        Descargar Excel
       </button>
     </div>
     <div class="fin-scroll">
       <div id="financialTableContainer"></div>
+    </div>
+  </div>
+
+  <!-- Tabla Aportes de Capital -->
+  <div class="fin-section-wrap" style="margin-top:24px">
+    <div class="fin-header-row">
+      <div>
+        <div class="chart-title">Aportes de Capital</div>
+        <div class="chart-subtitle" id="capital-table-subtitle">Valores en UF</div>
+      </div>
+    </div>
+    <div class="fin-scroll">
+      <div id="capitalTableContainer"></div>
     </div>
   </div>
 </div>
@@ -1411,6 +1496,7 @@ const ZONE_COLORS = {
   'Distrito G':  '#f97316',  // naranja
   'Distrito 4.0':'#eab308',  // amarillo
   'Industrial':  '#818cf8',  // violeta medio (Ciudad Industrial)
+  'Com. Menor':  '#fb923c',  // naranja claro (Comercio Menor)
 };
 
 const ZONAS_DEF = {
@@ -1450,15 +1536,18 @@ const MAX_GLOBAL_OPS = 25;  // Tope combinado de operadores PDUC (Distrito G + 4
 
 // ── INDUSTRIAL LOTS ──
 const IND_HA_TOTAL    = 112.56;
-const indPriceUFHa = 45000;  // 4.5 UF/m² × 10,000 m²/Ha
+const IND_MENOR_HA    = 35;                           // Logística Menor: 35 Ha fijas
+const IND_MAYOR_HA    = IND_HA_TOTAL - IND_MENOR_HA;  // Logística Mayor: 77.56 Ha (+ Más Industria)
+const indMenorPriceUFHa = 30000;  // 3.0 UF/m² × 10,000 m²/Ha
+const indMayorPriceUFHa = 45000;  // 4.5 UF/m² × 10,000 m²/Ha
 // Cada escenario tiene su duración, punto de inflexión (t0Factor) y curvatura (kFactor)
 // Optimista: concentración temprana (t0 al 35% del período, curva empinada)
 // Esperada: simétrica (t0 al 50%)
 // Pesimista: concentración tardía (t0 al 65% del período)
 const IND_SCENARIO_PARAMS = {
-  optimista: { years: 17, t0Factor: 0.35, kFactor: 6 },  // rápido, concentración temprana
-  esperada:  { years: 23, t0Factor: 0.50, kFactor: 4 },  // simétrica, muy plana
-  pesimista: { years: 34, t0Factor: 0.65, kFactor: 3 },  // tardío, curva muy plana
+  optimista: { years: 17, yearsMayor: 17, t0Factor: 0.35, kFactor: 6 },  // rápido, concentración temprana
+  esperada:  { years: 23, yearsMayor: 20, t0Factor: 0.50, kFactor: 4 },  // Mayor 3 años más rápido en base
+  pesimista: { years: 34, yearsMayor: 34, t0Factor: 0.65, kFactor: 3 },  // tardío, curva muy plana
 };
 
 // ── COMMERCIAL AREAS ──
@@ -1470,6 +1559,11 @@ const COMM_HA = {
   // Distrito 4.0: sin área comercial (reclasificada a Otros Usos)
 };
 const commPriceUFHa = 32000; // 3.2 UF/m² × 10,000 m²/Ha
+
+// ── COMERCIO MENOR: superficie comercial proporcional a viviendas ──
+const COM_MENOR_VIV_PER_UNIT = 200;   // cada 200 viviendas
+const COM_MENOR_M2_PER_UNIT  = 350;   // 350 m² de comercio menor
+const comMenorPriceUFM2Default = 15;   // 15 UF/m² (iterable)
 
 const COMM_COLORS = {
   'AUDP Batuco': '#ef4444',
@@ -1719,10 +1813,10 @@ function simulate(params) {
           hitoTrenYear = 2040, plusPeakTren = 3.0, activeHitoTren = true,
           activeBatuco, activeColina, activeDistritoG, activeDistrito40, velMult = 1.0,
           indPlusBase = 3.0, indEscenario = 'esperada', activeIndustrial = true,
-          indPriceUFM2 = 4.5,
+          indMenorPriceUFM2 = 3.0, indMayorPriceUFM2 = 4.5,
           opsEscenario = 'esperada',
           commPlusBase = 4.0, activeCommercial = true,
-          commPriceUFM2 = 3.2,
+          commPriceUFM2 = 3.2, comMenorPriceUFM2 = 15,
           otrosPriceUFM2 = 10.0,
           activePRC = false, activeMasVivienda = false, activeMasIndustria = false,
           activeMaxEficiencia = false,
@@ -1746,9 +1840,11 @@ function simulate(params) {
     { active: activeHitoTren, hitoYear: hitoTrenYear, plusPeak: plusPeakTren },
   ];
   const opsCurve       = OPS_CURVES[opsEscenario] ?? OPS_CURVES.esperada;
-  const indPriceUFHa   = indPriceUFM2   * 10000;
+  const indMenorPrUFHa = indMenorPriceUFM2 * 10000;
+  const indMayorPrUFHa = indMayorPriceUFM2 * 10000;
   const commPriceUFHa  = commPriceUFM2  * 10000;
   const otrosPriceUFHa = otrosPriceUFM2 * 10000;
+  const comMenorPrUFHa = comMenorPriceUFM2 * 10000;
 
   // ── Cap de absorción anual de viviendas (regla de mercado por escenario) ──
   // Solo superable en optimista. Valor base = restricción de capacidad de absorción del mercado.
@@ -1758,7 +1854,9 @@ function simulate(params) {
 
   // ── Derived policy values ──
   const vivMult             = activeMasVivienda ? 1.33 : 1.0;
-  let effectiveIndHaTotal = IND_HA_TOTAL;  // Se recalcula post-loop si Más Industria activo
+  let effectiveIndHaTotal   = IND_HA_TOTAL;  // Se recalcula post-loop si Más Industria activo
+  let effectiveIndMenorHa   = IND_MENOR_HA;  // Fija, no cambia con Más Industria
+  let effectiveIndMayorHa   = IND_MAYOR_HA;  // Se recalcula si Más Industria activo
   const effectiveFamilyCap  = {};
   for (const zName of Object.keys(ZONAS_DEF)) {
     // MV no altera AUDP (plan regulado). PDUC (G y D4.0) escalan ×1.33
@@ -1878,16 +1976,45 @@ function simulate(params) {
     }
   }
 
-  // Industrial lots
+  // ── Comercio Menor: superficie proporcional a viviendas ──
+  const comMenorRevByZone = {};
+  const comMenorHaByZone  = {};
+  const comMenorRevByYear = {};
+  const comMenorHaByYear  = {};
+  const comMenorCumM2ByZone = {}; // acumulado m2 por zona
+  for (const zName of Object.keys(ZONAS_DEF)) {
+    comMenorRevByZone[zName] = {};
+    comMenorHaByZone[zName]  = {};
+    comMenorCumM2ByZone[zName] = 0;
+    for (const y of years) {
+      comMenorRevByZone[zName][y] = 0;
+      comMenorHaByZone[zName][y]  = 0;
+    }
+  }
+  for (const y of years) { comMenorRevByYear[y] = 0; comMenorHaByYear[y] = 0; }
+
+  // Industrial lots (Menor + Mayor)
   const indParams     = IND_SCENARIO_PARAMS[indEscenario] ?? IND_SCENARIO_PARAMS.esperada;
   const indTotalYears = indParams.years;
+  const indTotalYearsMayor = indParams.yearsMayor ?? indParams.years;
   const indT0Factor   = indParams.t0Factor;
   const indKFactor    = indParams.kFactor;
-  const industrialRevByYear       = {};
+  const industrialRevByYear       = {};  // TOTAL (Menor + Mayor)
   const industrialHaByYear        = {};
-  const industrialPriceUFM2ByYear = {};
-  for (const y of years) { industrialRevByYear[y] = 0; industrialHaByYear[y] = 0; }
+  const industrialMenorRevByYear  = {};
+  const industrialMenorHaByYear   = {};
+  const industrialMayorRevByYear  = {};
+  const industrialMayorHaByYear   = {};
+  const indMenorPriceUFM2ByYear   = {};
+  const indMayorPriceUFM2ByYear   = {};
+  for (const y of years) {
+    industrialRevByYear[y] = 0; industrialHaByYear[y] = 0;
+    industrialMenorRevByYear[y] = 0; industrialMenorHaByYear[y] = 0;
+    industrialMayorRevByYear[y] = 0; industrialMayorHaByYear[y] = 0;
+  }
   let industrialHaSold = 0;
+  let indMenorHaSold = 0, indMayorHaSold = 0;
+  const yearIndMayor = hitoYear; // Logística Mayor inicia con Autopista
 
   // ── Mitigaciones init ──
   const mitigacionesByYear = {};
@@ -2231,29 +2358,81 @@ function simulate(params) {
       }
     }
 
+    // ── Comercio Menor: 350 m² cada 200 viviendas acumuladas por zona ──
+    if (activeCommercial) {
+      for (const [zName, zone] of Object.entries(zones)) {
+        if (year < zone.zStart) continue;
+        // Viviendas acumuladas vendidas en esta zona hasta este año
+        let cumVivZ = 0;
+        for (let yy = years[0]; yy <= year; yy++) cumVivZ += unitsByZone[zName]?.[yy] ?? 0;
+        // m² acumulados de comercio menor para esta zona
+        const m2Acum = (cumVivZ / COM_MENOR_VIV_PER_UNIT) * COM_MENOR_M2_PER_UNIT;
+        const m2New  = Math.max(0, m2Acum - comMenorCumM2ByZone[zName]);
+        comMenorCumM2ByZone[zName] = m2Acum;
+        if (m2New > 0) {
+          const haNew = m2New / 10000;
+          const yearsSince = year - zone.zStart;
+          const adjPrice = comMenorPrUFHa * Math.pow(1 + commPlusBase / 100, yearsSince);
+          const rev = haNew * adjPrice * crisisMult;
+          comMenorRevByZone[zName][year] = rev;
+          comMenorHaByZone[zName][year]  = haNew;
+          comMenorRevByYear[year] += rev;
+          comMenorHaByYear[year]  += haNew;
+        }
+      }
+    }
+
     // Operadores reales: suma de los que efectivamente vendieron este año
     let actualOpsThisYear = 0;
     for (const p of Object.keys(PRODUCTS)) actualOpsThisYear += opsByProd[p]?.[year] ?? 0;
     opsHistory.push(actualOpsThisYear);
 
-    // ── Industrial lots (año propio) ──
-    if (activeIndustrial && year >= yearIndustrial) {
-      const yearsSince = year - yearIndustrial;
-      const remaining  = effectiveIndHaTotal - industrialHaSold;
-      if (remaining > 0.01 && yearsSince <= indTotalYears) {
-        const adjPrice = indPriceUFHa * Math.pow(1 + indPlusBase / 100, yearsSince);
-        industrialPriceUFM2ByYear[year] = Math.round(adjPrice / 10000 * 10) / 10;
-        let annualHa = getIndustrialAnnualHa(yearsSince, indTotalYears, indT0Factor, indKFactor, effectiveIndHaTotal);
-        annualHa = Math.max(0, Math.min(annualHa, remaining));
-        // Último año permitido: vender todo el remanente (evita cola de barras minúsculas)
-        if (yearsSince >= indTotalYears) annualHa = remaining;
-        // Crisis afecta el precio de venta del suelo industrial, no el volumen comprometido.
-        // Aplicar crisisMult al precio evita acumulación de déficit y spike al final.
-        if (annualHa > 0) {
-          industrialRevByYear[year] = annualHa * adjPrice * crisisMult;
-          industrialHaByYear[year]  = annualHa;
-          industrialHaSold += annualHa;
+    // ── Industrial lots: Logística Menor (desde NAB) + Logística Mayor (desde Autopista) ──
+    // Cada sub-zona tiene su propia curva logística con los mismos parámetros pero inicio diferente.
+    if (activeIndustrial) {
+      let haMenor = 0, haMayor = 0;
+      // Logística Menor: inicia con yearIndustrial (NAB)
+      if (year >= yearIndustrial) {
+        const ysMenor = year - yearIndustrial;
+        const remMenor = effectiveIndMenorHa - indMenorHaSold;
+        if (remMenor > 0.01 && ysMenor <= indTotalYears) {
+          haMenor = getIndustrialAnnualHa(ysMenor, indTotalYears, indT0Factor, indKFactor, effectiveIndMenorHa);
+          haMenor = Math.max(0, Math.min(haMenor, remMenor));
+          if (ysMenor >= indTotalYears) haMenor = remMenor;
         }
+        if (haMenor > 0) {
+          const adjPr = indMenorPrUFHa * Math.pow(1 + indPlusBase / 100, ysMenor);
+          indMenorPriceUFM2ByYear[year] = Math.round(adjPr / 10000 * 10) / 10;
+          const rev = haMenor * adjPr * crisisMult;
+          industrialMenorRevByYear[year] = rev;
+          industrialMenorHaByYear[year]  = haMenor;
+          indMenorHaSold += haMenor;
+        }
+      }
+      // Logística Mayor: inicia con hitoYear (Autopista), curva más corta en esperada
+      if (year >= yearIndMayor) {
+        const ysMayor = year - yearIndMayor;
+        const remMayor = effectiveIndMayorHa - indMayorHaSold;
+        if (remMayor > 0.01 && ysMayor <= indTotalYearsMayor) {
+          haMayor = getIndustrialAnnualHa(ysMayor, indTotalYearsMayor, indT0Factor, indKFactor, effectiveIndMayorHa);
+          haMayor = Math.max(0, Math.min(haMayor, remMayor));
+          if (ysMayor >= indTotalYearsMayor) haMayor = remMayor;
+        }
+        if (haMayor > 0) {
+          const adjPr = indMayorPrUFHa * Math.pow(1 + indPlusBase / 100, ysMayor);
+          indMayorPriceUFM2ByYear[year] = Math.round(adjPr / 10000 * 10) / 10;
+          const rev = haMayor * adjPr * crisisMult;
+          industrialMayorRevByYear[year] = rev;
+          industrialMayorHaByYear[year]  = haMayor;
+          indMayorHaSold += haMayor;
+        }
+      }
+      // Totales combinados (compatibilidad)
+      const totalHaYear = haMenor + haMayor;
+      if (totalHaYear > 0) {
+        industrialRevByYear[year] = (industrialMenorRevByYear[year] ?? 0) + (industrialMayorRevByYear[year] ?? 0);
+        industrialHaByYear[year]  = totalHaYear;
+        industrialHaSold += totalHaYear;
       }
     }
 
@@ -2350,27 +2529,56 @@ function simulate(params) {
     // 3) Si aún no alcanza, tomar de Otros Usos D4.0
     const extraFromOtros = Math.min(extraNeeded, OTROS_HA['Distrito 4.0']);
     effectiveOtrosHa = OTROS_HA['Distrito 4.0'] - extraFromOtros;
-    // Nuevo total industrial
-    effectiveIndHaTotal = IND_HA_TOTAL + extraFromG + extraFromD40 + extraFromOtros;
-    // Recalcular la simulación industrial con el nuevo total
-    industrialHaSold = 0;
-    for (const y of years) { industrialRevByYear[y] = 0; industrialHaByYear[y] = 0; }
+    // Nuevo total industrial: solo Mayor crece, Menor se mantiene fija
+    effectiveIndMayorHa = IND_MAYOR_HA + extraFromG + extraFromD40 + extraFromOtros;
+    effectiveIndHaTotal = effectiveIndMenorHa + effectiveIndMayorHa;
+    // Recalcular con curvas independientes (misma lógica que bloque principal)
+    industrialHaSold = 0; indMenorHaSold = 0; indMayorHaSold = 0;
     for (const y of years) {
-      if (y < yearIndustrial) continue;
-      const remaining = effectiveIndHaTotal - industrialHaSold;
-      const yearsSince = y - yearIndustrial;
-      if (remaining <= 0.01 || yearsSince > indTotalYears) continue;
+      industrialRevByYear[y] = 0; industrialHaByYear[y] = 0;
+      industrialMenorRevByYear[y] = 0; industrialMenorHaByYear[y] = 0;
+      industrialMayorRevByYear[y] = 0; industrialMayorHaByYear[y] = 0;
+    }
+    for (const y of years) {
       const cm = activeCrisis ? getCrisisMultiplier(y, years[0], crisisCycleYears) : 1.0;
-      const adjPrice   = indPriceUFHa * Math.pow(1 + indPlusBase / 100, yearsSince);
-      industrialPriceUFM2ByYear[y] = Math.round(adjPrice / 10000 * 10) / 10;
-      let annualHa = getIndustrialAnnualHa(yearsSince, indTotalYears, indT0Factor, indKFactor, effectiveIndHaTotal);
-      annualHa = Math.max(0, Math.min(annualHa, remaining));
-      if (yearsSince >= indTotalYears) annualHa = remaining;
-      // Crisis afecta precio, no volumen (igual que el bloque principal)
-      if (annualHa > 0) {
-        industrialRevByYear[y] = annualHa * adjPrice * cm;
-        industrialHaByYear[y]  = annualHa;
-        industrialHaSold += annualHa;
+      let haMenor = 0, haMayor = 0;
+      if (y >= yearIndustrial) {
+        const ys = y - yearIndustrial;
+        const rem = effectiveIndMenorHa - indMenorHaSold;
+        if (rem > 0.01 && ys <= indTotalYears) {
+          haMenor = getIndustrialAnnualHa(ys, indTotalYears, indT0Factor, indKFactor, effectiveIndMenorHa);
+          haMenor = Math.max(0, Math.min(haMenor, rem));
+          if (ys >= indTotalYears) haMenor = rem;
+        }
+        if (haMenor > 0) {
+          const adjPr = indMenorPrUFHa * Math.pow(1 + indPlusBase / 100, ys);
+          indMenorPriceUFM2ByYear[y] = Math.round(adjPr / 10000 * 10) / 10;
+          industrialMenorRevByYear[y] = haMenor * adjPr * cm;
+          industrialMenorHaByYear[y]  = haMenor;
+          indMenorHaSold += haMenor;
+        }
+      }
+      if (y >= yearIndMayor) {
+        const ys = y - yearIndMayor;
+        const rem = effectiveIndMayorHa - indMayorHaSold;
+        if (rem > 0.01 && ys <= indTotalYearsMayor) {
+          haMayor = getIndustrialAnnualHa(ys, indTotalYearsMayor, indT0Factor, indKFactor, effectiveIndMayorHa);
+          haMayor = Math.max(0, Math.min(haMayor, rem));
+          if (ys >= indTotalYearsMayor) haMayor = rem;
+        }
+        if (haMayor > 0) {
+          const adjPr = indMayorPrUFHa * Math.pow(1 + indPlusBase / 100, ys);
+          indMayorPriceUFM2ByYear[y] = Math.round(adjPr / 10000 * 10) / 10;
+          industrialMayorRevByYear[y] = haMayor * adjPr * cm;
+          industrialMayorHaByYear[y]  = haMayor;
+          indMayorHaSold += haMayor;
+        }
+      }
+      const totalHaY = haMenor + haMayor;
+      if (totalHaY > 0) {
+        industrialRevByYear[y] = (industrialMenorRevByYear[y] ?? 0) + (industrialMayorRevByYear[y] ?? 0);
+        industrialHaByYear[y]  = totalHaY;
+        industrialHaSold += totalHaY;
       }
     }
   }
@@ -2729,6 +2937,7 @@ function simulate(params) {
     for (const p of Object.keys(PRODUCTS)) rev += revenueByProd[p]?.[y] ?? 0;
     rev += industrialRevByYear[y]  ?? 0;
     for (const zName of Object.keys(ZONAS_DEF)) rev += commercialRevByZone[zName]?.[y] ?? 0;
+    rev += comMenorRevByYear[y] ?? 0;
     comercializacionByYear[y] = rev * COSTO_COMERCIALIZACION_PCT;
   }
 
@@ -2774,14 +2983,17 @@ function simulate(params) {
   }
 
   return { years, revenueByProd, landByZone, unitsByZone, unitsByProd, opsByProd, opsHistory, activeZones,
-           industrialRevByYear, industrialHaByYear, industrialPriceUFM2ByYear,
+           industrialRevByYear, industrialHaByYear,
+           industrialMenorRevByYear, industrialMenorHaByYear, indMenorPriceUFM2ByYear,
+           industrialMayorRevByYear, industrialMayorHaByYear, indMayorPriceUFM2ByYear,
            commercialRevByZone, commercialHaByZone, prcRevByZone, prcHaByZone,
+           comMenorRevByZone, comMenorHaByZone, comMenorRevByYear, comMenorHaByYear,
            mitigacionesByYear, sanitariaByYear, sanitariaIngByYear, sanitariaOpCostByYear, sanitariaVentaByYear, cumVivByYear,
            tierraByYear, comercializacionByYear,
            factibilizacionByYear, revenueByZone, mitByGroup, mitByItem, factByZone, tierraByZone,
            infraByYear, infraByZone, mantByYear,
-           otrosRevByYear, otrosHaByYear, effectiveOtrosHa, effectiveIndHaTotal, extraFromD40,
-           nabSubitems, yearIndustrial, nabStartYear, nabInaugYear, zones };
+           otrosRevByYear, otrosHaByYear, effectiveOtrosHa, effectiveIndHaTotal, effectiveIndMenorHa, effectiveIndMayorHa, extraFromD40,
+           nabSubitems, yearIndustrial, yearIndMayor, nabStartYear, nabInaugYear, zones };
 }
 
 // ════════════════════════════════════════════════════════════
@@ -2797,6 +3009,7 @@ let lastResults   = null;
 let unCFChart     = null;
 let unSelList     = [];   // [{ el, bu, label, seg, start, end }, …]
 let revenueMode  = 'stack';
+let evolucionChart = null;
 
 // ════════════════════════════════════════════════════════════
 // MONEDA: UF / USD
@@ -2972,19 +3185,29 @@ function buildRevenueDatasets(results, mode) {
       stack: 'revenue',
     }));
 
-  // Industrial: solo cuando hay actividad
-  const totalIndRev = years.reduce((s, y) => s + (industrialRevByYear?.[y] ?? 0), 0);
-  const industrialDs = totalIndRev > 0 ? [{
-    label: 'Industrial',
-    data: years.map(y => cvtChart(industrialRevByYear?.[y] ?? 0, y)),
-    backgroundColor: ZONE_COLORS['Industrial'],
-    borderColor: ZONE_COLORS['Industrial'],
+  // Industrial: Menor y Mayor como datasets separados
+  const { industrialMenorRevByYear, industrialMayorRevByYear } = results;
+  const totalIndMenorRev = years.reduce((s, y) => s + (industrialMenorRevByYear?.[y] ?? 0), 0);
+  const totalIndMayorRev = years.reduce((s, y) => s + (industrialMayorRevByYear?.[y] ?? 0), 0);
+  const industrialDs = [];
+  if (totalIndMenorRev > 0) industrialDs.push({
+    label: 'Log. Menor',
+    data: years.map(y => cvtChart(industrialMenorRevByYear?.[y] ?? 0, y)),
+    backgroundColor: '#c4b5fd',
+    borderColor: '#c4b5fd',
     borderWidth: mode === 'line' ? 2 : 0,
     fill: mode === 'line' ? false : true,
-    tension: 0.3,
-    pointRadius: 0,
-    stack: 'revenue',
-  }] : [];
+    tension: 0.3, pointRadius: 0, stack: 'revenue',
+  });
+  if (totalIndMayorRev > 0) industrialDs.push({
+    label: 'Log. Mayor',
+    data: years.map(y => cvtChart(industrialMayorRevByYear?.[y] ?? 0, y)),
+    backgroundColor: '#818cf8',
+    borderColor: '#818cf8',
+    borderWidth: mode === 'line' ? 2 : 0,
+    fill: mode === 'line' ? false : true,
+    tension: 0.3, pointRadius: 0, stack: 'revenue',
+  });
 
   // Otros Usos Distrito 4.0 (lump sum, rojo oscuro)
   const totalOtrosRev = years.reduce((s, y) => s + (otrosRevByYear?.[y] ?? 0), 0);
@@ -3049,24 +3272,29 @@ function buildLandDatasets(results, mode) {
     });
   }
 
-  // Dataset separado para hectáreas industriales (solo si hay actividad)
-  const totalIndHa = years.reduce((s, y) => s + (industrialHaByYear?.[y] ?? 0), 0);
-  if (totalIndHa > 0) {
+  // Datasets separados para hectáreas industriales: Menor y Mayor
+  const { industrialMenorHaByYear, industrialMayorHaByYear } = results;
+  const totalIndMenorHa = years.reduce((s, y) => s + (industrialMenorHaByYear?.[y] ?? 0), 0);
+  const totalIndMayorHa = years.reduce((s, y) => s + (industrialMayorHaByYear?.[y] ?? 0), 0);
+  if (totalIndMenorHa > 0) {
     let data;
     if (mode === 'annual') {
-      data = years.map(y => +(industrialHaByYear?.[y] ?? 0).toFixed(2));
+      data = years.map(y => +(industrialMenorHaByYear?.[y] ?? 0).toFixed(2));
     } else {
       let cum = 0;
-      data = years.map(y => { cum += industrialHaByYear?.[y] ?? 0; return +cum.toFixed(2); });
+      data = years.map(y => { cum += industrialMenorHaByYear?.[y] ?? 0; return +cum.toFixed(2); });
     }
-    datasets.push({
-      label: 'Industrial',
-      data,
-      backgroundColor: ZONE_COLORS['Industrial'],
-      borderColor: ZONE_COLORS['Industrial'],
-      borderWidth: 0,
-      stack: 'land',
-    });
+    datasets.push({ label: 'Log. Menor', data, backgroundColor: '#c4b5fd', borderColor: '#c4b5fd', borderWidth: 0, stack: 'land' });
+  }
+  if (totalIndMayorHa > 0) {
+    let data;
+    if (mode === 'annual') {
+      data = years.map(y => +(industrialMayorHaByYear?.[y] ?? 0).toFixed(2));
+    } else {
+      let cum = 0;
+      data = years.map(y => { cum += industrialMayorHaByYear?.[y] ?? 0; return +cum.toFixed(2); });
+    }
+    datasets.push({ label: 'Log. Mayor', data, backgroundColor: '#818cf8', borderColor: '#818cf8', borderWidth: 0, stack: 'land' });
   }
 
   return datasets;
@@ -3075,6 +3303,7 @@ function buildLandDatasets(results, mode) {
 function renderRevenueChart(results) {
   const { years } = results;
   const datasets  = buildRevenueDatasets(results, revenueMode);
+  { const sub = document.getElementById('revenue-subtitle'); if (sub) sub.textContent = CURRENCY.mode === 'UF' ? 'Miles de UF' : 'USD'; }
 
   const type = revenueMode === 'line' ? 'line' : 'bar';
 
@@ -3181,12 +3410,19 @@ function renderLandCapChart(results) {
     colors.push(ZONE_COLORS[z] ?? '#94a3b8');
   }
 
-  const totalInd = years.reduce((s, y) => s + (industrialHaByYear?.[y] ?? 0), 0);
-  if (totalInd > 0) {
-    labels.push('Industrial');
-    usedData.push(+totalInd.toFixed(2));
-    remData.push(+Math.max(0, results.effectiveIndHaTotal - totalInd).toFixed(2));
-    colors.push(ZONE_COLORS['Industrial'] ?? '#818cf8');
+  const totalIndMenor = years.reduce((s, y) => s + (results.industrialMenorHaByYear?.[y] ?? 0), 0);
+  const totalIndMayor = years.reduce((s, y) => s + (results.industrialMayorHaByYear?.[y] ?? 0), 0);
+  if (totalIndMenor > 0) {
+    labels.push('Log. Menor');
+    usedData.push(+totalIndMenor.toFixed(2));
+    remData.push(+Math.max(0, (results.effectiveIndMenorHa ?? IND_MENOR_HA) - totalIndMenor).toFixed(2));
+    colors.push('#c4b5fd');
+  }
+  if (totalIndMayor > 0) {
+    labels.push('Log. Mayor');
+    usedData.push(+totalIndMayor.toFixed(2));
+    remData.push(+Math.max(0, (results.effectiveIndMayorHa ?? IND_MAYOR_HA) - totalIndMayor).toFixed(2));
+    colors.push('#818cf8');
   }
 
   const totalOtros = years.reduce((s, y) => s + (otrosHaByYear?.[y] ?? 0), 0);
@@ -3370,6 +3606,8 @@ function renderKPIs(results) {
     for (const y of years) totalRevenue += toDisp(revenueByProd[p]?.[y] ?? 0, y);
   }
   for (const y of years) totalRevenue += toDisp(results.industrialRevByYear?.[y] ?? 0, y);
+  // Comercio Menor
+  for (const y of years) totalRevenue += toDisp(results.comMenorRevByYear?.[y] ?? 0, y);
   // Sumar ingresos comerciales al total (Retail + Otros Usos)
   let totalCommRev = 0, totalCommHa = 0;
   for (const zName of Object.keys(ZONAS_DEF)) {
@@ -3473,14 +3711,16 @@ function renderKPIs(results) {
   }
 
   // Industrial KPI
-  const { industrialRevByYear, industrialHaByYear } = results;
-  let totalIndRev = 0, totalIndHa = 0;
+  const { industrialRevByYear, industrialHaByYear, industrialMenorHaByYear, industrialMayorHaByYear } = results;
+  let totalIndRev = 0, totalIndHa = 0, totalMenorHa = 0, totalMayorHa = 0;
   for (const y of years) {
-    totalIndRev += toDisp(industrialRevByYear[y] ?? 0, y);
-    totalIndHa  += industrialHaByYear[y] ?? 0;
+    totalIndRev  += toDisp(industrialRevByYear[y] ?? 0, y);
+    totalIndHa   += industrialHaByYear[y] ?? 0;
+    totalMenorHa += industrialMenorHaByYear[y] ?? 0;
+    totalMayorHa += industrialMayorHaByYear[y] ?? 0;
   }
   document.getElementById('kpi-industrial').textContent     = fmtDisp(totalIndRev);
-  document.getElementById('kpi-industrial-sub').textContent = totalIndHa.toFixed(1) + ' Ha vendidas';
+  document.getElementById('kpi-industrial-sub').textContent = totalMenorHa.toFixed(1) + ' Ha Menor + ' + totalMayorHa.toFixed(1) + ' Ha Mayor';
 
   document.getElementById('kpi-commercial').textContent     = fmtDisp(totalCommRev);
   document.getElementById('kpi-commercial-sub').textContent = totalCommHa.toFixed(1) + ' Ha com.';
@@ -3518,6 +3758,7 @@ function renderKPIs(results) {
     cf += results.industrialRevByYear?.[y] ?? 0;
     for (const zName of Object.keys(ZONAS_DEF)) cf += commercialRevByZone?.[zName]?.[y] ?? 0;
     cf += otrosRevByYear?.[y]           ?? 0;
+    cf += results.comMenorRevByYear?.[y] ?? 0;
     cf -= mitigacionesByYear?.[y]       ?? 0;
     cf -= sanitariaByYear?.[y]          ?? 0;
     cf += sanitariaIngByYear?.[y]       ?? 0;
@@ -3543,11 +3784,15 @@ function renderKPIs(results) {
 let industrialChart = null;
 
 function renderIndustrialChart(results) {
-  const { years, industrialRevByYear, industrialHaByYear } = results;
+  const { years, industrialMenorRevByYear, industrialMayorRevByYear,
+          industrialMenorHaByYear, industrialMayorHaByYear } = results;
+  { const sub = document.getElementById('industrial-subtitle'); if (sub) sub.textContent = CURRENCY.mode === 'UF' ? 'Ingresos anuales en Miles de UF y Ha vendidas por escenario' : 'Ingresos anuales en USD y Ha vendidas por escenario'; }
   const labels = years.map(String);
 
-  const revData = years.map(y => cvtChart(industrialRevByYear[y] ?? 0, y));
-  const haData  = years.map(y => parseFloat((industrialHaByYear[y]  ?? 0).toFixed(2)));
+  const revMenorData = years.map(y => cvtChart(industrialMenorRevByYear[y] ?? 0, y));
+  const revMayorData = years.map(y => cvtChart(industrialMayorRevByYear[y] ?? 0, y));
+  const haMenorData  = years.map(y => parseFloat((industrialMenorHaByYear[y] ?? 0).toFixed(2)));
+  const haMayorData  = years.map(y => parseFloat((industrialMayorHaByYear[y] ?? 0).toFixed(2)));
 
   const ctx = document.getElementById('industrialChart').getContext('2d');
   if (industrialChart) industrialChart.destroy();
@@ -3558,19 +3803,44 @@ function renderIndustrialChart(results) {
       datasets: [
         {
           type: 'bar',
-          label: `Ingreso Industrial (${currLabel()})`,
-          data: revData,
+          label: `Log. Menor (${currLabel()})`,
+          data: revMenorData,
+          backgroundColor: '#c4b5fdcc',
+          borderColor: '#8b5cf6',
+          borderWidth: 1,
+          yAxisID: 'yRev',
+          stack: 'rev',
+          order: 2,
+        },
+        {
+          type: 'bar',
+          label: `Log. Mayor (${currLabel()})`,
+          data: revMayorData,
           backgroundColor: '#818cf8cc',
           borderColor: '#6366f1',
           borderWidth: 1,
           yAxisID: 'yRev',
+          stack: 'rev',
           order: 2,
         },
         {
           type: 'line',
-          label: 'Ha vendidas',
-          data: haData,
+          label: 'Ha Menor',
+          data: haMenorData,
           borderColor: '#f97316',
+          backgroundColor: 'transparent',
+          borderWidth: 1.5,
+          borderDash: [4, 3],
+          pointRadius: 0,
+          tension: 0.4,
+          yAxisID: 'yHa',
+          order: 1,
+        },
+        {
+          type: 'line',
+          label: 'Ha Mayor',
+          data: haMayorData,
+          borderColor: '#ef4444',
           backgroundColor: 'transparent',
           borderWidth: 2,
           pointRadius: 0,
@@ -3584,9 +3854,9 @@ function renderIndustrialChart(results) {
       const _o = getChartOptions();
       _o.plugins.legend = { display: true, labels: { font: { size: 10 }, color: '#4b5563', boxWidth: 12 } };
       _o.scales = {
-        x: { ..._o.scales.x },
+        x: { ..._o.scales.x, stacked: true },
         yRev: {
-          type: 'linear', position: 'left',
+          type: 'linear', position: 'left', stacked: true,
           ticks: { color: '#4b5563', font: { size: 10 }, callback: v => fmtTick(v) },
           grid: { color: '#f1f5f9' },
           border: { display: false },
@@ -3695,7 +3965,7 @@ function toggleZone(zone, active) {
 function toggleIndustrial(active) {
   const wrap = document.getElementById('wrap-industrial');
   if (wrap) wrap.classList.toggle('disabled', !active);
-  const fields = document.querySelectorAll('#precio-industrial, #plusvalia-industrial, #escenario-industrial');
+  const fields = document.querySelectorAll('#precio-ind-menor, #precio-ind-mayor, #plusvalia-industrial, #escenario-industrial');
   fields.forEach(el => {
     el.closest('.field').style.opacity       = active ? '1' : '0.35';
     el.closest('.field').style.pointerEvents = active ? '' : 'none';
@@ -3756,6 +4026,7 @@ function getCrisisMultiplier(year, startYear, cycleYears) {
 let cashflowChart = null;
 
 function renderCashFlowChart(results) {
+  { const sub = document.getElementById('cashflow-subtitle'); if (sub) sub.textContent = CURRENCY.mode === 'UF' ? 'Ingresos anuales (barras) y acumulado (línea) en Miles de UF' : 'Ingresos anuales (barras) y acumulado (línea) en USD'; }
   const { years, revenueByProd, industrialRevByYear, commercialRevByZone,
           mitigacionesByYear, sanitariaByYear, sanitariaIngByYear, sanitariaOpCostByYear, sanitariaVentaByYear,
           tierraByYear, comercializacionByYear,
@@ -3778,6 +4049,7 @@ function renderCashFlowChart(results) {
     cf += sanitariaIngByYear?.[y]       ?? 0;
     cf += sanitariaVentaByYear?.[y]     ?? 0;
     for (const zName of Object.keys(ZONAS_DEF)) cf += commercialRevByZone?.[zName]?.[y] ?? 0;
+    cf += results.comMenorRevByYear?.[y] ?? 0;
     cf += otrosRevByYear?.[y] ?? 0;
     return cvtChart(cf, y);
   });
@@ -4060,6 +4332,7 @@ function computeAnnualCF(results, overrideYears) {
     for (const p of Object.keys(PRODUCTS)) c += revenueByProd[p]?.[y] ?? 0;
     c += industrialRevByYear?.[y]  ?? 0;
     for (const z of Object.keys(ZONAS_DEF)) c += commercialRevByZone?.[z]?.[y] ?? 0;
+    c += results.comMenorRevByYear?.[y] ?? 0;
     c += otrosRevByYear?.[y]          ?? 0;
     c += sanitariaIngByYear?.[y]      ?? 0;
     c += sanitariaVentaByYear?.[y]    ?? 0;
@@ -4101,9 +4374,12 @@ function renderEstadoResultados(results) {
   // INGRESOS OPERACIONALES (sin sanitaria)
   const ingHab    = Object.keys(PRODUCTS).reduce((s, p) => s + sumD(revenueByProd[p]), 0);
   const ingRetail = Object.keys(ZONAS_DEF).reduce((s, z) => s + sumD(commercialRevByZone?.[z]), 0);
+  const ingComMenor = sumD(results.comMenorRevByYear);
   const ingInd    = sumD(industrialRevByYear);
+  const ingIndMenor = sumD(results.industrialMenorRevByYear);
+  const ingIndMayor = sumD(results.industrialMayorRevByYear);
   const ingOtr    = sumD(otrosRevByYear);
-  const totIngOp  = ingHab + ingRetail + ingInd + ingOtr;
+  const totIngOp  = ingHab + ingRetail + ingComMenor + ingInd + ingOtr;
 
   // COSTOS OPERACIONALES (sin sanitaria)
   const cTierra = sumD(tierraByYear);
@@ -4142,7 +4418,9 @@ function renderEstadoResultados(results) {
   html += `<tr class="er-hdr"><td colspan="3">INGRESOS</td></tr>`;
   if (ingHab    > 0) html += row('Suelo Habitacional',         ingHab);
   if (ingRetail > 0) html += row('Suelo Comercial Retail',     ingRetail);
-  if (ingInd    > 0) html += row('Suelo Industrial',           ingInd);
+  if (ingComMenor > 0) html += row('Suelo Comercio Menor',     ingComMenor);
+  if (ingIndMenor > 0) html += row('Suelo Log. Menor',          ingIndMenor);
+  if (ingIndMayor > 0) html += row('Suelo Log. Mayor',          ingIndMayor);
   if (ingOtr    > 0) html += row('Suelo Otros Usos',           ingOtr);
   html += `<tr class="er-total-ing"><td>TOTAL INGRESOS</td><td>${fmtUFer(totIngOp)}</td><td>${pct(totIngOp)}</td></tr>`;
   html += gap();
@@ -4190,6 +4468,300 @@ function renderEstadoResultados(results) {
 
   html += '</tbody></table>';
   container.innerHTML = html;
+}
+
+// ─── Descarga Excel Estado de Resultados ─────────────────────────────────────
+async function downloadEERRXLSX() {
+  if (!lastResults) return;
+  if (typeof ExcelJS === 'undefined') {
+    await new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = 'https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js';
+      s.onload = resolve;
+      s.onerror = () => reject(new Error('No se pudo cargar ExcelJS'));
+      document.head.appendChild(s);
+    });
+  }
+  const r = lastResults;
+  const escenario = document.getElementById('escenario').value;
+  const { years, revenueByProd, industrialRevByYear, commercialRevByZone, otrosRevByYear,
+          mitigacionesByYear, sanitariaByYear, sanitariaIngByYear, sanitariaOpCostByYear,
+          sanitariaVentaByYear, tierraByYear, comercializacionByYear,
+          factibilizacionByYear, infraByYear, mantByYear } = r;
+
+  const sum = (byYear) => (years ?? []).reduce((s, y) => s + (byYear?.[y] ?? 0), 0);
+  const sumD = (byYear) => (years ?? []).reduce((s, y) => s + toDisp(byYear?.[y] ?? 0, y), 0);
+  const sumAllD = (byYear) => Object.entries(byYear ?? {}).reduce((s, [y, v]) => s + toDisp(v, Number(y)), 0);
+  const cLbl = CURRENCY.mode === 'UF' ? 'UF' : 'USD';
+
+  // Datos (misma lógica que renderEstadoResultados)
+  const ingHab      = Object.keys(PRODUCTS).reduce((s, p) => s + sumD(revenueByProd[p]), 0);
+  const ingRetail   = Object.keys(ZONAS_DEF).reduce((s, z) => s + sumD(commercialRevByZone?.[z]), 0);
+  const ingComMenor = sumD(r.comMenorRevByYear);
+  const ingIndMenor = sumD(r.industrialMenorRevByYear);
+  const ingIndMayor = sumD(r.industrialMayorRevByYear);
+  const ingOtr      = sumD(otrosRevByYear);
+  const cTierra = sumD(tierraByYear);
+  const cInfra  = sumD(infraByYear);
+  const cMit    = sumD(mitigacionesByYear);
+  const cFact   = sumAllD(factibilizacionByYear);
+  const cCom    = sumD(comercializacionByYear);
+  const cMant   = sumD(mantByYear);
+  const ingSanOp  = sumD(sanitariaIngByYear);
+  const ingSanVta = sumD(sanitariaVentaByYear);
+  const cSanInv   = sumD(sanitariaByYear);
+  const cSanOpC   = sumD(sanitariaOpCostByYear);
+
+  // ── ExcelJS ──
+  const wb = new ExcelJS.Workbook();
+  wb.creator = 'Modela Simulador';
+  const ws = wb.addWorksheet('Estado de Resultados');
+
+  ws.getColumn(1).width = 38;
+  ws.getColumn(2).width = 18;
+  ws.getColumn(3).width = 12;
+
+  const FILL_HDR   = { type:'pattern', pattern:'solid', fgColor:{argb:'FF1e3a5f'} };
+  const FILL_SEP   = { type:'pattern', pattern:'solid', fgColor:{argb:'FFf1f5f9'} };
+  const FILL_ING   = { type:'pattern', pattern:'solid', fgColor:{argb:'FFdcfce7'} };
+  const FILL_COST  = { type:'pattern', pattern:'solid', fgColor:{argb:'FFfee2e2'} };
+  const FILL_RES   = { type:'pattern', pattern:'solid', fgColor:{argb:'FFdbeafe'} };
+  const FILL_SAN_R = { type:'pattern', pattern:'solid', fgColor:{argb:'FFd1fae5'} };
+  const FILL_CONS  = { type:'pattern', pattern:'solid', fgColor:{argb:'FFede9fe'} };
+  const FILL_MARG  = { type:'pattern', pattern:'solid', fgColor:{argb:'FFfef3c7'} };
+  const FONT_W     = { bold:true, color:{argb:'FFFFFFFF'}, size:10 };
+  const FONT_B     = { bold:true, size:10 };
+  const FONT_N     = { size:10 };
+  const FONT_SEP   = { bold:true, size:8, color:{argb:'FF64748b'} };
+  const FONT_GREEN  = { bold:true, size:10, color:{argb:'FF166534'} };
+  const FONT_BLUE   = { bold:true, size:10, color:{argb:'FF1e40af'} };
+  const FONT_RED_B  = { bold:true, size:10, color:{argb:'FFdc2626'} };
+  const NUM_FMT = '#,##0';
+  const PCT_FMT = '0.0%';
+  const BORDER = { top:{style:'thin',color:{argb:'FFe2e8f0'}}, bottom:{style:'thin',color:{argb:'FFe2e8f0'}} };
+
+  let row = 1;
+
+  // Título
+  ws.getRow(row).getCell(1).value = `Estado de Resultados — ${escenario} (${cLbl})`;
+  ws.getRow(row).getCell(1).font = { bold:true, size:14 };
+  ws.mergeCells(row, 1, row, 3);
+  row++;
+  ws.getRow(row).getCell(1).value = `Generado: ${new Date().toLocaleDateString('es-CL')}`;
+  ws.getRow(row).getCell(1).font = { size:9, color:{argb:'FF94a3b8'} };
+  row += 2;
+
+  // Header
+  const hdr = ws.getRow(row);
+  ['Concepto', 'Total', '% Ing.'].forEach((t, i) => {
+    const c = hdr.getCell(i + 1);
+    c.value = t; c.font = FONT_W; c.fill = FILL_HDR;
+    c.alignment = { horizontal: i === 0 ? 'left' : 'right' };
+  });
+  row++;
+
+  // Helpers
+  const ingRows = [];  // filas de ingresos operacionales
+  const costRows = []; // filas de costos operacionales
+  const sanIngRows = [];
+  const sanCostRows = [];
+
+  function addSep(label) {
+    const r = ws.getRow(row);
+    for (let c = 1; c <= 3; c++) { r.getCell(c).fill = FILL_SEP; r.getCell(c).border = BORDER; }
+    r.getCell(1).value = label.toUpperCase();
+    r.getCell(1).font = FONT_SEP;
+    row++;
+  }
+
+  function addSecHdr(label) {
+    const r = ws.getRow(row);
+    for (let c = 1; c <= 3; c++) r.getCell(c).border = BORDER;
+    r.getCell(1).value = label;
+    r.getCell(1).font = FONT_B;
+    row++;
+  }
+
+  function addItem(label, val, refArr) {
+    if (Math.round(val) === 0) return;
+    const r = ws.getRow(row);
+    for (let c = 1; c <= 3; c++) r.getCell(c).border = BORDER;
+    r.getCell(1).value = '  ' + label;
+    r.getCell(1).font = FONT_N;
+    r.getCell(2).value = Math.round(val);
+    r.getCell(2).numFmt = NUM_FMT;
+    r.getCell(2).font = FONT_N;
+    r.getCell(2).alignment = { horizontal:'right' };
+    // % Ing. fórmula
+    r.getCell(3).value = { formula: `IFERROR(ABS(B${row})/B$${row}__TOTAL__,0)` }; // placeholder
+    if (refArr) refArr.push(row);
+    row++;
+    return row - 1;
+  }
+
+  function addTotalRow(label, childRows, fill, fontStyle) {
+    const r = ws.getRow(row);
+    for (let c = 1; c <= 3; c++) { r.getCell(c).fill = fill; r.getCell(c).border = BORDER; }
+    r.getCell(1).value = label;
+    r.getCell(1).font = fontStyle || FONT_B;
+    // Total = SUM de hijos
+    if (childRows.length > 0) {
+      r.getCell(2).value = { formula: childRows.map(cr => `B${cr}`).join('+') };
+    } else {
+      r.getCell(2).value = 0;
+    }
+    r.getCell(2).numFmt = NUM_FMT;
+    r.getCell(2).font = fontStyle || FONT_B;
+    r.getCell(2).alignment = { horizontal:'right' };
+    r.getCell(3).numFmt = PCT_FMT;
+    r.getCell(3).font = fontStyle || FONT_B;
+    r.getCell(3).alignment = { horizontal:'right' };
+    const idx = row;
+    row++;
+    return idx;
+  }
+
+  function addResultRow(label, formula, fill, fontStyle) {
+    const r = ws.getRow(row);
+    for (let c = 1; c <= 3; c++) { r.getCell(c).fill = fill; r.getCell(c).border = BORDER; }
+    r.getCell(1).value = label;
+    r.getCell(1).font = fontStyle;
+    r.getCell(2).value = { formula };
+    r.getCell(2).numFmt = NUM_FMT;
+    r.getCell(2).font = fontStyle;
+    r.getCell(2).alignment = { horizontal:'right' };
+    r.getCell(3).numFmt = PCT_FMT;
+    r.getCell(3).font = fontStyle;
+    r.getCell(3).alignment = { horizontal:'right' };
+    const idx = row;
+    row++;
+    return idx;
+  }
+
+  function addMargenRow(label, numRow, denRow) {
+    const r = ws.getRow(row);
+    for (let c = 1; c <= 3; c++) { r.getCell(c).fill = FILL_MARG; r.getCell(c).border = BORDER; }
+    r.getCell(1).value = label;
+    r.getCell(1).font = { bold:true, size:10, color:{argb:'FFb45309'} };
+    r.getCell(2).value = { formula: `IFERROR(B${numRow}/B${denRow},0)` };
+    r.getCell(2).numFmt = PCT_FMT;
+    r.getCell(2).font = { bold:true, size:10, color:{argb:'FFb45309'} };
+    r.getCell(2).alignment = { horizontal:'right' };
+    ws.mergeCells(row, 2, row, 3);
+    row++;
+  }
+
+  function addGap() { row++; }
+
+  // ══════════════════════════════════════════════════════════
+  // NEGOCIO OPERACIONAL
+  addSep('Negocio Operacional');
+  addSecHdr('INGRESOS');
+  if (ingHab > 0)      { const r2 = ws.getRow(row); for (let c=1;c<=3;c++) r2.getCell(c).border=BORDER; r2.getCell(1).value='  Suelo Habitacional'; r2.getCell(1).font=FONT_N; r2.getCell(2).value=Math.round(ingHab); r2.getCell(2).numFmt=NUM_FMT; r2.getCell(2).alignment={horizontal:'right'}; ingRows.push(row); row++; }
+  if (ingRetail > 0)   { const r2 = ws.getRow(row); for (let c=1;c<=3;c++) r2.getCell(c).border=BORDER; r2.getCell(1).value='  Suelo Comercial Retail'; r2.getCell(1).font=FONT_N; r2.getCell(2).value=Math.round(ingRetail); r2.getCell(2).numFmt=NUM_FMT; r2.getCell(2).alignment={horizontal:'right'}; ingRows.push(row); row++; }
+  if (ingComMenor > 0)  { const r2 = ws.getRow(row); for (let c=1;c<=3;c++) r2.getCell(c).border=BORDER; r2.getCell(1).value='  Suelo Comercio Menor'; r2.getCell(1).font=FONT_N; r2.getCell(2).value=Math.round(ingComMenor); r2.getCell(2).numFmt=NUM_FMT; r2.getCell(2).alignment={horizontal:'right'}; ingRows.push(row); row++; }
+  if (ingIndMenor > 0)  { const r2 = ws.getRow(row); for (let c=1;c<=3;c++) r2.getCell(c).border=BORDER; r2.getCell(1).value='  Suelo Log. Menor'; r2.getCell(1).font=FONT_N; r2.getCell(2).value=Math.round(ingIndMenor); r2.getCell(2).numFmt=NUM_FMT; r2.getCell(2).alignment={horizontal:'right'}; ingRows.push(row); row++; }
+  if (ingIndMayor > 0)  { const r2 = ws.getRow(row); for (let c=1;c<=3;c++) r2.getCell(c).border=BORDER; r2.getCell(1).value='  Suelo Log. Mayor'; r2.getCell(1).font=FONT_N; r2.getCell(2).value=Math.round(ingIndMayor); r2.getCell(2).numFmt=NUM_FMT; r2.getCell(2).alignment={horizontal:'right'}; ingRows.push(row); row++; }
+  if (ingOtr > 0)       { const r2 = ws.getRow(row); for (let c=1;c<=3;c++) r2.getCell(c).border=BORDER; r2.getCell(1).value='  Suelo Otros Usos'; r2.getCell(1).font=FONT_N; r2.getCell(2).value=Math.round(ingOtr); r2.getCell(2).numFmt=NUM_FMT; r2.getCell(2).alignment={horizontal:'right'}; ingRows.push(row); row++; }
+
+  const totIngOpRow = addTotalRow('TOTAL INGRESOS', ingRows, FILL_ING, FONT_GREEN);
+  addGap();
+  addSecHdr('COSTOS');
+  if (cTierra > 0) { const r2=ws.getRow(row); for(let c=1;c<=3;c++) r2.getCell(c).border=BORDER; r2.getCell(1).value='  Tierra'; r2.getCell(1).font=FONT_N; r2.getCell(2).value=Math.round(cTierra); r2.getCell(2).numFmt=NUM_FMT; r2.getCell(2).alignment={horizontal:'right'}; r2.getCell(2).font=FONT_N; costRows.push(row); row++; }
+  if (cInfra > 0)  { const r2=ws.getRow(row); for(let c=1;c<=3;c++) r2.getCell(c).border=BORDER; r2.getCell(1).value='  Infraestructura'; r2.getCell(1).font=FONT_N; r2.getCell(2).value=Math.round(cInfra); r2.getCell(2).numFmt=NUM_FMT; r2.getCell(2).alignment={horizontal:'right'}; r2.getCell(2).font=FONT_N; costRows.push(row); row++; }
+  if (cMit > 0)    { const r2=ws.getRow(row); for(let c=1;c<=3;c++) r2.getCell(c).border=BORDER; r2.getCell(1).value='  Mitigaciones'; r2.getCell(1).font=FONT_N; r2.getCell(2).value=Math.round(cMit); r2.getCell(2).numFmt=NUM_FMT; r2.getCell(2).alignment={horizontal:'right'}; r2.getCell(2).font=FONT_N; costRows.push(row); row++; }
+  if (cFact > 0)   { const r2=ws.getRow(row); for(let c=1;c<=3;c++) r2.getCell(c).border=BORDER; r2.getCell(1).value='  Factibilización'; r2.getCell(1).font=FONT_N; r2.getCell(2).value=Math.round(cFact); r2.getCell(2).numFmt=NUM_FMT; r2.getCell(2).alignment={horizontal:'right'}; r2.getCell(2).font=FONT_N; costRows.push(row); row++; }
+  if (cCom > 0)    { const r2=ws.getRow(row); for(let c=1;c<=3;c++) r2.getCell(c).border=BORDER; r2.getCell(1).value='  Comercialización'; r2.getCell(1).font=FONT_N; r2.getCell(2).value=Math.round(cCom); r2.getCell(2).numFmt=NUM_FMT; r2.getCell(2).alignment={horizontal:'right'}; r2.getCell(2).font=FONT_N; costRows.push(row); row++; }
+  if (cMant > 0)   { const r2=ws.getRow(row); for(let c=1;c<=3;c++) r2.getCell(c).border=BORDER; r2.getCell(1).value='  Mantenimiento'; r2.getCell(1).font=FONT_N; r2.getCell(2).value=Math.round(cMant); r2.getCell(2).numFmt=NUM_FMT; r2.getCell(2).alignment={horizontal:'right'}; r2.getCell(2).font=FONT_N; costRows.push(row); row++; }
+
+  const totCostOpRow = addTotalRow('TOTAL COSTOS', costRows, FILL_COST, FONT_RED_B);
+  addGap();
+
+  const resOpRow = addResultRow('RESULTADO OPERACIONAL', `B${totIngOpRow}-B${totCostOpRow}`, FILL_RES, FONT_BLUE);
+  addMargenRow('Margen Operacional', resOpRow, totIngOpRow);
+
+  // Fórmulas % Ing. en items (referencia a TOTAL INGRESOS CONSOLIDADO se calcula al final)
+  // Por ahora, usar totIngOpRow + totIngSanRow cuando existan
+
+  // ══════════════════════════════════════════════════════════
+  // NEGOCIO SANITARIO
+  const hasSan = (ingSanOp + ingSanVta + cSanInv + cSanOpC) > 0;
+  let totIngSanRow = 0, totCostSanRow = 0, resSanRow = 0;
+
+  if (hasSan) {
+    addGap();
+    addSep('Negocio Sanitario');
+    addSecHdr('INGRESOS SANITARIA');
+    if (ingSanOp > 0)  { const r2=ws.getRow(row); for(let c=1;c<=3;c++) r2.getCell(c).border=BORDER; r2.getCell(1).value='  Ingresos Operacionales Sanitaria'; r2.getCell(1).font=FONT_N; r2.getCell(2).value=Math.round(ingSanOp); r2.getCell(2).numFmt=NUM_FMT; r2.getCell(2).alignment={horizontal:'right'}; sanIngRows.push(row); row++; }
+    if (ingSanVta > 0) { const r2=ws.getRow(row); for(let c=1;c<=3;c++) r2.getCell(c).border=BORDER; r2.getCell(1).value='  Venta Negocio Sanitario'; r2.getCell(1).font=FONT_N; r2.getCell(2).value=Math.round(ingSanVta); r2.getCell(2).numFmt=NUM_FMT; r2.getCell(2).alignment={horizontal:'right'}; sanIngRows.push(row); row++; }
+    totIngSanRow = addTotalRow('TOTAL INGRESOS SANITARIA', sanIngRows, FILL_ING, FONT_GREEN);
+    addGap();
+    addSecHdr('COSTOS SANITARIA');
+    if (cSanInv > 0)  { const r2=ws.getRow(row); for(let c=1;c<=3;c++) r2.getCell(c).border=BORDER; r2.getCell(1).value='  Planta Sanitaria'; r2.getCell(1).font=FONT_N; r2.getCell(2).value=Math.round(cSanInv); r2.getCell(2).numFmt=NUM_FMT; r2.getCell(2).alignment={horizontal:'right'}; r2.getCell(2).font=FONT_N; sanCostRows.push(row); row++; }
+    if (cSanOpC > 0)  { const r2=ws.getRow(row); for(let c=1;c<=3;c++) r2.getCell(c).border=BORDER; r2.getCell(1).value='  Operación Sanitaria'; r2.getCell(1).font=FONT_N; r2.getCell(2).value=Math.round(cSanOpC); r2.getCell(2).numFmt=NUM_FMT; r2.getCell(2).alignment={horizontal:'right'}; r2.getCell(2).font=FONT_N; sanCostRows.push(row); row++; }
+    totCostSanRow = addTotalRow('TOTAL COSTOS SANITARIA', sanCostRows, FILL_COST, FONT_RED_B);
+    addGap();
+    resSanRow = addResultRow('RESULTADO SANITARIO', `B${totIngSanRow}-B${totCostSanRow}`, FILL_SAN_R, FONT_GREEN);
+    addMargenRow('Margen Sanitario', resSanRow, totIngSanRow);
+
+    // Total Consolidado
+    addGap();
+    addSep('Total Consolidado');
+    const resTotRow = addResultRow('RESULTADO TOTAL', `B${resOpRow}+B${resSanRow}`, FILL_CONS, FONT_BLUE);
+
+    // Margen Total — sobre ingresos totales (op + san)
+    { const r2 = ws.getRow(row);
+      for (let c = 1; c <= 3; c++) { r2.getCell(c).fill = FILL_MARG; r2.getCell(c).border = BORDER; }
+      r2.getCell(1).value = 'Margen Total'; r2.getCell(1).font = { bold:true, size:10, color:{argb:'FFb45309'} };
+      r2.getCell(2).value = { formula: `IFERROR(B${resTotRow}/(B${totIngOpRow}+B${totIngSanRow}),0)` };
+      r2.getCell(2).numFmt = PCT_FMT;
+      r2.getCell(2).font = { bold:true, size:10, color:{argb:'FFb45309'} };
+      r2.getCell(2).alignment = { horizontal:'right' };
+      ws.mergeCells(row, 2, row, 3);
+      row++;
+    }
+
+    // Fórmulas % Ing. (columna C) para todas las filas de items
+    const totIngTotalFormula = `B${totIngOpRow}+B${totIngSanRow}`;
+    const allItemRows = [...ingRows, ...costRows, ...sanIngRows, ...sanCostRows];
+    for (const ir of allItemRows) {
+      ws.getRow(ir).getCell(3).value = { formula: `IFERROR(ABS(B${ir})/(${totIngTotalFormula}),0)` };
+      ws.getRow(ir).getCell(3).numFmt = PCT_FMT;
+      ws.getRow(ir).getCell(3).alignment = { horizontal:'right' };
+      ws.getRow(ir).getCell(3).font = FONT_N;
+    }
+    // % para subtotales
+    for (const tr of [totIngOpRow, totCostOpRow, resOpRow, totIngSanRow, totCostSanRow, resSanRow, resTotRow]) {
+      ws.getRow(tr).getCell(3).value = { formula: `IFERROR(ABS(B${tr})/(${totIngTotalFormula}),0)` };
+      ws.getRow(tr).getCell(3).numFmt = PCT_FMT;
+      ws.getRow(tr).getCell(3).alignment = { horizontal:'right' };
+    }
+  } else {
+    // Sin sanitaria: % ing respecto a ingOp
+    const allItemRows = [...ingRows, ...costRows];
+    for (const ir of allItemRows) {
+      ws.getRow(ir).getCell(3).value = { formula: `IFERROR(ABS(B${ir})/B${totIngOpRow},0)` };
+      ws.getRow(ir).getCell(3).numFmt = PCT_FMT;
+      ws.getRow(ir).getCell(3).alignment = { horizontal:'right' };
+    }
+    for (const tr of [totIngOpRow, totCostOpRow, resOpRow]) {
+      ws.getRow(tr).getCell(3).value = { formula: `IFERROR(ABS(B${tr})/B${totIngOpRow},0)` };
+      ws.getRow(tr).getCell(3).numFmt = PCT_FMT;
+      ws.getRow(tr).getCell(3).alignment = { horizontal:'right' };
+    }
+  }
+
+  // Descargar
+  const buf = await wb.xlsx.writeBuffer();
+  const blob = new Blob([buf], { type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `estado_resultados_${new Date().toISOString().slice(0,10)}.xlsx`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 // ─── VAN Residual por Año ────────────────────────────────────────────────────
@@ -4311,12 +4883,425 @@ function renderVanChart(results) {
 }
 
 // ════════════════════════════════════════════════════════════
+// EVOLUCIÓN DEL VALOR DEL PROYECTO
+// ════════════════════════════════════════════════════════════
+
+function renderEvolucionChart(results) {
+  const canvas = document.getElementById('evolucionChart');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+
+  // Actualizar subtítulo
+  const subEl = document.getElementById('evolucion-subtitle');
+  if (subEl) subEl.textContent = `Flujo acumulado, VAN residual y costos parciales · ${CURRENCY.mode === 'UF' ? 'Miles de UF' : 'USD'}`;
+
+  const { years, factibilizacionByYear, mitigacionesByYear,
+          sanitariaByYear, sanitariaOpCostByYear,
+          tierraByYear, comercializacionByYear, infraByYear, mantByYear } = results;
+  const vanRate = (parseFloat(document.getElementById('van-rate')?.value) || 8) / 100;
+
+  // ── Rango extendido (incluye años previos de factibilización) ──
+  const factYears = Object.keys(factibilizacionByYear ?? {}).map(Number)
+                          .filter(y => (factibilizacionByYear[y] ?? 0) > 0);
+  const chartStart = factYears.length > 0 ? Math.min(years[0], ...factYears) : years[0];
+  const chartEnd   = years[years.length - 1];
+  const allYears   = [];
+  for (let y = chartStart; y <= chartEnd; y++) allYears.push(y);
+  const labels = allYears.map(String);
+
+  // ── CF neto por año y acumulado ──
+  const cfByYear = computeAnnualCF(results, allYears);
+  let cum = 0;
+  const cumData = allYears.map(y => {
+    cum += cfByYear[y] ?? 0;
+    return cvtChart(cum, y);
+  });
+
+  // ── VAN residual por año (NPV desde cada año hasta el final) ──
+  const vanData = allYears.map(startYear => {
+    let v = 0;
+    for (const t of allYears) {
+      if (t < startYear) continue;
+      v += (cfByYear[t] ?? 0) / Math.pow(1 + vanRate, t - startYear);
+    }
+    return cvtChart(v, startYear);
+  });
+
+  // ── Costo total por año (una sola barra, negativa) ──
+  const totalCost = allYears.map(y => {
+    const c = (factibilizacionByYear?.[y] ?? 0)
+            + (tierraByYear?.[y] ?? 0)
+            + (infraByYear?.[y] ?? 0)
+            + (mitigacionesByYear?.[y] ?? 0)
+            + (sanitariaByYear?.[y] ?? 0)
+            + (sanitariaOpCostByYear?.[y] ?? 0)
+            + (comercializacionByYear?.[y] ?? 0)
+            + (mantByYear?.[y] ?? 0);
+    return -cvtChart(c, y);
+  });
+
+  // ── Anotaciones: Peak VAN, Payback, Capital de trabajo ──
+  const peakVal  = Math.max(...vanData);
+  const peakIdx  = vanData.indexOf(peakVal);
+  const peakYear = labels[peakIdx];
+
+  // Payback: primer año con acumulado >= 0 después de haber sido negativo
+  let wasNeg = false, paybackYear = null, paybackIdx = -1;
+  for (let i = 0; i < cumData.length; i++) {
+    if (cumData[i] < 0) wasNeg = true;
+    if (wasNeg && cumData[i] >= 0 && paybackYear === null) { paybackYear = labels[i]; paybackIdx = i; break; }
+  }
+
+  // Capital de trabajo: máximo valor negativo del acumulado, descontando costo terreno acumulado a esa fecha
+  const minCum = Math.min(...cumData);
+  const capIdx = cumData.indexOf(minCum);
+  const capYear = minCum < 0 ? labels[capIdx] : null;
+  let capValue = Math.abs(minCum);
+  if (capYear) {
+    // Restar costo de terreno acumulado hasta esa fecha
+    let tierraAcum = 0;
+    for (let i = 0; i <= capIdx; i++) {
+      tierraAcum += cvtChart(tierraByYear?.[allYears[i]] ?? 0, allYears[i]);
+    }
+    capValue = Math.abs(minCum) - tierraAcum;
+    if (capValue < 0) capValue = 0;
+  }
+
+  // ── Determinar fases del proyecto ──
+  const phases = [];
+
+  // Factibilización: desde primer año fact hasta primer año de venta
+  if (factYears.length > 0) {
+    const factEnd = Math.min(years[0] - 1, chartEnd);
+    if (Math.min(...factYears) <= factEnd) {
+      phases.push({ label: 'Factibilizacion', start: Math.min(...factYears), end: factEnd, color: 'rgba(148,163,184,0.12)' });
+    }
+  }
+
+  // AUDP: desde primer año AUDP hasta primer año PDUC (o fin)
+  const audpStart = allYears.find(y => {
+    const zs = results.zones ?? {};
+    for (const z of Object.keys(zs)) { if (z.startsWith('AUDP') && zs[z].zStart === y) return true; }
+    return false;
+  });
+  const pducStart = allYears.find(y => {
+    const zs = results.zones ?? {};
+    for (const z of Object.keys(zs)) {
+      if (PDUC_ZONES.includes(z) && zs[z].zStart === y) return true;
+    }
+    return false;
+  });
+  if (audpStart != null) {
+    const aEnd = pducStart != null ? pducStart - 1 : chartEnd;
+    phases.push({ label: "Desarrollo AUDP's", start: audpStart, end: Math.min(aEnd, chartEnd), color: 'rgba(59,130,246,0.07)' });
+  }
+  if (pducStart != null) {
+    phases.push({ label: 'Desarrollo PDUC', start: pducStart, end: chartEnd, color: 'rgba(139,92,246,0.07)' });
+  }
+
+  // ── Plugin: bandas de fase ──
+  const phaseBandsPlugin = {
+    id: 'phaseBands',
+    beforeDraw(chart) {
+      const { ctx: c, chartArea: { left, right, top, bottom }, scales: { x } } = chart;
+      c.save();
+      for (const ph of phases) {
+        const s = ph.start, e = ph.end;
+        const sIdx = labels.indexOf(String(s));
+        const eIdx = labels.indexOf(String(e));
+        if (sIdx < 0) continue;
+        const x0 = sIdx > 0 ? (x.getPixelForValue(sIdx - 1) + x.getPixelForValue(sIdx)) / 2 : left;
+        const x1 = eIdx >= 0 ? (eIdx < labels.length - 1 ? (x.getPixelForValue(eIdx) + x.getPixelForValue(eIdx + 1)) / 2 : right) : right;
+        c.fillStyle = ph.color;
+        c.fillRect(x0, top, x1 - x0, bottom - top);
+        // Label
+        c.fillStyle = 'rgba(100,116,139,0.5)';
+        c.font = '600 9px Inter, system-ui, sans-serif';
+        c.textAlign = 'center';
+        c.fillText(ph.label, (x0 + x1) / 2, top + 12);
+      }
+      c.restore();
+    }
+  };
+
+  // ── Plugin: anotaciones ──
+  const cLabel = CURRENCY.mode === 'UF' ? 'kUF' : 'USD';
+  const vertAnnotations = [];
+  if (peakYear) vertAnnotations.push({ year: peakYear, label: `Peak VAN ${fmtTick(peakVal)}`, color: '#16a34a', dash: [4, 3] });
+  if (paybackYear) vertAnnotations.push({ year: paybackYear, label: `Payback ${paybackYear}`, color: '#2563eb', dash: [4, 3] });
+
+  const annotPlugin = {
+    id: 'evolucionAnnot',
+    afterDraw(chart) {
+      const { ctx: c, chartArea: { left, right, top, bottom }, scales: { x, yCum } } = chart;
+      c.save();
+
+      // Líneas verticales: Peak VAN y Payback
+      for (let ai = 0; ai < vertAnnotations.length; ai++) {
+        const ann = vertAnnotations[ai];
+        const idx = labels.indexOf(ann.year);
+        if (idx < 0) continue;
+        const px = x.getPixelForValue(idx);
+        c.strokeStyle = ann.color;
+        c.lineWidth = 1.5;
+        c.setLineDash(ann.dash);
+        c.beginPath();
+        c.moveTo(px, top);
+        c.lineTo(px, bottom);
+        c.stroke();
+        c.setLineDash([]);
+        c.fillStyle = ann.color;
+        c.font = '600 9.5px Inter, system-ui, sans-serif';
+        c.textAlign = 'left';
+        c.fillText(ann.label, px + 4, top + 14 + ai * 14);
+      }
+
+      // Capital de trabajo: línea horizontal + label
+      if (capYear && capValue > 0) {
+        const py = yCum.getPixelForValue(minCum);
+        c.strokeStyle = '#ea580c';
+        c.lineWidth = 1.5;
+        c.setLineDash([6, 4]);
+        c.beginPath();
+        c.moveTo(left, py);
+        c.lineTo(right, py);
+        c.stroke();
+        c.setLineDash([]);
+        c.fillStyle = '#ea580c';
+        c.font = '600 10px Inter, system-ui, sans-serif';
+        c.textAlign = 'right';
+        c.fillText(`Cap. Trabajo ${fmtTick(capValue)} ${cLabel} (${capYear})`, right - 4, py - 6);
+      }
+
+      c.restore();
+    }
+  };
+
+  // ── Escala partida: costos comprimidos debajo del 0 ──
+  // Los costos son mucho menores que el acumulado. Comprimimos la zona negativa
+  // para que ocupe ~22% de la altura, usando una transformación lineal.
+  const maxCost = Math.max(...totalCost.map(v => Math.abs(v)), 1);
+  const maxPos  = Math.max(...cumData, ...vanData, 1);
+  const negBand = maxPos * 0.22;               // zona visual negativa
+  const costRatio = negBand / maxCost;          // factor de compresión
+  const scaledCost = totalCost.map(v => v * costRatio);  // datos comprimidos
+  const suggestedMin = -negBand * 1.15;
+
+  // Función inversa: valor visual → valor real (para ticks y tooltips)
+  const unscaleCost = v => v / costRatio;
+
+  // ── Plugin: línea de quiebre de escala en y=0 ──
+  const breakLinePlugin = {
+    id: 'breakLine',
+    afterDraw(chart) {
+      const { ctx: c, chartArea: { left, right }, scales: { yCum } } = chart;
+      const y0 = yCum.getPixelForValue(0);
+      if (y0 < yCum.top || y0 > yCum.bottom) return;
+      c.save();
+      // Zigzag
+      const amp = 4, step = 8;
+      c.strokeStyle = '#94a3b8';
+      c.lineWidth = 1.2;
+      c.beginPath();
+      c.moveTo(left - 6, y0);
+      for (let x = left - 6; x <= right + 6; x += step) {
+        c.lineTo(x + step / 2, y0 + amp);
+        c.lineTo(x + step, y0);
+      }
+      c.stroke();
+      // Etiqueta escala costos
+      c.fillStyle = '#94a3b8';
+      c.font = '500 8px Inter, system-ui, sans-serif';
+      c.textAlign = 'left';
+      c.fillText('escala costos', left + 2, y0 + 13);
+      c.restore();
+    }
+  };
+
+  // ── Dibujar ──
+  if (evolucionChart) evolucionChart.destroy();
+
+  evolucionChart = new Chart(ctx, {
+    data: {
+      labels,
+      datasets: [
+        // Barra: costo total (negativa, comprimida)
+        {
+          type:'bar', label:'Costo total', data:scaledCost,
+          backgroundColor:'rgba(239,68,68,0.5)', borderColor:'#ef4444', borderWidth:1,
+          yAxisID:'yCum', order:6,
+          _realData: totalCost,  // guardar datos reales para tooltip
+        },
+        // Línea: Flujo acumulado (negro, eje izquierdo)
+        {
+          type:'line', label:'Flujo acumulado', data:cumData,
+          borderColor:'#1e293b', backgroundColor:'transparent',
+          borderWidth:2.5, pointRadius:0, tension:0.3,
+          yAxisID:'yCum', order:1,
+        },
+        // Línea: VAN residual (verde, eje derecho)
+        {
+          type:'line', label:'VAN residual', data:vanData,
+          borderColor:'#22c55e', backgroundColor:'transparent',
+          borderWidth:2, pointRadius:0, tension:0.3, borderDash:[6,3],
+          yAxisID:'yVan', order:2,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: 'rgba(15,23,42,0.92)',
+          titleColor: '#e2e8f0',
+          bodyColor: '#cbd5e1',
+          borderColor: '#334155',
+          borderWidth: 1,
+          callbacks: {
+            label: item => {
+              // Para costos mostrar valor real (sin comprimir)
+              if (item.datasetIndex === 0) {
+                const real = totalCost[item.dataIndex];
+                if (Math.abs(real) < 0.01) return null;
+                return ` ${item.dataset.label}: -${fmtTick(Math.abs(real))} ${cLabel}`;
+              }
+              const v = item.parsed.y;
+              if (Math.abs(v) < 0.01) return null;
+              const sign = v < 0 ? '-' : '';
+              return ` ${item.dataset.label}: ${sign}${fmtTick(Math.abs(v))} ${cLabel}`;
+            }
+          }
+        },
+      },
+      scales: {
+        x: {
+          ticks: { color: '#64748b', font: { size: 9.5 }, maxRotation: 0 },
+          grid: { color: '#f1f5f9', drawBorder: false },
+        },
+        yCum: {
+          type: 'linear', position: 'left', stacked: false,
+          suggestedMin,
+          grid: { color: '#f1f5f9', drawBorder: false },
+          ticks: {
+            color: '#64748b', font: { size: 9.5 },
+            callback: function(v) {
+              // Ticks negativos: invertir compresión para mostrar valor real
+              if (v < 0) return fmtTick(unscaleCost(v));
+              return fmtTick(v);
+            },
+          },
+          title: { display: true, text: `Flujo acumulado (${cLabel})`, color: '#64748b', font: { size: 9 } },
+        },
+        yVan: {
+          type: 'linear', position: 'right',
+          grid: { drawOnChartArea: false },
+          ticks: {
+            color: '#22c55e', font: { size: 9.5 },
+            callback: v => fmtTick(v),
+          },
+          title: { display: true, text: `VAN residual (${cLabel})`, color: '#22c55e', font: { size: 9 } },
+        },
+      },
+    },
+    plugins: [phaseBandsPlugin, annotPlugin, breakLinePlugin],
+  });
+}
+
+// ── Descarga PPT del gráfico Evolución ──────────────────────
+async function downloadEvolucionPPT() {
+  const canvas = document.getElementById('evolucionChart');
+  if (!canvas || !lastResults) return;
+
+  // Cargar PptxGenJS dinámicamente
+  if (typeof PptxGenJS === 'undefined') {
+    const urls = [
+      'pptxgen.bundle.js',  // local fallback
+      'https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js',
+    ];
+    let loaded = false;
+    for (const url of urls) {
+      if (loaded) break;
+      try {
+        await new Promise((resolve, reject) => {
+          const s = document.createElement('script');
+          s.src = url;
+          s.onload = resolve;
+          s.onerror = reject;
+          document.head.appendChild(s);
+        });
+        loaded = typeof PptxGenJS !== 'undefined';
+      } catch(e) { /* next */ }
+    }
+    if (!loaded) { alert('No se pudo cargar PptxGenJS. Verifica tu conexión.'); return; }
+  }
+
+  const pptx = new PptxGenJS();
+  pptx.layout = 'LAYOUT_WIDE';
+  pptx.author = 'Modela Simulador';
+
+  const slide = pptx.addSlide();
+  slide.background = { color: 'FFFFFF' };
+
+  // Título
+  const cLbl = CURRENCY.mode === 'UF' ? 'Miles de UF' : 'USD';
+  const escenario = document.getElementById('escenario')?.value ?? 'esperada';
+  slide.addText('Evolucion del Valor del Proyecto', {
+    x: 0.5, y: 0.25, w: 8, h: 0.5,
+    fontSize: 20, fontFace: 'Arial', color: '1e293b', bold: true,
+  });
+  slide.addText(`Escenario ${escenario.charAt(0).toUpperCase() + escenario.slice(1)} · ${cLbl}`, {
+    x: 0.5, y: 0.7, w: 8, h: 0.3,
+    fontSize: 11, fontFace: 'Arial', color: '64748b',
+  });
+
+  // Gráfico como imagen
+  const imgData = canvas.toDataURL('image/png');
+  slide.addImage({
+    data: imgData,
+    x: 0.3, y: 1.1, w: 12.5, h: 5.3,
+  });
+
+  // KPIs en la esquina superior derecha
+  const vanVal = document.getElementById('van-value')?.textContent?.trim() ?? '';
+  const kpiIng = document.getElementById('kpi-ingreso')?.textContent?.trim() ?? '';
+  slide.addText(`VAN: ${vanVal}  |  Ingreso: ${kpiIng}`, {
+    x: 8.5, y: 0.3, w: 4.5, h: 0.35,
+    fontSize: 10, fontFace: 'Arial', color: '64748b', align: 'right',
+  });
+
+  // Leyenda
+  const legendItems = [
+    { text: '── Flujo acumulado', color: '1e293b' },
+    { text: '- - VAN residual', color: '22c55e' },
+    { text: '■ Costo total', color: 'ef4444' },
+  ];
+  const legendText = legendItems.map(l => ({
+    text: l.text + '   ', options: { fontSize: 8, fontFace: 'Arial', color: l.color }
+  }));
+  slide.addText(legendText, {
+    x: 0.5, y: 6.55, w: 12, h: 0.35,
+    align: 'center',
+  });
+
+  // Footer
+  slide.addText(`Modela Simulador · ${new Date().toLocaleDateString('es-CL')}`, {
+    x: 0.5, y: 7.0, w: 12, h: 0.25,
+    fontSize: 7, fontFace: 'Arial', color: '94a3b8', align: 'center',
+  });
+
+  await pptx.writeFile({ fileName: `evolucion_proyecto_${new Date().toISOString().slice(0,10)}.pptx` });
+}
+
+// ════════════════════════════════════════════════════════════
 // UNIDADES DE NEGOCIO — prorrateo, gráficos y EERR
 // ════════════════════════════════════════════════════════════
 
 // Estado de navegación
 let activeBUTab  = 'hab';
-let buZoneFilter = { hab: 'all', com: 'all', ind: 'all', otros: 'all' };
+let buZoneFilter = { hab: 'all', com: 'all', ind: 'total', otros: 'all' };
 let _lastBUResults = null; // cache para re-render en cambio de zona/tab
 
 // Gráficos BU
@@ -4329,8 +5314,11 @@ function computeBUData(results) {
   const {
     years, revenueByZone, landByZone, unitsByZone, cumVivByYear,
     revenueByProd, commercialRevByZone, commercialHaByZone, prcRevByZone, prcHaByZone,
-    industrialRevByYear, industrialHaByYear, industrialPriceUFM2ByYear,
+    industrialRevByYear, industrialHaByYear,
+    industrialMenorRevByYear, industrialMenorHaByYear, indMenorPriceUFM2ByYear,
+    industrialMayorRevByYear, industrialMayorHaByYear, indMayorPriceUFM2ByYear,
     otrosRevByYear, otrosHaByYear,
+    comMenorRevByYear, comMenorHaByYear, comMenorRevByZone, comMenorHaByZone,
     sanitariaIngByYear, sanitariaVentaByYear,
     tierraByYear, tierraByZone,
     infraByYear, infraByZone,
@@ -4352,7 +5340,8 @@ function computeBUData(results) {
   for (const y of years) {
     revHabByYear[y] = Object.keys(PRODUCTS).reduce((s, p) => s + (revenueByProd[p]?.[y] ?? 0), 0);
     const prcTotal  = Object.keys(ZONAS_DEF).reduce((s, z) => s + (prcRevByZone?.[z]?.[y] ?? 0), 0);
-    revComByYear[y] = Object.keys(ZONAS_DEF).reduce((s, z) => s + (commercialRevByZone?.[z]?.[y] ?? 0), 0) - prcTotal;
+    revComByYear[y] = Object.keys(ZONAS_DEF).reduce((s, z) => s + (commercialRevByZone?.[z]?.[y] ?? 0), 0) - prcTotal
+                    + (comMenorRevByYear?.[y] ?? 0);
     revIndByYear[y]   = industrialRevByYear?.[y] ?? 0;
     revOtrosByYear[y] = (otrosRevByYear?.[y] ?? 0) + prcTotal;
   }
@@ -4388,6 +5377,14 @@ function computeBUData(results) {
       comRevByZoneData[z][y] = Math.max(0, (commercialRevByZone?.[z]?.[y] ?? 0) - (prcRevByZone?.[z]?.[y] ?? 0));
       comHaByZoneData[z][y]  = Math.max(0, (commercialHaByZone?.[z]?.[y]  ?? 0) - (prcHaByZone?.[z]?.[y]  ?? 0));
     }
+  }
+
+  // Agregar Comercio Menor como zona extra en datos comerciales
+  comRevByZoneData['Com. Menor'] = {};
+  comHaByZoneData['Com. Menor']  = {};
+  for (const y of years) {
+    comRevByZoneData['Com. Menor'][y] = comMenorRevByYear?.[y] ?? 0;
+    comHaByZoneData['Com. Menor'][y]  = comMenorHaByYear?.[y]  ?? 0;
   }
 
   // ── Factibilización: ratios por zona (total revenue por BU en cada zona) ──
@@ -4545,20 +5542,20 @@ function computeBUData(results) {
     costsInd.mit[y]   = mitPDUCInd + mitOtherInd;
     costsOtros.mit[y] = mitPDUCOtros;
 
-    // SANITARIA — 4 BUs, ponderado por unidades equivalentes acumuladas
+    // SANITARIA — Industrial absorbe 20% fijo; el 80% restante se reparte entre hab/com/otros
+    const IND_SAN_PCT = 0.20;
     cumIndHa   += industrialHaByYear?.[y] ?? 0;
     cumComHa   += Object.keys(ZONAS_DEF).reduce((s, z) => s + (comHaByZoneData?.[z]?.[y] ?? 0), 0);
     cumOtrosHa += Object.values(otrosHaByZoneData).reduce((s, obj) => s + (obj?.[y] ?? 0), 0);
     const cumViv   = cumVivByYear?.[y] ?? 0;
-    const pesHab   = cumViv;          // unidades residenciales
-    const pesInd   = cumIndHa * 25;   // 25 equiv/Ha industrial
-    const pesCom   = cumComHa * 10;   // 10 equiv/Ha comercial
-    const pesOtros = cumOtrosHa * 5;  // 5 equiv/Ha otros usos
-    const pesSan = pesHab + pesInd + pesCom + pesOtros;
-    const wHab   = pesSan > 0 ? pesHab   / pesSan : 1;
-    const wInd   = pesSan > 0 ? pesInd   / pesSan : 0;
-    const wCom   = pesSan > 0 ? pesCom   / pesSan : 0;
-    const wOtros = pesSan > 0 ? pesOtros / pesSan : 0;
+    const pesHab   = cumViv;
+    const pesCom   = cumComHa * 10;
+    const pesOtros = cumOtrosHa * 5;
+    const pesNonInd = pesHab + pesCom + pesOtros;
+    const wInd   = IND_SAN_PCT;
+    const wHab   = pesNonInd > 0 ? (pesHab   / pesNonInd) * (1 - IND_SAN_PCT) : (1 - IND_SAN_PCT);
+    const wCom   = pesNonInd > 0 ? (pesCom   / pesNonInd) * (1 - IND_SAN_PCT) : 0;
+    const wOtros = pesNonInd > 0 ? (pesOtros / pesNonInd) * (1 - IND_SAN_PCT) : 0;
     const san    = sanitariaByYear?.[y] ?? 0;
     const sanOp  = sanitariaOpCostByYear?.[y] ?? 0;
     costsHab.san[y]   = san * wHab;   costsHab.sanOp[y]   = sanOp * wHab;
@@ -4638,6 +5635,8 @@ function computeBUData(results) {
   const comZoneKeys = habZoneKeys.filter(z =>
     years.some(y => (commercialRevByZone?.[z]?.[y] ?? 0) > 0)
   );
+  // Agregar Comercio Menor si tiene datos
+  if (years.some(y => (comMenorRevByYear?.[y] ?? 0) > 0)) comZoneKeys.push('Com. Menor');
 
   return {
     years,
@@ -4659,10 +5658,15 @@ function computeBUData(results) {
       revByYear: revComByYear,
     },
     ind: {
-      zones: [],
+      zones: ['total','log-menor','log-mayor'],
       revByYear: revIndByYear,
       haByYear: industrialHaByYear ?? {},
-      priceUFM2ByYear: industrialPriceUFM2ByYear ?? {},
+      menorRevByYear: industrialMenorRevByYear ?? {},
+      mayorRevByYear: industrialMayorRevByYear ?? {},
+      menorHaByYear: industrialMenorHaByYear ?? {},
+      mayorHaByYear: industrialMayorHaByYear ?? {},
+      priceUFM2ByYear: indMayorPriceUFM2ByYear ?? {},
+      menorPriceUFM2ByYear: indMenorPriceUFM2ByYear ?? {},
       sanIngByYear: sanIngIndByYear,
       sanVtaByYear: sanVtaIndByYear,
       costs: costsInd,
@@ -4703,14 +5707,17 @@ function setBUTab(key, btnEl) {
 }
 
 function setBUZone(buKey, zone, btnEl) {
-  // Multi-select para todos los BUs
-  if (zone === 'all') {
+  // Industrial: single-select (total / log-menor / log-mayor)
+  if (buKey === 'ind') {
+    buZoneFilter[buKey] = zone;
+  // Multi-select para otros BUs
+  } else if (zone === 'all') {
     buZoneFilter[buKey] = 'all';
   } else {
     let cur = buZoneFilter[buKey] === 'all' ? [] : [...(buZoneFilter[buKey] ?? [])];
     if (cur.includes(zone)) {
       cur = cur.filter(z => z !== zone);
-      if (cur.length === 0) cur = null; // si queda vacío, volver a 'all'
+      if (cur.length === 0) cur = null;
     } else {
       cur.push(zone);
     }
@@ -4720,14 +5727,21 @@ function setBUZone(buKey, zone, btnEl) {
   const container = document.getElementById('bu-zone-' + buKey);
   if (container) {
     const cur = buZoneFilter[buKey];
-    const isAll = cur === 'all';
-    container.querySelectorAll('.bu-zone-btn').forEach(b => {
-      if (b.dataset.zone === 'all') {
-        b.classList.toggle('active', isAll);
-      } else {
-        b.classList.toggle('active', !isAll && Array.isArray(cur) && cur.includes(b.dataset.zone));
-      }
-    });
+    if (buKey === 'ind') {
+      // Single-select: solo el seleccionado es active
+      container.querySelectorAll('.bu-zone-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.zone === cur);
+      });
+    } else {
+      const isAll = cur === 'all';
+      container.querySelectorAll('.bu-zone-btn').forEach(b => {
+        if (b.dataset.zone === 'all') {
+          b.classList.toggle('active', isAll);
+        } else {
+          b.classList.toggle('active', !isAll && Array.isArray(cur) && cur.includes(b.dataset.zone));
+        }
+      });
+    }
   }
   if (_lastBUResults) renderBUPanel(buKey, _lastBUResults);
 }
@@ -4738,13 +5752,25 @@ function buildZoneButtons(buKey, zones) {
   const ZONE_NAMES = {
     'AUDP Batuco': 'Batuco', 'AUDP Colina': 'Colina',
     'Distrito G': 'Distrito G', 'Distrito 4.0': 'Distrito 4.0',
+    'total': 'Total', 'log-menor': 'Log. Menor', 'log-mayor': 'Log. Mayor',
   };
-  // Para Hab: "Todas" + zonas individuales (multi-select)
-  // Para otros: single-select normal
-  let html = `<button class="bu-zone-btn active" data-zone="all" onclick="setBUZone('${buKey}','all',this)">Todas</button>`;
-  for (const z of zones) {
-    const lbl = ZONE_NAMES[z] ?? z;
-    html += `<button class="bu-zone-btn" data-zone="${z}" onclick="setBUZone('${buKey}','${z}',this)">${lbl}</button>`;
+  // Industrial: single-select con "Total" como default (no "Todas")
+  // Otros BUs: "Todas" + zonas individuales (multi-select)
+  const isInd = buKey === 'ind';
+  let html = '';
+  if (isInd) {
+    // Primer botón es "Total" (sin botón "Todas" genérico)
+    for (const z of zones) {
+      const lbl = ZONE_NAMES[z] ?? z;
+      const act = z === 'total' ? ' active' : '';
+      html += `<button class="bu-zone-btn${act}" data-zone="${z}" onclick="setBUZone('${buKey}','${z}',this)">${lbl}</button>`;
+    }
+  } else {
+    html = `<button class="bu-zone-btn active" data-zone="all" onclick="setBUZone('${buKey}','all',this)">Todas</button>`;
+    for (const z of zones) {
+      const lbl = ZONE_NAMES[z] ?? z;
+      html += `<button class="bu-zone-btn" data-zone="${z}" onclick="setBUZone('${buKey}','${z}',this)">${lbl}</button>`;
+    }
   }
   container.innerHTML = html;
 }
@@ -4774,6 +5800,19 @@ function renderBUBarChart(buKey, buData, zoneFilter) {
       const zones = activeZones ?? bu.zones;
       revByYear[y] = zones.reduce((s, z) => s + (bu.revenueByZoneByYear?.[z]?.[y] ?? 0), 0);
       haByYear[y]  = zones.reduce((s, z) => s + (bu.haByZone?.[z]?.[y] ?? 0), 0);
+    } else if (buKey === 'ind') {
+      // Industrial: Total / Log. Menor / Log. Mayor
+      const indF = zoneFilter;
+      if (indF === 'log-menor') {
+        revByYear[y] = bu.menorRevByYear?.[y] ?? 0;
+        haByYear[y]  = bu.menorHaByYear?.[y] ?? 0;
+      } else if (indF === 'log-mayor') {
+        revByYear[y] = bu.mayorRevByYear?.[y] ?? 0;
+        haByYear[y]  = bu.mayorHaByYear?.[y] ?? 0;
+      } else {
+        revByYear[y] = bu.revByYear[y] ?? 0;
+        haByYear[y]  = bu.haByYear?.[y] ?? 0;
+      }
     } else {
       revByYear[y] = bu.revByYear[y] ?? 0;
       haByYear[y]  = bu.haByYear?.[y] ?? 0;
@@ -4783,8 +5822,9 @@ function renderBUBarChart(buKey, buData, zoneFilter) {
   const labels = years.map(String);
   const revKUF = years.map(y => cvtChart(revByYear[y]??0, y));
   // Para industrial usa el precio teórico continuo (evita efecto escalera)
+  const indPriceMap = buKey === 'ind' && zoneFilter === 'log-menor' ? bu.menorPriceUFM2ByYear : bu.priceUFM2ByYear;
   const priceM2 = buKey === 'ind'
-    ? years.map(y => bu.priceUFM2ByYear?.[y] ?? null)
+    ? years.map(y => indPriceMap?.[y] ?? null)
     : years.map(y => {
         const ha  = haByYear[y] ?? 0;
         const rev = revByYear[y] ?? 0;
@@ -4899,9 +5939,11 @@ function renderBUPieChart(buKey, buData) {
       }
     }
   } else if (buKey === 'ind') {
-    pieLabels = ['Ciudad Industrial'];
-    pieData   = [pieFmt(pieDispTotal(bu.revByYear))];
-    pieColors = ['#818cf8'];
+    const menorT = pieFmt(pieDispTotal(bu.menorRevByYear));
+    const mayorT = pieFmt(pieDispTotal(bu.mayorRevByYear));
+    pieLabels = ['Log. Menor', 'Log. Mayor'];
+    pieData   = [menorT, mayorT];
+    pieColors = ['#c4b5fd', '#818cf8'];
   } else if (buKey === 'otros') {
     pieLabels = ['Distrito 4.0'];
     pieData   = [pieFmt(pieDispTotal(bu.revByYear))];
@@ -5014,8 +6056,19 @@ function renderBUEERR(buKey, buData, zoneFilter) {
       if (v > 0) { ingRows.push({ label: lbl, val: v }); ingOp += v; }
     }
   } else if (buKey === 'ind') {
-    ingOp = sumY(bu.revByYear);
-    ingRows = [{ label:'Lotes Industriales', val:ingOp }];
+    const zfInd = zoneFilter;
+    if (zfInd === 'log-menor') {
+      ingOp = sumY(bu.menorRevByYear);
+      ingRows = [{ label:'Logística Menor', val:ingOp }];
+    } else if (zfInd === 'log-mayor') {
+      ingOp = sumY(bu.mayorRevByYear);
+      ingRows = [{ label:'Logística Mayor', val:ingOp }];
+    } else {
+      const vMenor = sumY(bu.menorRevByYear);
+      const vMayor = sumY(bu.mayorRevByYear);
+      ingOp = vMenor + vMayor;
+      ingRows = [{ label:'Logística Menor', val:vMenor }, { label:'Logística Mayor', val:vMayor }];
+    }
   } else {
     ingOp = sumY(bu.revByYear);
     ingRows = [{ label:'Otros Usos D4.0', val:ingOp }];
@@ -5023,7 +6076,12 @@ function renderBUEERR(buKey, buData, zoneFilter) {
 
   // ── Escala de costos por zona ──
   let cosZoneScale = 1;
-  if (activeZonesArr && bu.revenueByZoneByYear && Object.keys(bu.revenueByZoneByYear).length > 0) {
+  // Industrial: escalar por proporción de revenue de sub-zona
+  if (buKey === 'ind' && zoneFilter !== 'total' && zoneFilter !== 'all') {
+    const totalRev = sumY(bu.revByYear) || 1;
+    const subRev = zoneFilter === 'log-menor' ? sumY(bu.menorRevByYear) : sumY(bu.mayorRevByYear);
+    cosZoneScale = subRev / totalRev;
+  } else if (activeZonesArr && bu.revenueByZoneByYear && Object.keys(bu.revenueByZoneByYear).length > 0) {
     const totalBURev = years.reduce((s,y) => {
       const zones = Object.keys(bu.revenueByZoneByYear ?? {});
       return s + zones.reduce((ss,z) => ss + (bu.revenueByZoneByYear?.[z]?.[y]??0), 0);
@@ -5139,7 +6197,13 @@ function computeBUVanTir(buKey, buData, zoneFilter) {
 
   // Escala de costos si se filtra zona (misma lógica que renderBUEERR)
   let cosZoneScale = 1;
-  if (activeZonesArr && bu.revenueByZoneByYear && Object.keys(bu.revenueByZoneByYear).length > 0) {
+  if (buKey === 'ind' && zoneFilter !== 'total' && zoneFilter !== 'all') {
+    const totalRev = years.reduce((s,y) => s + (bu.revByYear?.[y]??0), 0) || 1;
+    const subRev = zoneFilter === 'log-menor'
+      ? years.reduce((s,y) => s + (bu.menorRevByYear?.[y]??0), 0)
+      : years.reduce((s,y) => s + (bu.mayorRevByYear?.[y]??0), 0);
+    cosZoneScale = subRev / totalRev;
+  } else if (activeZonesArr && bu.revenueByZoneByYear && Object.keys(bu.revenueByZoneByYear).length > 0) {
     const allZones = Object.keys(bu.revenueByZoneByYear ?? {});
     const totalBURev = years.reduce((s,y) => s + allZones.reduce((ss,z) => ss+(bu.revenueByZoneByYear?.[z]?.[y]??0),0), 0) || 1;
     const zoneRev    = years.reduce((s,y) => s + activeZonesArr.reduce((ss,z) => ss+(bu.revenueByZoneByYear?.[z]?.[y]??0),0), 0);
@@ -5148,11 +6212,15 @@ function computeBUVanTir(buKey, buData, zoneFilter) {
 
   const cfArr = years.map(y => {
     let ing = 0;
-    if (bu.revenueByZoneByYear && Object.keys(bu.revenueByZoneByYear).length > 0) {
-      // BUs con desglose por zona (hab, com, otros con PRC)
+    if (buKey === 'ind') {
+      // Industrial: sub-zona o total
+      if (zoneFilter === 'log-menor')      ing = bu.menorRevByYear?.[y] ?? 0;
+      else if (zoneFilter === 'log-mayor') ing = bu.mayorRevByYear?.[y] ?? 0;
+      else                                 ing = bu.revByYear?.[y] ?? 0;
+      ing += ((bu.sanIngByYear?.[y]??0) + (bu.sanVtaByYear?.[y]??0)) * cosZoneScale;
+    } else if (bu.revenueByZoneByYear && Object.keys(bu.revenueByZoneByYear).length > 0) {
       const zones = activeZonesArr ?? bu.zones;
       ing = zones.reduce((s,z) => s + (bu.revenueByZoneByYear?.[z]?.[y]??0), 0);
-      // Agregar ingresos sanitarios escalados (solo hab)
       ing += ((bu.sanIngByYear?.[y]??0) + (bu.sanVtaByYear?.[y]??0)) * cosZoneScale;
     } else {
       ing  = (bu.revByYear?.[y]??0);
@@ -5174,20 +6242,24 @@ function computeBUVanTir(buKey, buData, zoneFilter) {
 function renderBUPanel(buKey, buData) {
   const bu = buData[buKey];
 
-  // Botones de zona — todos los BUs con zonas disponibles (multi-select)
+  // Botones de zona
   if (bu.zones?.length > 0) {
     buildZoneButtons(buKey, bu.zones);
     const container = document.getElementById('bu-zone-'+buKey);
     if (container) {
       const zf = buZoneFilter[buKey];
-      const isAll = zf === 'all';
-      container.querySelectorAll('.bu-zone-btn').forEach(b => {
-        if (b.dataset.zone === 'all') {
-          b.classList.toggle('active', isAll);
-        } else {
-          b.classList.toggle('active', !isAll && Array.isArray(zf) && zf.includes(b.dataset.zone));
-        }
-      });
+      if (buKey === 'ind') {
+        // Industrial: single-select
+        container.querySelectorAll('.bu-zone-btn').forEach(b => {
+          b.classList.toggle('active', b.dataset.zone === zf);
+        });
+      } else {
+        const isAll = zf === 'all';
+        container.querySelectorAll('.bu-zone-btn').forEach(b => {
+          if (b.dataset.zone === 'all') b.classList.toggle('active', isAll);
+          else b.classList.toggle('active', !isAll && Array.isArray(zf) && zf.includes(b.dataset.zone));
+        });
+      }
     }
   } else {
     const container = document.getElementById('bu-zone-'+buKey);
@@ -5423,7 +6495,8 @@ function renderFinancialTable(results) {
           mitByGroup, mitByItem, sanitariaByYear, sanitariaIngByYear, sanitariaOpCostByYear, sanitariaVentaByYear,
           tierraByZone, tierraByYear,
           comercializacionByYear, factibilizacionByYear, factByZone,
-          infraByYear, infraByZone, mantByYear, otrosRevByYear, nabSubitems, cumVivByYear } = results;
+          infraByYear, infraByZone, mantByYear, otrosRevByYear, nabSubitems, cumVivByYear,
+          comMenorRevByYear } = results;
 
   // Rango extendido hacia atrás
   const factYears = Object.keys(factibilizacionByYear ?? {}).map(Number)
@@ -5446,7 +6519,7 @@ function renderFinancialTable(results) {
   while (trimEnd > 0 && !hasActivity(allTableYears[trimEnd])) trimEnd--;
   const displayYears = allTableYears.slice(0, trimEnd + 1);
 
-  const fmt    = v => v === 0 ? '—' : Math.round(v).toLocaleString('es-CL');
+  const fmt    = v => v === 0 ? '—' : Math.round(toDisp(v)).toLocaleString('es-CL');
   const fmtPct = v => isNaN(v) || !isFinite(v) ? '—' : (v * 100).toFixed(1) + '%';
   const totalOf = obj => displayYears.reduce((s, y) => s + (obj?.[y] ?? 0), 0);
   const yVals   = obj => { const r = {}; for (const y of displayYears) r[y] = obj?.[y] ?? 0; return r; };
@@ -5475,10 +6548,16 @@ function renderFinancialTable(results) {
       }
     }
     if (industrial) {
-      const indV = yVals(industrialRevByYear); const indT = totalOf(indV);
-      if (indT > 0) {
-        for (const y of displayYears) byYear[y] += indV[y];
-        items.push({ label: 'Ciudad Industrial', vals: indV, total: indT });
+      const { industrialMenorRevByYear: imr, industrialMayorRevByYear: iMr } = results;
+      const menorV = yVals(imr); const menorT = totalOf(menorV);
+      const mayorV = yVals(iMr); const mayorT = totalOf(mayorV);
+      if (menorT > 0) {
+        for (const y of displayYears) byYear[y] += menorV[y];
+        items.push({ label: 'Logística Menor', vals: menorV, total: menorT });
+      }
+      if (mayorT > 0) {
+        for (const y of displayYears) byYear[y] += mayorV[y];
+        items.push({ label: 'Logística Mayor', vals: mayorV, total: mayorT });
       }
     }
     return { byYear, items, total: totalOf(byYear) };
@@ -5528,6 +6607,11 @@ function renderFinancialTable(results) {
     const grpTotal = totalOf(grpByYear);
     if (grpTotal > 0) { for (const y of displayYears) ingByYear[y] += grpByYear[y];
       revGroupData.push({ gid:'grp-rev-pduc', label:'PDUC', grpByYear, grpTotal, subItems:[], subGroupsData }); } }
+
+  // Comercio Menor (standalone — proporcional a viviendas de todos los barrios)
+  { const cmV = yVals(comMenorRevByYear); const cmT = totalOf(cmV);
+    if (cmT > 0) { for (const y of displayYears) ingByYear[y] += cmV[y];
+      revGroupData.push({ gid:'grp-rev-cmenor', label:'Suelo Comercio Menor', grpByYear:cmV, grpTotal:cmT, subItems:[{ label:'Suelo Comercio Menor', vals:cmV, total:cmT }], subGroupsData:null }); } }
 
   // ── Precalcular costos ──
   // Factibilización
@@ -5765,12 +6849,14 @@ function renderFinancialTable(results) {
   const t0 = displayYears[0];
   const indCell = (label) => `<tr class="fin-indicator"><td class="col-label">${label}</td>`;
   const indEnd  = () => `<td colspan="${displayYears.length}"></td></tr>`;
+  const cLabel  = CURRENCY.mode === 'UF' ? ' UF' : ' USD';
+  const fmtInd  = v => v === 0 ? '—' : Math.round(v).toLocaleString('es-CL') + cLabel;
 
-  // VAN — mostrar en moneda de display (igual que KPI strip)
+  // VAN — mostrar en moneda de display, entero sin abreviar
   { let van = 0;
     for (const y of displayYears) van += (netByYear[y] ?? 0) / Math.pow(1 + vanRate, y - t0);
     const vc = van > 0 ? ' fin-pos' : (van < 0 ? ' fin-neg' : '');
-    html += indCell(`VAN (${Math.round(vanRate*100)}%)`) + `<td class="col-total${vc}">${fmtDisp(toDisp(van, t0))}</td>` + indEnd();
+    html += indCell(`VAN (${Math.round(vanRate*100)}%)`) + `<td class="col-total${vc}">${fmtInd(toDisp(van, t0))}</td>` + indEnd();
   }
 
   // TIR
@@ -5795,10 +6881,10 @@ function renderFinancialTable(results) {
       if (y <= 2025) cum2025 = cumCap;
       if (cumCap < capMax) capMax = cumCap;
     }
-    html += indCell('Capital de Trabajo') + `<td class="col-total fin-neg">${fmtDisp(toDisp(Math.abs(capMax), t0))}</td>` + indEnd();
+    html += indCell('Capital de Trabajo') + `<td class="col-total fin-neg">${fmtInd(toDisp(Math.abs(capMax), t0))}</td>` + indEnd();
     // Capital de Trabajo por Gastar = total - lo ya gastado en 2023-2025
     const capPorGastar = cum2025 - capMax; // siempre >= 0
-    html += indCell('Capital de Trabajo por Gastar') + `<td class="col-total fin-neg">${fmtDisp(toDisp(capPorGastar, t0))}</td>` + indEnd();
+    html += indCell('Capital de Trabajo por Gastar') + `<td class="col-total fin-neg">${fmtInd(toDisp(capPorGastar, t0))}</td>` + indEnd();
   }
 
   // ROE
@@ -5818,6 +6904,171 @@ function renderFinancialTable(results) {
 
   html += '</tbody></table>';
   container.innerHTML = html;
+
+  // ── Renderizar tabla de Aportes de Capital ──
+  renderCapitalTable({
+    displayYears, ingByYear, costByYear,
+    sanitIngVals, sanitOpVals, opResultByYear,
+    sanitInvVals, sanitVentaVals, sanitNetByYear,
+    netByYear, tierraTotByYear
+  });
+}
+
+// ────────────────────────────────────────────────────────────
+// TABLA APORTES DE CAPITAL
+// ────────────────────────────────────────────────────────────
+function renderCapitalTable(d) {
+  const container = document.getElementById('capitalTableContainer');
+  if (!container) return;
+
+  // Subtítulo moneda
+  const subEl = document.getElementById('capital-table-subtitle');
+  if (subEl) subEl.textContent = `Valores en ${CURRENCY.mode === 'UF' ? 'UF' : 'USD'}`;
+
+  const { displayYears, ingByYear, costByYear, sanitIngVals, sanitOpVals,
+          opResultByYear, sanitInvVals, sanitVentaVals, sanitNetByYear,
+          netByYear } = d;
+
+  const fmt  = v => v === 0 ? '—' : Math.round(toDisp(v)).toLocaleString('es-CL');
+  const fmtN = v => v === 0 ? '—' : '-' + Math.round(toDisp(Math.abs(v))).toLocaleString('es-CL');
+  const ncols = 2 + displayYears.length;
+
+  // Req. Capital Tierra por año
+  const reqTierraByYear = {};
+  for (const y of displayYears) reqTierraByYear[y] = ingByYear[y] - costByYear[y];
+
+  // Acumulado y cálculo de capital de trabajo
+  const acumByYear = {};
+  let cum = 0, capMin = 0, capMinYear = null, cum2025 = 0;
+  for (const y of displayYears) {
+    cum += netByYear[y] ?? 0;
+    acumByYear[y] = cum;
+    if (cum < capMin) { capMin = cum; capMinYear = y; }
+    if (y <= 2025) cum2025 = cum;
+  }
+  const porGastar = capMin - cum2025;
+
+  // ── Helpers de celdas ──
+  const mixedCell = v => {
+    const cc = v > 0 ? ' class="fin-pos"' : (v < 0 ? ' class="fin-neg"' : '');
+    return `<td${cc}>${fmt(v)}</td>`;
+  };
+  const mixedTotal = v => {
+    const cc = v > 0 ? 'col-total fin-pos' : (v < 0 ? 'col-total fin-neg' : 'col-total');
+    return `<td class="${cc}">${fmt(v)}</td>`;
+  };
+  const costCell = v => {
+    if (v === 0) return '<td>—</td>';
+    return `<td class="fin-neg">${fmtN(v)}</td>`;
+  };
+  const costTotal = v => {
+    if (v === 0) return '<td class="col-total">—</td>';
+    return `<td class="col-total fin-neg">${fmtN(v)}</td>`;
+  };
+  const posCell = v => {
+    if (v === 0) return '<td>—</td>';
+    return `<td class="fin-pos">${fmt(v)}</td>`;
+  };
+  const posTotal = v => {
+    if (v === 0) return '<td class="col-total">—</td>';
+    return `<td class="col-total fin-pos">${fmt(v)}</td>`;
+  };
+
+  const totalOf = obj => displayYears.reduce((s, y) => s + (obj[y] ?? 0), 0);
+
+  // ── Construir HTML ──
+  let h = `<table class="fin-table"><thead><tr><th class="col-label" style="min-width:200px"></th><th class="col-total"></th>`;
+  for (const y of displayYears) h += `<th>${y}</th>`;
+  h += '</tr></thead><tbody>';
+
+  // ── NEGOCIO VENTA TIERRA ──
+  h += `<tr class="fin-section"><td class="col-label" colspan="${ncols}">NEGOCIO VENTA TIERRA</td></tr>`;
+
+  // Ingresos Venta Tierra
+  const ingTotal = totalOf(ingByYear);
+  h += `<tr><td class="col-label" style="padding-left:16px">Ingresos Venta Tierra</td>${posTotal(ingTotal)}`;
+  for (const y of displayYears) h += posCell(ingByYear[y]);
+  h += '</tr>';
+
+  // Costos totales
+  const costTotal_ = totalOf(costByYear);
+  h += `<tr><td class="col-label" style="padding-left:16px">Costos totales</td>${costTotal(costTotal_)}`;
+  for (const y of displayYears) h += costCell(costByYear[y]);
+  h += '</tr>';
+
+  // Requerimiento Capital Tierra
+  const reqTTotal = totalOf(reqTierraByYear);
+  h += `<tr class="fin-subtotal"><td class="col-label" style="font-weight:700">Requerimiento Capital</td>${mixedTotal(reqTTotal)}`;
+  for (const y of displayYears) h += mixedCell(reqTierraByYear[y]);
+  h += '</tr>';
+
+  // ── NEGOCIO SANITARIA ──
+  h += `<tr class="fin-section"><td class="col-label" colspan="${ncols}">NEGOCIO SANITARIA</td></tr>`;
+
+  // Ingresos Operacionales
+  const sIngTotal = totalOf(sanitIngVals);
+  h += `<tr><td class="col-label" style="padding-left:16px">Ingresos Operacionales</td>${posTotal(sIngTotal)}`;
+  for (const y of displayYears) h += posCell(sanitIngVals[y]);
+  h += '</tr>';
+
+  // Egresos Operacionales
+  const sOpTotal = totalOf(sanitOpVals);
+  h += `<tr><td class="col-label" style="padding-left:16px">Egresos Operacionales</td>${costTotal(sOpTotal)}`;
+  for (const y of displayYears) h += costCell(sanitOpVals[y]);
+  h += '</tr>';
+
+  // Margen Operacional
+  const opResTotal = totalOf(opResultByYear);
+  h += `<tr style="font-weight:600"><td class="col-label" style="padding-left:16px;font-weight:700">Margen Operacional</td>${mixedTotal(opResTotal)}`;
+  for (const y of displayYears) h += mixedCell(opResultByYear[y]);
+  h += '</tr>';
+
+  // Inversiones sanitarias
+  const sInvTotal = totalOf(sanitInvVals);
+  h += `<tr><td class="col-label" style="padding-left:16px">Inversiones sanitarias</td>${costTotal(sInvTotal)}`;
+  for (const y of displayYears) h += costCell(sanitInvVals[y]);
+  h += '</tr>';
+
+  // Requerimiento Capital Sanitaria
+  const reqSTotal = totalOf(sanitNetByYear);
+  h += `<tr class="fin-subtotal"><td class="col-label" style="font-weight:700">Requerimiento Capital</td>${mixedTotal(reqSTotal)}`;
+  for (const y of displayYears) h += mixedCell(sanitNetByYear[y]);
+  h += '</tr>';
+
+  // Espaciador
+  h += `<tr class="fin-spacer"><td colspan="${ncols}"></td></tr>`;
+
+  // ── Requerimiento combinado ──
+  const reqCombTotal = totalOf(netByYear);
+  h += `<tr class="fin-net"><td class="col-label" style="font-weight:700">Requerimiento combinado</td>${mixedTotal(reqCombTotal)}`;
+  for (const y of displayYears) h += mixedCell(netByYear[y]);
+  h += '</tr>';
+
+  // Acumulado
+  h += `<tr class="fin-cum"><td class="col-label" style="font-weight:700">Acumulado</td><td class="col-total"></td>`;
+  for (const y of displayYears) {
+    const v = acumByYear[y];
+    const isMin = (y === capMinYear && capMin < 0);
+    const style = isMin ? ' style="background:#fee2e2;font-weight:700"' : '';
+    const cc = v > 0 ? 'fin-pos' : (v < 0 ? 'fin-neg' : '');
+    h += `<td${cc ? ` class="${cc}"` : ''}${style}>${fmt(v)}</td>`;
+  }
+  h += '</tr>';
+
+  // Espaciador
+  h += `<tr class="fin-spacer"><td colspan="${ncols}"></td></tr>`;
+  h += `<tr class="fin-spacer"><td colspan="${ncols}"></td></tr>`;
+
+  // ── Capital de Trabajo / Gastado / Por Gastar ──
+  const cLabel = CURRENCY.mode === 'UF' ? ' UF' : ' USD';
+  const fmtInd = v => v === 0 ? '—' : Math.round(toDisp(v)).toLocaleString('es-CL') + cLabel;
+
+  h += `<tr class="fin-indicator"><td class="col-label">Capital de Trabajo</td><td class="col-total fin-neg">${fmtInd(capMin)}</td><td colspan="${displayYears.length}"></td></tr>`;
+  h += `<tr class="fin-indicator"><td class="col-label">Gastado</td><td class="col-total">${fmtInd(cum2025)}</td><td colspan="${displayYears.length}"></td></tr>`;
+  h += `<tr class="fin-indicator"><td class="col-label">por Gastar</td><td class="col-total" style="background:#fef9c3;font-weight:700">${fmtInd(porGastar)}</td><td colspan="${displayYears.length}"></td></tr>`;
+
+  h += '</tbody></table>';
+  container.innerHTML = h;
 }
 
 // ────────────────────────────────────────────────────────────
@@ -5862,6 +7113,564 @@ function downloadFinancialCSV() {
   URL.revokeObjectURL(url);
 }
 
+// ────────────────────────────────────────────────────────────
+// DESCARGA XLSX del flujo financiero (con formato y fórmulas)
+// ────────────────────────────────────────────────────────────
+async function downloadFinancialXLSX() {
+  if (!lastResults) return;
+  // Cargar ExcelJS dinámicamente si no está disponible
+  if (typeof ExcelJS === 'undefined') {
+    await new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = 'https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js';
+      s.onload = resolve;
+      s.onerror = () => reject(new Error('No se pudo cargar ExcelJS'));
+      document.head.appendChild(s);
+    });
+  }
+  const r = lastResults;
+  const escenario = document.getElementById('escenario').value;
+
+  // ── Datos (misma lógica que renderFinancialTable) ──
+  const { years, revenueByZone, industrialRevByYear, commercialRevByZone, activeZones,
+          mitByGroup, mitByItem, sanitariaByYear, sanitariaIngByYear, sanitariaOpCostByYear, sanitariaVentaByYear,
+          tierraByZone, tierraByYear, comercializacionByYear, factibilizacionByYear, factByZone,
+          infraByYear, infraByZone, mantByYear, otrosRevByYear, cumVivByYear, comMenorRevByYear } = r;
+
+  const factYears = Object.keys(factibilizacionByYear ?? {}).map(Number).filter(y => (factibilizacionByYear[y] ?? 0) > 0);
+  const chartStart = factYears.length > 0 ? Math.min(years[0], ...factYears) : years[0];
+  const chartEnd = years[years.length - 1];
+  const allTableYears = [];
+  for (let y = chartStart; y <= chartEnd; y++) allTableYears.push(y);
+  const hasAct = y => Object.keys(ZONAS_DEF).some(z => (revenueByZone?.[z]?.[y] ?? 0) > 0 || (commercialRevByZone?.[z]?.[y] ?? 0) > 0)
+    || (industrialRevByYear?.[y] ?? 0) > 0 || (sanitariaByYear?.[y] ?? 0) > 0 || (tierraByYear?.[y] ?? 0) > 0
+    || (factibilizacionByYear?.[y] ?? 0) > 0 || (infraByYear?.[y] ?? 0) > 0;
+  let trimE = allTableYears.length - 1;
+  while (trimE > 0 && !hasAct(allTableYears[trimE])) trimE--;
+  const dY = allTableYears.slice(0, trimE + 1);
+  const nY = dY.length;
+
+  const cFact = currFactor();
+  const isUSD = CURRENCY.mode === 'USD';
+  const cLbl  = isUSD ? 'USD' : 'UF';
+  const yV = obj => dY.map(y => (obj?.[y] ?? 0) * cFact);
+  const sumA = arr => arr.reduce((s, x) => s + x, 0);
+
+  // ── ExcelJS setup ──
+  const wb = new ExcelJS.Workbook();
+  wb.creator = 'Modela Simulador';
+  const ws = wb.addWorksheet('Flujo Financiero');
+
+  // Columnas: A=Concepto, B=TOTAL, C..=Años
+  const colLetter = i => { let s = ''; i++; while (i > 0) { i--; s = String.fromCharCode(65 + i % 26) + s; i = Math.floor(i / 26); } return s; };
+  const yearCol = idx => colLetter(2 + idx); // C=col 0, D=col 1, ...
+  const lastYCol = yearCol(nY - 1);
+  const firstYCol = 'C';
+
+  // Anchos
+  ws.getColumn(1).width = 35;
+  ws.getColumn(2).width = 18;
+  for (let i = 0; i < nY; i++) ws.getColumn(3 + i).width = 14;
+
+  // Estilos reutilizables
+  const FILL_SECTION  = { type:'pattern', pattern:'solid', fgColor:{argb:'FF1e3a5f'} };
+  const FILL_SUBTOTAL = { type:'pattern', pattern:'solid', fgColor:{argb:'FFf1f5f9'} };
+  const FILL_TOTAL_COL= { type:'pattern', pattern:'solid', fgColor:{argb:'FFfef9c3'} };
+  const FILL_INDICATOR= { type:'pattern', pattern:'solid', fgColor:{argb:'FFe2e8f0'} };
+  const FONT_WHITE_B  = { bold:true, color:{argb:'FFFFFFFF'}, size:10 };
+  const FONT_BOLD     = { bold:true, size:10 };
+  const FONT_NORMAL   = { size:10 };
+  const FONT_RED      = { size:10, color:{argb:'FFdc2626'} };
+  const FONT_GREEN    = { bold:true, size:10, color:{argb:'FF166534'} };
+  const NUM_FMT = '#,##0';
+  const PCT_FMT = '0.0%';
+  const BORDER_THIN = { top:{style:'thin',color:{argb:'FFe2e8f0'}}, bottom:{style:'thin',color:{argb:'FFe2e8f0'}} };
+
+  // ── Helpers ──
+  let rowIdx = 1;
+  const rowRefs = {};
+
+  function addSectionRow(label) {
+    const row = ws.getRow(rowIdx);
+    row.getCell(1).value = label;
+    row.getCell(1).font = FONT_WHITE_B;
+    for (let c = 1; c <= 2 + nY; c++) row.getCell(c).fill = FILL_SECTION;
+    row.getCell(1).alignment = { horizontal:'left' };
+    rowIdx++;
+  }
+
+  // Fila con valores numéricos
+  function addDataRow(label, values, opts = {}) {
+    const { cost=false, bold=false, indent=0, refKey=null, subtotal=false } = opts;
+    const row = ws.getRow(rowIdx);
+    row.getCell(1).value = (indent > 0 ? '  '.repeat(indent) : '') + label;
+    row.getCell(1).font = bold ? FONT_BOLD : FONT_NORMAL;
+    row.getCell(1).alignment = { horizontal:'left' };
+    if (subtotal) { for (let c = 1; c <= 2 + nY; c++) row.getCell(c).fill = FILL_SUBTOTAL; }
+    for (let c = 1; c <= 2 + nY; c++) row.getCell(c).border = BORDER_THIN;
+    // Total (B) = SUM de años
+    const bCell = row.getCell(2);
+    bCell.value = { formula: `SUM(C${rowIdx}:${lastYCol}${rowIdx})` };
+    bCell.numFmt = NUM_FMT; bCell.font = FONT_BOLD; bCell.fill = FILL_TOTAL_COL;
+    // Años
+    for (let i = 0; i < nY; i++) {
+      const cell = row.getCell(3 + i);
+      cell.value = Math.round(values[i]);
+      cell.numFmt = NUM_FMT;
+      cell.font = cost ? FONT_RED : FONT_NORMAL;
+    }
+    if (refKey) rowRefs[refKey] = rowIdx;
+    rowIdx++;
+    return rowIdx - 1;
+  }
+
+  // Fila grupo con fórmula SUM de hijos. Primero reserva, luego se llena.
+  function reserveGroupRow() { const idx = rowIdx; rowIdx++; return idx; }
+  function fillGroupRow(grpIdx, label, childRows, opts = {}) {
+    const { cost=false, refKey=null } = opts;
+    const row = ws.getRow(grpIdx);
+    row.getCell(1).value = label;
+    row.getCell(1).font = FONT_BOLD;
+    row.getCell(1).alignment = { horizontal:'left' };
+    for (let c = 1; c <= 2 + nY; c++) row.getCell(c).border = BORDER_THIN;
+    // Total (B) = SUM de años
+    const bCell = row.getCell(2);
+    bCell.value = { formula: `SUM(C${grpIdx}:${lastYCol}${grpIdx})` };
+    bCell.numFmt = NUM_FMT; bCell.font = FONT_BOLD; bCell.fill = FILL_TOTAL_COL;
+    // Cada año = SUM de hijos
+    for (let i = 0; i < nY; i++) {
+      const col = yearCol(i);
+      const cell = row.getCell(3 + i);
+      if (childRows.length === 1) {
+        cell.value = { formula: `${col}${childRows[0]}` };
+      } else {
+        cell.value = { formula: childRows.map(r => `${col}${r}`).join('+') };
+      }
+      cell.numFmt = NUM_FMT;
+      cell.font = cost ? FONT_RED : FONT_BOLD;
+    }
+    if (refKey) rowRefs[refKey] = grpIdx;
+  }
+
+  // Fila con fórmula por celda
+  function addFormulaRow(label, formulaFn, opts = {}) {
+    const { bold=true, subtotal=false, net=false, refKey=null } = opts;
+    const row = ws.getRow(rowIdx);
+    row.getCell(1).value = label;
+    row.getCell(1).font = bold ? FONT_BOLD : FONT_NORMAL;
+    if (subtotal) { for (let c = 1; c <= 2 + nY; c++) row.getCell(c).fill = FILL_SUBTOTAL; }
+    for (let c = 1; c <= 2 + nY; c++) row.getCell(c).border = BORDER_THIN;
+    const bCell = row.getCell(2);
+    bCell.value = { formula: `SUM(C${rowIdx}:${lastYCol}${rowIdx})` };
+    bCell.numFmt = NUM_FMT; bCell.font = FONT_BOLD; bCell.fill = FILL_TOTAL_COL;
+    for (let i = 0; i < nY; i++) {
+      const col = yearCol(i);
+      const cell = row.getCell(3 + i);
+      cell.value = { formula: formulaFn(col, rowIdx) };
+      cell.numFmt = NUM_FMT;
+      cell.font = net ? FONT_BOLD : FONT_NORMAL;
+    }
+    if (refKey) rowRefs[refKey] = rowIdx;
+    rowIdx++;
+    return rowIdx - 1;
+  }
+
+  // Fila indicador simple (valor en B, sin años)
+  function addIndicatorRow(label, value, opts = {}) {
+    const { numFmt=NUM_FMT, fontColor=null } = opts;
+    const row = ws.getRow(rowIdx);
+    for (let c = 1; c <= 2 + nY; c++) { row.getCell(c).fill = FILL_INDICATOR; row.getCell(c).border = BORDER_THIN; }
+    row.getCell(1).value = label; row.getCell(1).font = FONT_BOLD;
+    const bCell = row.getCell(2);
+    bCell.value = value;
+    bCell.numFmt = numFmt;
+    bCell.font = fontColor ? { bold:true, size:10, color:{argb:fontColor} } : FONT_BOLD;
+    bCell.fill = FILL_TOTAL_COL;
+    rowIdx++;
+    return rowIdx - 1;
+  }
+
+  // Fila indicador con fórmula en B
+  function addIndicatorFormulaRow(label, formula, opts = {}) {
+    const { numFmt=NUM_FMT, fontColor=null } = opts;
+    const row = ws.getRow(rowIdx);
+    for (let c = 1; c <= 2 + nY; c++) { row.getCell(c).fill = FILL_INDICATOR; row.getCell(c).border = BORDER_THIN; }
+    row.getCell(1).value = label; row.getCell(1).font = FONT_BOLD;
+    const bCell = row.getCell(2);
+    bCell.value = { formula };
+    bCell.numFmt = numFmt;
+    bCell.font = fontColor ? { bold:true, size:10, color:{argb:fontColor} } : FONT_BOLD;
+    bCell.fill = FILL_TOTAL_COL;
+    rowIdx++;
+    return rowIdx - 1;
+  }
+
+  function addEmptyRow() { rowIdx++; }
+
+  // ══════════════════════════════════════════════════════════
+  // ── Título ──
+  ws.getRow(1).getCell(1).value = `Flujo Financiero — Escenario ${escenario} (${cLbl})`;
+  ws.getRow(1).getCell(1).font = { bold:true, size:14 };
+  ws.mergeCells(1, 1, 1, 6);
+  rowIdx = 2;
+  ws.getRow(2).getCell(1).value = `Generado: ${new Date().toLocaleDateString('es-CL')}`;
+  ws.getRow(2).getCell(1).font = { size:9, color:{argb:'FF94a3b8'} };
+  rowIdx = 4;
+
+  // ── Header ──
+  const hdrRow = ws.getRow(rowIdx);
+  hdrRow.getCell(1).value = 'Concepto'; hdrRow.getCell(1).font = FONT_WHITE_B; hdrRow.getCell(1).fill = FILL_SECTION;
+  hdrRow.getCell(2).value = 'TOTAL'; hdrRow.getCell(2).font = FONT_WHITE_B; hdrRow.getCell(2).fill = FILL_SECTION;
+  for (let i = 0; i < nY; i++) { const c = hdrRow.getCell(3+i); c.value = dY[i]; c.font = FONT_WHITE_B; c.fill = FILL_SECTION; c.alignment = {horizontal:'center'}; }
+  const hdrRowIdx = rowIdx;
+  rowIdx++;
+
+  // ══════════════════════════════════════════════════════════
+  // ── INGRESOS ──
+  addSectionRow('INGRESOS');
+
+  const buildItems = (zones, industrial) => {
+    const items = [];
+    for (const z of zones) {
+      if (!activeZones.has(z)) continue;
+      const hV = yV(revenueByZone?.[z]); if (sumA(hV) > 0) items.push({ label:'Habitacional ' + (ZONAS_DEF[z]?.label ?? z), vals:hV });
+      const cV = yV(commercialRevByZone?.[z]); if (sumA(cV) > 0) items.push({ label:'Comercial ' + (ZONAS_DEF[z]?.label ?? z), vals:cV });
+    }
+    if (industrial) {
+      const mV = yV(r.industrialMenorRevByYear); if (sumA(mV) > 0) items.push({ label:'Logística Menor', vals:mV });
+      const MV = yV(r.industrialMayorRevByYear); if (sumA(MV) > 0) items.push({ label:'Logística Mayor', vals:MV });
+    }
+    return items;
+  };
+
+  const ingGroupRows = [];
+
+  // Barrio Est. Batuco (grupo = SUM de hijos)
+  { const items = buildItems(['AUDP Batuco'], false);
+    if (items.length > 0) {
+      const grpIdx = reserveGroupRow();
+      const childRows = items.map(it => addDataRow(it.label, it.vals, { indent:1 }));
+      fillGroupRow(grpIdx, 'Barrio Est. Batuco', childRows, { refKey:'grp-batuco' });
+      ingGroupRows.push(grpIdx);
+    }
+  }
+  // Barrio Est. Colina
+  { const items = buildItems(['AUDP Colina'], false);
+    if (items.length > 0) {
+      const grpIdx = reserveGroupRow();
+      const childRows = items.map(it => addDataRow(it.label, it.vals, { indent:1 }));
+      fillGroupRow(grpIdx, 'Barrio Est. Colina', childRows, { refKey:'grp-colina' });
+      ingGroupRows.push(grpIdx);
+    }
+  }
+  // PDUC
+  { const subGroups = [
+      { label:'Distrito G',   zones:['Distrito G'],   industrial:false },
+      { label:'Distrito 4.0', zones:['Distrito 4.0'], industrial:false },
+      { label:'Industrial',   zones:[],               industrial:true },
+    ];
+    const allItems = [];
+    for (const sg of subGroups) allItems.push(...buildItems(sg.zones, sg.industrial));
+    const otrosV = yV(otrosRevByYear); if (sumA(otrosV) > 0) allItems.push({ label:'Otros Usos D4.0', vals:otrosV });
+    if (allItems.length > 0) {
+      const grpIdx = reserveGroupRow();
+      const childRows = allItems.map(it => addDataRow(it.label, it.vals, { indent:1 }));
+      fillGroupRow(grpIdx, 'PDUC', childRows, { refKey:'grp-pduc' });
+      ingGroupRows.push(grpIdx);
+    }
+  }
+  // Comercio Menor (sin hijos, fila simple)
+  { const cmV = yV(comMenorRevByYear);
+    if (sumA(cmV) > 0) {
+      ingGroupRows.push(addDataRow('Suelo Comercio Menor', cmV, { refKey:'grp-cmenor' }));
+    }
+  }
+
+  // TOTAL INGRESOS (fórmula: suma de filas de grupo)
+  const totIngRow = addFormulaRow('TOTAL INGRESOS',
+    (col) => ingGroupRows.map(r => `${col}${r}`).join('+'),
+    { subtotal:true, refKey:'tot-ing' }
+  );
+
+  addEmptyRow();
+
+  // ══════════════════════════════════════════════════════════
+  // ── COSTOS ──
+  addSectionRow('COSTOS');
+  const costItemRows = [];
+
+  // Factibilización (grupo = SUM de hijos)
+  { const zones = ['AUDP Batuco','AUDP Colina','Distrito G','Distrito 4.0','Industrial'].filter(z => sumA(yV(factByZone?.[z])) > 0);
+    if (zones.length > 0) {
+      const grpIdx = reserveGroupRow();
+      const childRows = [];
+      for (const z of zones) { const zV = yV(factByZone?.[z]); if (sumA(zV) > 0) childRows.push(addDataRow(ZONAS_DEF[z]?.label ?? z, zV, { cost:true, indent:1 })); }
+      fillGroupRow(grpIdx, 'Factibilización', childRows, { cost:true, refKey:'cost-fact' });
+      costItemRows.push(grpIdx);
+    }
+  }
+  // Infraestructura
+  { const zones = ['AUDP Batuco','AUDP Colina','Distrito G','Distrito 4.0','Ciudad Industrial'].filter(z => sumA(yV(infraByZone?.[z])) > 0);
+    if (zones.length > 0) {
+      const grpIdx = reserveGroupRow();
+      const childRows = [];
+      for (const z of zones) { const zV = yV(infraByZone?.[z]); if (sumA(zV) > 0) childRows.push(addDataRow(ZONAS_DEF[z]?.label ?? z, zV, { cost:true, indent:1 })); }
+      fillGroupRow(grpIdx, 'Infraestructura', childRows, { cost:true, refKey:'cost-infra' });
+      costItemRows.push(grpIdx);
+    }
+  }
+  // Mitigaciones
+  { const groups = ['AUDP Batuco','AUDP Colina','PDUC'].filter(g => sumA(yV(mitByGroup?.[g])) > 0);
+    if (groups.length > 0) {
+      const grpIdx = reserveGroupRow();
+      const childRows = [];
+      for (const g of groups) {
+        // Sub-grupo por zona
+        const gV = yV(mitByGroup?.[g]);
+        if (sumA(gV) > 0) childRows.push(addDataRow(ZONAS_DEF[g]?.label ?? g, gV, { cost:true, indent:1 }));
+        // Items detalle
+        if (mitByItem?.[g]) {
+          for (const [name, byY] of Object.entries(mitByItem[g])) {
+            const iV = yV(byY); if (sumA(iV) > 0) addDataRow(name, iV, { cost:true, indent:2 });
+          }
+        }
+      }
+      fillGroupRow(grpIdx, 'Mitigaciones', childRows, { cost:true, refKey:'cost-mit' });
+      costItemRows.push(grpIdx);
+    }
+  }
+  // Tierra
+  { const zones = ['AUDP Batuco','AUDP Colina','Distrito G','Distrito 4.0','Industrial'].filter(z => sumA(yV(tierraByZone?.[z])) > 0);
+    if (zones.length > 0) {
+      const grpIdx = reserveGroupRow();
+      const childRows = [];
+      for (const z of zones) { const zV = yV(tierraByZone?.[z]); if (sumA(zV) > 0) childRows.push(addDataRow(ZONAS_DEF[z]?.label ?? z, zV, { cost:true, indent:1 })); }
+      fillGroupRow(grpIdx, 'Tierra', childRows, { cost:true, refKey:'cost-tierra' });
+      costItemRows.push(grpIdx);
+    }
+  }
+  // Comercialización (sin hijos)
+  { const cV = yV(comercializacionByYear); if (sumA(cV) > 0) costItemRows.push(addDataRow('Comercialización (2%)', cV, { cost:true, refKey:'cost-com' })); }
+  // Mantención (sin hijos)
+  { const mV = yV(mantByYear); if (sumA(mV) > 0) costItemRows.push(addDataRow('Mantención áreas verdes', mV, { cost:true, refKey:'cost-mant' })); }
+
+  // TOTAL COSTOS (fórmula)
+  const totCostRow = addFormulaRow('TOTAL COSTOS',
+    (col) => costItemRows.map(r => `${col}${r}`).join('+'),
+    { subtotal:true, refKey:'tot-cost' }
+  );
+
+  addEmptyRow();
+
+  // ══════════════════════════════════════════════════════════
+  // ── NEGOCIO SANITARIO ──
+  addSectionRow('NEGOCIO SANITARIO');
+  const sanInvV = yV(sanitariaByYear);
+  const sanIngV = yV(sanitariaIngByYear);
+  const sanOpV  = yV(sanitariaOpCostByYear);
+  const sanVtV  = yV(sanitariaVentaByYear);
+
+  // Inversiones Sanitarias (valor)
+  let sanInvRow = 0, sanOpResRow = 0, sanIngRow = 0, sanOpRow = 0, sanVtRow = 0;
+  if (sumA(sanInvV) > 0) sanInvRow = addDataRow('Inversiones Sanitarias', sanInvV, { cost:true, indent:1, refKey:'san-inv' });
+
+  // Resultado Operacional (fórmula = Ing - Op)
+  if (sumA(sanIngV) > 0 || sumA(sanOpV) > 0) {
+    if (sumA(sanIngV) > 0) sanIngRow = addDataRow('Ingresos Operacionales', sanIngV, { indent:2, refKey:'san-ing' });
+    if (sumA(sanOpV)  > 0) sanOpRow  = addDataRow('Costos Operacionales', sanOpV, { cost:true, indent:2, refKey:'san-op' });
+    if (sanIngRow && sanOpRow) {
+      sanOpResRow = addFormulaRow('Resultado Operacional',
+        (col) => `${col}${sanIngRow}-${col}${sanOpRow}`,
+        { bold:false, refKey:'san-opres' }
+      );
+    } else if (sanIngRow) {
+      sanOpResRow = addFormulaRow('Resultado Operacional',
+        (col) => `${col}${sanIngRow}`,
+        { bold:false, refKey:'san-opres' }
+      );
+    }
+  }
+
+  // Venta Negocio Sanitario
+  if (sumA(sanVtV) > 0) sanVtRow = addDataRow('Venta Negocio Sanitario', sanVtV, { indent:1, refKey:'san-vta' });
+
+  // RESULTADO SANITARIO (fórmula = -Inv + OpRes + Venta)
+  { const parts = [];
+    if (sanInvRow)   parts.push({ ref:sanInvRow, sign:'-' });
+    if (sanOpResRow) parts.push({ ref:sanOpResRow, sign:'+' });
+    if (sanVtRow)    parts.push({ ref:sanVtRow, sign:'+' });
+    const sanNetRow = addFormulaRow('RESULTADO SANITARIO',
+      (col) => parts.map(p => `${p.sign}${col}${p.ref}`).join(''),
+      { subtotal:true, refKey:'san-net' }
+    );
+  }
+
+  // Margen Sanitario
+  if (sanIngRow || sanVtRow) {
+    const ingParts = [];
+    if (sanIngRow) ingParts.push(`${firstYCol}${sanIngRow}:${lastYCol}${sanIngRow}`);
+    if (sanVtRow)  ingParts.push(`${firstYCol}${sanVtRow}:${lastYCol}${sanVtRow}`);
+    const ingSumFormula = ingParts.length === 1
+      ? `SUM(${ingParts[0]})`
+      : `SUM(${ingParts[0]})+SUM(${ingParts[1]})`;
+    addIndicatorFormulaRow('Margen Sanitario',
+      `IFERROR(B${rowRefs['san-net']}/(${ingSumFormula}),0)`,
+      { numFmt:PCT_FMT }
+    );
+  }
+
+  addEmptyRow();
+
+  // ══════════════════════════════════════════════════════════
+  // ── RESULTADO TOTAL ──
+  const resRow = addFormulaRow('RESULTADO TOTAL',
+    (col) => `${col}${rowRefs['tot-ing']}-${col}${rowRefs['tot-cost']}+${col}${rowRefs['san-net']}`,
+    { bold:true, subtotal:true, net:true, refKey:'resultado' }
+  );
+
+  // Margen Total
+  addIndicatorFormulaRow('Margen Total',
+    `IFERROR(B${resRow}/B${rowRefs['tot-ing']},0)`,
+    { numFmt:PCT_FMT }
+  );
+
+  addEmptyRow();
+
+  // ══════════════════════════════════════════════════════════
+  // ── FLUJO NETO ──
+  const flujoRow = addFormulaRow('FLUJO NETO',
+    (col) => `${col}${resRow}`,
+    { bold:true, net:true, refKey:'flujo-neto' }
+  );
+
+  // ── FLUJO ACUMULADO (fórmula encadenada) ──
+  { const row = ws.getRow(rowIdx);
+    row.getCell(1).value = 'FLUJO ACUMULADO';
+    row.getCell(1).font = FONT_BOLD;
+    for (let c = 1; c <= 2 + nY; c++) row.getCell(c).border = BORDER_THIN;
+    row.getCell(2).value = ''; // no tiene sentido un total acumulado
+    for (let i = 0; i < nY; i++) {
+      const col = yearCol(i);
+      const cell = row.getCell(3 + i);
+      if (i === 0) {
+        cell.value = { formula: `${col}${flujoRow}` };
+      } else {
+        const prevCol = yearCol(i - 1);
+        cell.value = { formula: `${prevCol}${rowIdx}+${col}${flujoRow}` };
+      }
+      cell.numFmt = NUM_FMT;
+      cell.font = FONT_BOLD;
+    }
+    rowRefs['flujo-acum'] = rowIdx;
+    rowIdx++;
+  }
+
+  addEmptyRow();
+  addEmptyRow();
+
+  // ══════════════════════════════════════════════════════════
+  // ── INDICADORES ──
+  addSectionRow('INDICADORES');
+  const vanRate = (parseFloat(document.getElementById('van-rate')?.value) || 8) / 100;
+
+  // VAN — fórmula NPV nativa de Excel
+  // Excel NPV: =primer_flujo + NPV(tasa, flujos_restantes)
+  // primer flujo está en la primera columna de FLUJO NETO (período 0, sin descontar)
+  { const vanColor = 'FF166534';
+    const secondYCol = nY > 1 ? yearCol(1) : firstYCol;
+    const npvFormula = nY > 1
+      ? `${firstYCol}${flujoRow}+NPV(${vanRate},${secondYCol}${flujoRow}:${lastYCol}${flujoRow})`
+      : `${firstYCol}${flujoRow}`;
+    addIndicatorFormulaRow(`VAN (${Math.round(vanRate*100)}%) — ${cLbl}`, npvFormula,
+      { fontColor:vanColor });
+  }
+
+  // TIR — fórmula IRR nativa de Excel
+  { const tirColor = 'FF166534';
+    addIndicatorFormulaRow('TIR',
+      `IRR(${firstYCol}${flujoRow}:${lastYCol}${flujoRow})`,
+      { numFmt:PCT_FMT, fontColor:tirColor });
+  }
+
+  // PAYBACK — valor calculado (no hay fórmula simple sin array en ExcelJS)
+  { let cum = 0, pb = null;
+    const netFlows = dY.map(y => {
+      let ing = 0;
+      for (const z of Object.keys(ZONAS_DEF)) ing += (revenueByZone?.[z]?.[y] ?? 0) + (commercialRevByZone?.[z]?.[y] ?? 0);
+      ing += (industrialRevByYear?.[y] ?? 0) + (otrosRevByYear?.[y] ?? 0) + (comMenorRevByYear?.[y] ?? 0);
+      let cost = (factibilizacionByYear?.[y] ?? 0) + (infraByYear?.[y] ?? 0) +
+        Object.values(mitByGroup ?? {}).reduce((s, g) => s + (g[y] ?? 0), 0) +
+        (tierraByYear?.[y] ?? 0) + (comercializacionByYear?.[y] ?? 0) + (mantByYear?.[y] ?? 0);
+      const sNet = (sanitariaIngByYear?.[y] ?? 0) - (sanitariaOpCostByYear?.[y] ?? 0) - (sanitariaByYear?.[y] ?? 0) + (sanitariaVentaByYear?.[y] ?? 0);
+      return ing - cost + sNet;
+    });
+    for (let i = 0; i < netFlows.length; i++) { cum += netFlows[i]; if (cum > 0 && pb === null) { pb = dY[i]; break; } }
+    addIndicatorRow('PAYBACK', pb ?? '—');
+  }
+
+  // Capital de Trabajo (excluye tierra)
+  { let capMax = 0, cumCap = 0, cum2025 = 0;
+    const netFlows2 = dY.map(y => {
+      let ing = 0;
+      for (const z of Object.keys(ZONAS_DEF)) ing += (revenueByZone?.[z]?.[y] ?? 0) + (commercialRevByZone?.[z]?.[y] ?? 0);
+      ing += (industrialRevByYear?.[y] ?? 0) + (otrosRevByYear?.[y] ?? 0) + (comMenorRevByYear?.[y] ?? 0);
+      let cost = (factibilizacionByYear?.[y] ?? 0) + (infraByYear?.[y] ?? 0) +
+        Object.values(mitByGroup ?? {}).reduce((s, g) => s + (g[y] ?? 0), 0) +
+        (comercializacionByYear?.[y] ?? 0) + (mantByYear?.[y] ?? 0);
+      const sNet = (sanitariaIngByYear?.[y] ?? 0) - (sanitariaOpCostByYear?.[y] ?? 0) - (sanitariaByYear?.[y] ?? 0) + (sanitariaVentaByYear?.[y] ?? 0);
+      return (ing - cost + sNet) * cFact;
+    });
+    for (let i = 0; i < dY.length; i++) {
+      cumCap += netFlows2[i];
+      if (dY[i] <= 2025) cum2025 = cumCap;
+      if (cumCap < capMax) capMax = cumCap;
+    }
+    addIndicatorRow('Capital de Trabajo', Math.round(Math.abs(capMax)));
+    const capPorGastar = cum2025 - capMax;
+    addIndicatorRow('Capital de Trabajo por Gastar', Math.round(capPorGastar));
+  }
+
+  // ROE (fórmula = Resultado Total / Tierra Total)
+  if (rowRefs['cost-tierra']) {
+    addIndicatorFormulaRow('ROE',
+      `IFERROR(B${resRow}/B${rowRefs['cost-tierra']},0)`,
+      { numFmt:PCT_FMT });
+  }
+
+  // Viviendas Acumuladas (con valores por año)
+  { const row = ws.getRow(rowIdx);
+    for (let c = 1; c <= 2 + nY; c++) { row.getCell(c).fill = FILL_INDICATOR; row.getCell(c).border = BORDER_THIN; }
+    row.getCell(1).value = 'Viviendas Acumuladas';
+    row.getCell(1).font = FONT_BOLD;
+    const maxV = dY.reduce((m, y) => Math.max(m, cumVivByYear?.[y] ?? 0), 0);
+    row.getCell(2).value = maxV;
+    row.getCell(2).numFmt = NUM_FMT;
+    row.getCell(2).fill = FILL_TOTAL_COL;
+    row.getCell(2).font = FONT_BOLD;
+    for (let i = 0; i < nY; i++) {
+      const cell = row.getCell(3 + i);
+      cell.value = cumVivByYear?.[dY[i]] ?? 0;
+      cell.numFmt = NUM_FMT;
+    }
+    rowIdx++;
+  }
+
+  // ── Freeze panes ──
+  ws.views = [{ state:'frozen', xSplit:2, ySplit:hdrRowIdx }];
+
+  // ── Descargar ──
+  const buf = await wb.xlsx.writeBuffer();
+  const blob = new Blob([buf], { type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `flujo_financiero_${new Date().toISOString().slice(0,10)}.xlsx`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
 function runAndRender() {
   const escenario = document.getElementById('escenario').value;
   const params = {
@@ -5883,12 +7692,14 @@ function runAndRender() {
     yearIndustrial:   parseInt(document.getElementById('year-industrial').value) || 2033,
     velMult:      VEL_MULT[escenario] ?? 1.0,
     indPlusBase:      parseFloat(document.getElementById('plusvalia-industrial').value) || 2.0,
-    indPriceUFM2:     parseFloat(document.getElementById('precio-industrial').value)    || 4.5,
+    indMenorPriceUFM2: parseFloat(document.getElementById('precio-ind-menor').value) || 3.0,
+    indMayorPriceUFM2: parseFloat(document.getElementById('precio-ind-mayor').value) || 4.5,
     indEscenario:     document.getElementById('escenario-industrial').value,
     activeIndustrial: document.getElementById('active-industrial').checked,
     opsEscenario:     document.getElementById('escenario-ops').value,
     commPlusBase:     parseFloat(document.getElementById('plusvalia-comercial').value) || 2.0,
     commPriceUFM2:    parseFloat(document.getElementById('precio-comercial').value)    || 3.2,
+    comMenorPriceUFM2: parseFloat(document.getElementById('precio-com-menor').value)   || 15,
     otrosPriceUFM2:   parseFloat(document.getElementById('precio-otros-usos').value)   || 10.0,
     activeCommercial: document.getElementById('active-commercial').checked,
     activePRC:           policyState.prc,
@@ -5915,7 +7726,7 @@ function runAndRender() {
           for (const y of results.years) {
             const hab = Object.values(results.revenueByProd ?? {}).reduce((s, v) => s + (v[y] ?? 0), 0);
             const com = Object.keys(results.commercialRevByZone ?? {}).reduce((s, z) => s + (results.commercialRevByZone[z][y] ?? 0), 0);
-            if (hab + com + (results.industrialRevByYear?.[y] ?? 0) + (results.otrosRevByYear?.[y] ?? 0) > 0) lastRevY = y;
+            if (hab + com + (results.industrialRevByYear?.[y] ?? 0) + (results.otrosRevByYear?.[y] ?? 0) + (results.comMenorRevByYear?.[y] ?? 0) > 0) lastRevY = y;
           }
           const trimEnd = Math.min(lastRevY + 3, results.years[results.years.length - 1]);
           results.years = results.years.filter(y => y <= trimEnd);
@@ -5939,6 +7750,9 @@ function runAndRender() {
         renderCashFlowChart(results);
         renderEstadoResultados(results);
         renderVanChart(results);
+        renderEvolucionChart(results);
+        { const bp = document.getElementById('btn-ppt'); if (bp) bp.disabled = false; }
+        { const be = document.getElementById('btn-eerr-xlsx'); if (be) be.disabled = false; }
         _lastBUResults = computeBUData(results);
         if (activeBUTab === 'san') {
           renderBUSanitaria(results);
@@ -6314,6 +8128,7 @@ function _buildPDF(btn) {
   const imgVAN = getImg('vanByYearChart');
   const imgPie = getImg('costPieChart');
   const imgCap = getImg('landCapChart');
+  const imgEvo = getImg('evolucionChart');
 
   // ── KPIs ──
   const vanVal = document.getElementById('van-value')?.textContent?.trim() ?? '—';
@@ -6510,6 +8325,7 @@ function _buildPDF(btn) {
     {img:imgVAN, t:'VAN RESIDUAL POR AÑO',              s:`Valor presente neto descontado al ${vanRate}% · Miles de UF`},
     {img:imgPie, t:'DESGLOSE DE COSTOS TOTALES',        s:'Composición porcentual del total de costos'},
     {img:imgCap, t:'CAPACIDAD POR ZONA — USO VS. DISP.', s:'Ha consumidas vs. capacidad total al cierre'},
+    {img:imgEvo, t:'EVOLUCION DEL VALOR DEL PROYECTO', s:'Flujo acumulado · VAN residual · Costos parciales'},
   ];
   chartDefs.forEach(({img,t,s},i) => {
     const cx=ML+(i%2)*(cw2+4), cy=y+Math.floor(i/2)*(ch+16);
@@ -6619,7 +8435,8 @@ function _buildPDF(btn) {
     ['Plusvalía Base Anual',      (document.getElementById('plusvalia-base')?.value??'—')+'%'],
     ['Plusvalía Peak (hito)',      (document.getElementById('plusvalia-peak')?.value??'—')+'%'],
     ['Tasa de Descuento (VAN)',   vanRate+'%'],
-    ['Precio Industrial base',    (document.getElementById('precio-industrial')?.value??'—')+' UF/m²'],
+    ['Precio Log. Menor base',    (document.getElementById('precio-ind-menor')?.value??'—')+' UF/m²'],
+    ['Precio Log. Mayor base',    (document.getElementById('precio-ind-mayor')?.value??'—')+' UF/m²'],
     ['Precio Comercial base',     (document.getElementById('precio-comercial')?.value??'—')+' UF/m²'],
   ];
   doc.autoTable({
@@ -6748,14 +8565,24 @@ function renderUNChart() {
   const lastActive  = fn => { let l = simStart; for (const y of years) if ((fn(y)??0)>0) l=y; return l; };
   const firstActive = fn => { for (const y of years) if ((fn(y)??0)>0) return y; return simStart; };
 
+  const firstBat   = firstActive(y => r.unitsByZone?.['AUDP Batuco']?.[y]);
   const lastBat    = lastActive(y => r.unitsByZone?.['AUDP Batuco']?.[y]);
+  const firstCol   = firstActive(y => r.unitsByZone?.['AUDP Colina']?.[y]);
   const lastCol    = lastActive(y => r.unitsByZone?.['AUDP Colina']?.[y]);
+  const firstG     = firstActive(y => r.unitsByZone?.['Distrito G']?.[y]);
   const lastG      = lastActive(y => r.unitsByZone?.['Distrito G']?.[y]);
+  const first40    = firstActive(y => r.unitsByZone?.['Distrito 4.0']?.[y]);
   const last40     = lastActive(y => r.unitsByZone?.['Distrito 4.0']?.[y]);
   const lastInd    = lastActive(y => r.industrialHaByYear?.[y]);
+  const firstIndMenor = firstActive(y => r.industrialMenorHaByYear?.[y]);
+  const lastIndMenor  = lastActive(y => r.industrialMenorHaByYear?.[y]);
+  const firstIndMayor = firstActive(y => r.industrialMayorHaByYear?.[y]);
+  const lastIndMayor  = lastActive(y => r.industrialMayorHaByYear?.[y]);
   const comFn      = y => Object.keys(ZONAS_DEF).reduce((s,z) => s+(r.commercialHaByZone?.[z]?.[y]??0), 0);
   const firstCom   = firstActive(comFn);
   const lastCom    = lastActive(comFn);
+  const firstComMenor = firstActive(y => r.comMenorHaByYear?.[y]);
+  const lastComMenor  = lastActive(y => r.comMenorHaByYear?.[y]);
   const firstOtros = firstActive(y => r.otrosHaByYear?.[y]);
   const lastOtros  = lastActive(y => r.otrosHaByYear?.[y]);
 
@@ -6777,30 +8604,30 @@ function renderUNChart() {
   // Colores: Habitacional=amarillo, Industrial=morado, Comercio=naranja, OtrosUsos=verde teal
   const BUS_UNITS = [
     { id:'batuco', label:'Barrio Batuco',    color:'#fef08a', border:'#a16207',
-      start:yearBatuco, end:lastBat,
+      start:firstBat, end:lastBat,
       phases: activePRC
-        ? [{start:yearBatuco,   end:yearBatuco+4, sub:'AUDP', color:'#fef08a'},
-           {start:yearBatuco+5, end:lastBat,      sub:'PRC',  color:'#fef9c3'}] : null },
+        ? [{start:firstBat,   end:firstBat+4, sub:'AUDP', color:'#fef08a'},
+           {start:firstBat+5, end:lastBat,    sub:'PRC',  color:'#fef9c3'}] : null },
     { id:'colina', label:'Barrio E. Colina', color:'#fef08a', border:'#a16207',
-      start:yearColina, end:lastCol,
+      start:firstCol, end:lastCol,
       phases: activePRC
-        ? [{start:yearColina,   end:yearColina+4, sub:'AUDP', color:'#fef08a'},
-           {start:yearColina+5, end:lastCol,      sub:'PRC',  color:'#fef9c3'}] : null },
-    { id:'g',  label:'Barrio G',   color:'#fde047', border:'#713f12', start:yearG,  end:lastG  },
-    { id:'40', label:'Barrio 4.0', color:'#fde047', border:'#713f12', start:year40, end:last40 },
+        ? [{start:firstCol,   end:firstCol+4, sub:'AUDP', color:'#fef08a'},
+           {start:firstCol+5, end:lastCol,    sub:'PRC',  color:'#fef9c3'}] : null },
+    { id:'g',  label:'Barrio G',   color:'#fde047', border:'#713f12', start:firstG,  end:lastG  },
+    { id:'40', label:'Barrio 4.0', color:'#fde047', border:'#713f12', start:first40, end:last40 },
     null,
     { id:'log-menor', label:'Logística Menor', color:'#ede9fe', border:'#7c3aed',
-      start:yearG, end:(nabSY != null ? nabSY - 1 : simEnd), placeholder:true },
+      start:firstIndMenor, end:lastIndMenor },
     { id:'log-mayor', label:'Logística Mayor', color:'#c4b5fd', border:'#5b21b6',
-      start:yearInd, end:lastInd },
+      start:firstIndMayor, end:lastIndMayor },
     null,
     { id:'com-menor', label:'Comercio Menor', color:'#ffedd5', border:'#c2410c',
-      start:firstCom, end:lastCom, placeholder:true },
+      start:firstComMenor, end:lastComMenor },
     { id:'com-mayor', label:'Comercio Mayor', color:'#fdba74', border:'#c2410c',
-      start:(nabSY ?? firstCom), end:lastCom },
+      start:firstCom, end:lastCom },
     null,
     { id:'otros', label:'Otros Usos', color:'#99f6e4', border:'#0f766e',
-      start:(nabIY ?? (firstOtros > 0 ? firstOtros : year40+7)), end:lastOtros },
+      start:firstOtros, end:lastOtros },
   ];
 
   // ── Layout ──
@@ -6963,8 +8790,9 @@ function renderSegmentCFChart(fin, label) {
   const panel = document.getElementById('un-cf-bottom');
   if (!fin || fin.rows.length === 0) { panel.style.display = 'none'; return; }
   panel.style.display = 'block';
+  const cfCurr = CURRENCY.mode === 'UF' ? 'kUF' : 'USD';
   document.getElementById('un-cf-bottom-title').textContent =
-    label + ' · Flujo de Caja por Año (UF k)';
+    label + ' · Flujo de Caja por Año (' + cfCurr + ')';
 
   const labels = fin.rows.map(r => String(r.y));
 
@@ -6984,7 +8812,7 @@ function renderSegmentCFChart(fin, label) {
   ].filter(d => fin.rows.some(r => (r[d.key] ?? 0) > 0.5))
    .map(d => ({
     label: d.lbl, stack:'inc',
-    data: fin.rows.map(r => +(r[d.key] / 1000).toFixed(2)),
+    data: fin.rows.map(r => +cvtChart(r[d.key], r.y)),
     backgroundColor: d.color, borderWidth: 0,
     barPercentage: barPct, categoryPercentage: catPct,
   }));
@@ -7002,7 +8830,7 @@ function renderSegmentCFChart(fin, label) {
   ].filter(d => fin.rows.some(r => (r[d.key] ?? 0) > 0.5))
    .map(d => ({
     label: d.lbl, stack:'cost',
-    data: fin.rows.map(r => -(r[d.key] / 1000).toFixed(2)),
+    data: fin.rows.map(r => -cvtChart(r[d.key], r.y)),
     backgroundColor: d.color, borderWidth: 0,
     barPercentage: barPct, categoryPercentage: catPct,
   }));
@@ -7010,7 +8838,7 @@ function renderSegmentCFChart(fin, label) {
   // Neto (línea)
   const netoLine = {
     type:'line', label:'Neto', yAxisID:'y',
-    data: fin.rows.map(r => +(r.neto / 1000).toFixed(2)),
+    data: fin.rows.map(r => +cvtChart(r.neto, r.y)),
     borderColor:'#1e40af', backgroundColor:'rgba(30,64,175,0.08)',
     borderWidth:2, pointRadius:4, tension:0.15, fill:false, order:-1,
   };
@@ -7024,11 +8852,11 @@ function renderSegmentCFChart(fin, label) {
       responsive:true, maintainAspectRatio:false,
       plugins:{
         legend:{ position:'bottom', labels:{ boxWidth:10, font:{size:9}, padding:8 } },
-        tooltip:{ callbacks:{ label: ctx => ctx.dataset.label+': '+(+ctx.raw).toFixed(1)+'k UF' } },
+        tooltip:{ callbacks:{ label: ctx => ctx.dataset.label+': '+fmtTick(Math.abs(+ctx.raw))+' '+cfCurr } },
       },
       scales:{
         x:{ stacked:true, grid:{display:false}, ticks:{font:{size:10}} },
-        y:{ stacked:true, ticks:{ font:{size:10}, callback: v => v+'k' },
+        y:{ stacked:true, ticks:{ font:{size:10}, callback: v => fmtTick(v) },
             grid:{ color:'#f1f5f9' } },
       },
     },
@@ -7198,18 +9026,25 @@ function computeSegmentEERR(buId, segStart, segEnd, forceIsFirst = null) {
   // Sin esta extensión, sanOp/sanIng/sanVenta de esos ~2 años extra quedan fuera de todos
   // los segmentos y el total D2 no cuadra con D1.
   const _buRevY    = (bid, y) => {
-    if (bid === 'log-mayor') return r.industrialRevByYear?.[y] ?? 0;
+    if (bid === 'log-menor') return r.industrialMenorRevByYear?.[y] ?? 0;
+    if (bid === 'log-mayor') return r.industrialMayorRevByYear?.[y] ?? 0;
     if (bid === 'otros')     return r.otrosRevByYear?.[y] ?? 0;
     if (bid === 'com-mayor') return Object.values(r.commercialRevByZone ?? {}).reduce((s,z)=>s+(z[y]??0),0);
+    if (bid === 'com-menor') return r.comMenorRevByYear?.[y] ?? 0;
     const zn = BU_ZONE[bid]; return zn ? (r.revenueByZone?.[zn]?.[y] ?? 0) : 0;
   };
   const isLastSeg      = !allYears.some(y => y > segEnd && _buRevY(buId, y) > 0);
   const effectiveSegEnd = isLastSeg ? allYears[allYears.length - 1] : segEnd;
   const segYears   = allYears.filter(y => y >= segStart && y <= effectiveSegEnd);
-  const isPDUC     = ['g','40','log-mayor','otros'].includes(buId);
+  const isPDUC     = ['g','40','log-menor','log-mayor','otros'].includes(buId);
   const isComMayor = buId === 'com-mayor';
-  const isPlaceholder = ['log-menor','com-menor'].includes(buId);
-  if (isPlaceholder) return null;
+  const isInd      = buId === 'log-menor' || buId === 'log-mayor';
+  // Ratio de superficie para prorrateo industrial (Menor vs Mayor)
+  const indSurfRatio = isInd
+    ? ((buId === 'log-menor' ? (r.effectiveIndMenorHa ?? IND_MENOR_HA) : (r.effectiveIndMayorHa ?? IND_MAYOR_HA))
+       / (r.effectiveIndHaTotal ?? IND_HA_TOTAL))
+    : 0;
+  const isComMenor = buId === 'com-menor';
 
   // ── cumIndHaByYear ──
   const cumIndHaByYear = {};
@@ -7234,9 +9069,11 @@ function computeSegmentEERR(buId, segStart, segEnd, forceIsFirst = null) {
   // ── Factibilización: directo Batuco/Colina + pool PDUC prorrateado por ingresos ──
   // Pool PDUC = total proyecto fact − Batuco directo − Colina directo
   const getBURevYear = (bid, y) => {
-    if (bid === 'log-mayor') return r.industrialRevByYear?.[y] ?? 0;
+    if (bid === 'log-menor') return r.industrialMenorRevByYear?.[y] ?? 0;
+    if (bid === 'log-mayor') return r.industrialMayorRevByYear?.[y] ?? 0;
     if (bid === 'otros')     return r.otrosRevByYear?.[y] ?? 0;
     if (bid === 'com-mayor') return Object.values(r.commercialRevByZone ?? {}).reduce((s,z)=>s+(z[y]??0),0);
+    if (bid === 'com-menor') return r.comMenorRevByYear?.[y] ?? 0;
     const zn = BU_ZONE[bid]; return zn ? (r.revenueByZone?.[zn]?.[y] ?? 0) : 0;
   };
 
@@ -7245,7 +9082,8 @@ function computeSegmentEERR(buId, segStart, segEnd, forceIsFirst = null) {
     totalRevByYear[y] =
       Object.values(r.revenueByZone ?? {}).reduce((s,z)=>s+(z[y]??0),0) +
       Object.values(r.commercialRevByZone ?? {}).reduce((s,z)=>s+(z[y]??0),0) +
-      (r.industrialRevByYear?.[y] ?? 0) + (r.otrosRevByYear?.[y] ?? 0);
+      (r.industrialRevByYear?.[y] ?? 0) + (r.otrosRevByYear?.[y] ?? 0) +
+      (r.comMenorRevByYear?.[y] ?? 0);
   }
   const totalProjectRevLifetime = Object.values(totalRevByYear).reduce((s,v)=>s+v,0);
   const buLifetimeRev = allYears.reduce((s,y) => s + getBURevYear(buId, y), 0);
@@ -7279,14 +9117,16 @@ function computeSegmentEERR(buId, segStart, segEnd, forceIsFirst = null) {
     factMap[y] = directFact + pducShare;
   }
 
-  // Pre-sim rows: solo en el PRIMER segmento del BU.
-  // Si se pasa forceIsFirst explícitamente (desde computeAggregatedFin), se usa ese valor.
-  // De lo contrario, se determina por heurística de ingresos (para selección individual).
-  const isFirstBUSeg = forceIsFirst !== null
-    ? forceIsFirst
-    : !allYears.some(y => y < segStart && getBURevYear(buId, y) > 0);
+  // Pre-sim rows: distribuidas proporcionalmente entre TODOS los segmentos del BU,
+  // según el peso de ingresos del segmento respecto al BU total.
+  // Esto garantiza que cada segmento cargue su parte de la inversión inicial → TIR calculable.
+  // Cada segmento recibe segShareOfBU; al sumar todos los segmentos → 100% de costos pre-sim.
+  const segRevenue    = segYears.reduce((s, y) => s + getBURevYear(buId, y), 0);
+  const segShareOfBU  = buLifetimeRev > 0 ? segRevenue / buLifetimeRev : 0;
+  const preSimShare   = forceIsFirst === false ? 0 : segShareOfBU;
+
   const preSimRows = [];
-  if (isFirstBUSeg) {
+  if (preSimShare > 0) {
     const preSimByYear = {};
     // Directo pre-sim (Batuco / Colina)
     if (zoneName && DIRECT_FACT_ZONES.has(zoneName)) {
@@ -7303,30 +9143,32 @@ function computeSegmentEERR(buId, segStart, segEnd, forceIsFirst = null) {
         preSimByYear[y] = (preSimByYear[y] ?? 0) + v * buShareRatio;
     }
     for (const [yk, adj] of Object.entries(preSimByYear)) {
-      if (adj > 0.5) preSimRows.push({ y: parseInt(yk),
+      const scaled = adj * preSimShare;
+      if (scaled > 0.5) preSimRows.push({ y: parseInt(yk),
         revHab:0, revComm:0, revInd:0, revOtros:0, revTotal:0,
-        tierra:0, infra:0, mit:0, fact:adj,
+        tierra:0, infra:0, mit:0, fact:scaled,
         sanInv:0, sanOp:0, sanIng:0, sanVenta:0, sanNet:0,
-        comerc:0, mant:0, costTotal:adj, neto:-adj });
+        comerc:0, mant:0, costTotal:scaled, neto:-scaled });
     }
     preSimRows.sort((a, b) => a.y - b.y);
   }
 
-  // ── earlyRows: pagos sanitarios en años ANTES del segStart del PRIMER segmento ──
-  // Cuando pesTot=0 (ninguna unidad recibida ni Ha industrial vendida) y hay pagos
-  // de planta sanitaria, distribuimos por buShareRatio. Sin esto, BUs que arrancan
-  // en años posteriores al inicio de la sim no cubrirían esos años, y la suma D2 < D1.
+  // ── earlyRows: pagos sanitarios en años ANTES del segStart ──
+  // Distribuidos proporcionalmente igual que preSimRows.
+  const IND_SAN_PCT_EARLY = 0.20;
   const earlyRows = [];
-  if (isFirstBUSeg) {
+  if (preSimShare > 0) {
     for (const y of allYears) {
       if (y >= segStart) break;
       const eSanInv = r.sanitariaByYear?.[y] ?? 0;
       if (!(eSanInv > 0)) continue;
-      const ePesInd = (cumIndHaByYear[y] ?? 0) * IND_VIV_EQ;
-      const ePesTot = (r.cumVivByYear?.[y] ?? 0) + ePesInd;
-      if (ePesTot !== 0) continue; // pesTot>0: el segYears loop lo cubriría si el año estuviera dentro
-      const sv = eSanInv * buShareRatio;
-      earlyRows.push({ y, revHab:0, revComm:0, revInd:0, revOtros:0, revTotal:0,
+      const eCumViv = r.cumVivByYear?.[y] ?? 0;
+      if (eCumViv !== 0) continue;
+      const svFull = isInd
+        ? eSanInv * IND_SAN_PCT_EARLY * indSurfRatio
+        : eSanInv * (1 - IND_SAN_PCT_EARLY) * buShareRatio;
+      const sv = svFull * preSimShare;
+      if (sv > 0.5) earlyRows.push({ y, revHab:0, revComm:0, revInd:0, revOtros:0, revTotal:0,
                        tierra:0, infra:0, mit:0, fact:0,
                        sanInv:sv, sanOp:0, sanIng:0, sanVenta:0, sanNet:sv,
                        comerc:0, mant:0, costTotal:sv, neto:-sv });
@@ -7347,25 +9189,26 @@ function computeSegmentEERR(buId, segStart, segEnd, forceIsFirst = null) {
   for (const y of segYears) {
     // ── Revenue ──
     let revHab = 0, revComm = 0, revInd = 0, revOtros = 0;
-    if      (buId === 'log-mayor') revInd   = r.industrialRevByYear?.[y] ?? 0;
+    if      (buId === 'log-menor') revInd   = r.industrialMenorRevByYear?.[y] ?? 0;
+    else if (buId === 'log-mayor') revInd   = r.industrialMayorRevByYear?.[y] ?? 0;
     else if (buId === 'otros')     revOtros = r.otrosRevByYear?.[y] ?? 0;
     else if (isComMayor)           revComm  = Object.values(r.commercialRevByZone ?? {})
                                                .reduce((s, z) => s + (z[y] ?? 0), 0);
+    else if (isComMenor)           revComm  = r.comMenorRevByYear?.[y] ?? 0;
     else revHab = r.revenueByZone?.[zoneName]?.[y] ?? 0;
     const revTotal = revHab + revComm + revInd + revOtros;
 
     // ── Tierra ──
-    // log-mayor usa tierraByZone['Industrial'] (omitido antes → deficit vs D1)
-    // com-mayor y otros usan 0 (su tierra va subsumsida en las zonas residenciales del modelo)
-    const tierra = isComMayor        ? 0
-                 : buId === 'log-mayor' ? (r.tierraByZone?.['Industrial']?.[y] ?? 0)
-                 : buId === 'otros'     ? 0
+    // log-menor y log-mayor comparten tierraByZone['Industrial'] por ratio de superficie
+    const tierra = (isComMayor || isComMenor) ? 0
+                 : isInd      ? (r.tierraByZone?.['Industrial']?.[y] ?? 0) * indSurfRatio
+                 : buId === 'otros' ? 0
                  : (r.tierraByZone?.[zoneName]?.[y] ?? 0);
 
     // ── Infraestructura: prorrateada por share hab/com ──
     let infra = 0;
-    if (buId === 'log-mayor') {
-      infra = r.infraByZone?.['Ciudad Industrial']?.[y] ?? 0;
+    if (isInd) {
+      infra = (r.infraByZone?.['Ciudad Industrial']?.[y] ?? 0) * indSurfRatio;
     } else if (isComMayor) {
       // Suma la porción comercial de cada zona
       infra = ALL_ZONES.reduce((sum, zName) => {
@@ -7379,7 +9222,7 @@ function computeSegmentEERR(buId, segStart, segEnd, forceIsFirst = null) {
 
     // ── Mitigaciones ──
     let mit = 0;
-    if (!isComMayor) {
+    if (!isComMayor && !isComMenor) {
       if (isPDUC) {
         const pducRev = (r.revenueByZone?.['Distrito G']?.[y]   ?? 0) +
                         (r.revenueByZone?.['Distrito 4.0']?.[y] ?? 0) +
@@ -7397,29 +9240,27 @@ function computeSegmentEERR(buId, segStart, segEnd, forceIsFirst = null) {
     // La fórmula anterior de com-mayor (habShare) causaba doble conteo sobre pduc_y.
     const fact = factMap[y] ?? 0;
 
-    // ── Sanitaria ──
+    // ── Sanitaria — Industrial absorbe 20% fijo, resto 80% proporcional a viviendas ──
+    const IND_SAN_PCT = 0.20;
     let sanInv = 0, sanOp = 0, sanIng = 0, sanVenta = 0;
-    const pesInd = (cumIndHaByYear[y] ?? 0) * IND_VIV_EQ;
-    const pesTot = (r.cumVivByYear?.[y] ?? 0) + pesInd;
-    if (RES_ZONES.has(buId) && pesTot > 0) {
-      const share = (cumVivZone[y] ?? 0) / pesTot;
+    const cumVivAll = r.cumVivByYear?.[y] ?? 0;
+    if (isInd) {
+      // 20% total para industrial, prorrateado por superficie entre Menor/Mayor
+      const share = IND_SAN_PCT * indSurfRatio;
       sanInv   = (r.sanitariaByYear?.[y]      ?? 0) * share;
       sanOp    = (r.sanitariaOpCostByYear?.[y] ?? 0) * share;
       sanIng   = (r.sanitariaIngByYear?.[y]    ?? 0) * share;
       sanVenta = (r.sanitariaVentaByYear?.[y]  ?? 0) * share;
-    } else if (buId === 'log-mayor' && pesTot > 0) {
-      const share = pesInd / pesTot;
+    } else if (RES_ZONES.has(buId) && cumVivAll > 0) {
+      // 80% restante proporcional a viviendas acumuladas de cada zona
+      const share = ((cumVivZone[y] ?? 0) / cumVivAll) * (1 - IND_SAN_PCT);
       sanInv   = (r.sanitariaByYear?.[y]      ?? 0) * share;
       sanOp    = (r.sanitariaOpCostByYear?.[y] ?? 0) * share;
       sanIng   = (r.sanitariaIngByYear?.[y]    ?? 0) * share;
       sanVenta = (r.sanitariaVentaByYear?.[y]  ?? 0) * share;
-    } else if (pesTot === 0 && (r.sanitariaByYear?.[y] ?? 0) > 0) {
-      // Fallback: pesTot=0 porque aún no hay unidades recibidas ni Ha industriales vendidas.
-      // Ocurre típicamente en el primer año de simulación (e.g. 2030) cuando se paga el
-      // primer umbral de planta sanitaria (viv=0) pero el acumulado de viviendas es 0.
-      // Distribuimos por revenue share (sum buShareRatio = 1 → cierre garantizado).
-      // Los costos operacionales e ingresos sanitarios son 0 cuando cv=0 por definición.
-      sanInv = (r.sanitariaByYear?.[y] ?? 0) * buShareRatio;
+    } else if (cumVivAll === 0 && (r.sanitariaByYear?.[y] ?? 0) > 0 && !isInd) {
+      // Fallback: no hay viviendas aún. Porción no-industrial por revenue share.
+      sanInv = (r.sanitariaByYear?.[y] ?? 0) * (1 - IND_SAN_PCT) * buShareRatio;
     }
     const sanNet = sanInv + sanOp - sanIng - sanVenta;
 
@@ -7456,10 +9297,9 @@ function computeSegmentEERR(buId, segStart, segEnd, forceIsFirst = null) {
 
 // ── Agregar cashflows de múltiples segmentos ────────────────────────────────
 function computeAggregatedFin(selections) {
-  // Agrupa por BU y ordena por segStart para determinar cuál es el PRIMER segmento de cada BU.
-  // Solo el primero (menor segStart) recibe isFirstBUSeg=true y los costos pre-simulación.
-  // Esto evita duplicar preSimRows cuando un BU tiene 0 ingresos en su primer tramo
-  // (en ese caso la heurística de ingresos falla y ambos tramos creen ser "primero").
+  // Agrupa por BU. Cada segmento recibe su proporción de costos pre-sim
+  // (segShareOfBU = segRevenue / buLifetimeRev), de modo que al sumar todos
+  // los segmentos del BU se obtiene ~100% de los costos pre-simulación.
   const byBU = {};
   for (const s of selections) {
     if (!byBU[s.bu]) byBU[s.bu] = [];
@@ -7470,7 +9310,7 @@ function computeAggregatedFin(selections) {
     segs.sort((a, b) => Number(a.start) - Number(b.start));
     for (let i = 0; i < segs.length; i++) {
       const s = segs[i];
-      const fin = computeSegmentEERR(bu, Number(s.start), Number(s.end), i === 0);
+      const fin = computeSegmentEERR(bu, Number(s.start), Number(s.end), null);
       if (fin) fins.push(fin);
     }
   }
@@ -7514,14 +9354,17 @@ function renderUnSelection() {
     return;
   }
 
+  const cLabel = CURRENCY.mode === 'UF' ? ' UF' : ' USD';
+  const cv = v => toDisp(v);
   const fmt = v => {
-    const abs = Math.abs(v);
+    const d = cv(v);
+    const abs = Math.abs(d);
     const s = abs >= 1e6 ? (abs/1e6).toFixed(2)+'M'
             : abs >= 1e3 ? (abs/1e3).toFixed(0)+'k'
             : Math.round(abs).toString();
-    return (v < 0 ? '(' : '') + s + (v < 0 ? ')' : '');
+    return (d < 0 ? '(' : '') + s + (d < 0 ? ')' : '');
   };
-  const fmtUF  = v => fmt(v) + ' UF';
+  const fmtUF  = v => fmt(v) + cLabel;
   const fmtPct = v => v == null ? 'N/D' : (v * 100).toFixed(1) + '%';
   const eRow   = (lbl, val, cls='') =>
     `<div class="un-eerr-row ${cls}"><span>${lbl}</span><span>${val}</span></div>`;
@@ -7564,8 +9407,9 @@ function renderUnSelection() {
   }
 
   // KPIs
-  const vanColor = fin.van >= 0 ? '#166534' : '#991b1b';
-  const vanBg    = fin.van >= 0 ? '#f0fdf4' : '#fef2f2';
+  const vanDisp  = cv(fin.van);
+  const vanColor = vanDisp >= 0 ? '#166534' : '#991b1b';
+  const vanBg    = vanDisp >= 0 ? '#f0fdf4' : '#fef2f2';
   html += `<div class="un-kpi-grid">
     <div class="un-kpi-box" style="background:${vanBg}">
       <div class="un-kpi-lbl">VAN ${(fin.vanRate*100).toFixed(0)}% a ${fin.baseYear}</div>
@@ -7596,17 +9440,17 @@ function renderUnSelection() {
   if (tRevInd   > 1) html += eRow('Industrial',   fmtUF(tRevInd),   'sub');
   if (tRevOtros > 1) html += eRow('Otros Usos',   fmtUF(tRevOtros), 'sub');
   html += eRow('Total Ingresos', fmtUF(fin.totalRev), 'total');
-  if (tTierra  > 1) html += eRow('Tierra',            `(${fmt(tTierra)}) UF`,  'sub');
-  if (tInfra   > 1) html += eRow('Infraestructura',   `(${fmt(tInfra)}) UF`,   'sub');
-  if (tMit     > 1) html += eRow('Mitigaciones',      `(${fmt(tMit)}) UF`,     'sub');
-  if (tFact    > 1) html += eRow('Factibilización',   `(${fmt(tFact)}) UF`,    'sub');
-  if (tSanInv  > 1) html += eRow('San. Inversión',    `(${fmt(tSanInv)}) UF`,  'sub');
-  if (tSanOp   > 1) html += eRow('San. Operacional',  `(${fmt(tSanOp)}) UF`,   'sub');
-  if (tSanIng  > 1) html += eRow('San. Ingresos',     `+${fmt(tSanIng)} UF`,   'sub');
-  if (tSanVenta> 1) html += eRow('San. Venta neg.',   `+${fmt(tSanVenta)} UF`, 'sub');
-  if (tComerc  > 1) html += eRow('Comercialización',  `(${fmt(tComerc)}) UF`,  'sub');
-  if (tMant    > 1) html += eRow('Mantención',         `(${fmt(tMant)}) UF`,    'sub');
-  html += eRow('Total Costos', `(${fmt(fin.totalCost)}) UF`, 'total');
+  if (tTierra  > 1) html += eRow('Tierra',            `(${fmt(tTierra)})${cLabel}`,  'sub');
+  if (tInfra   > 1) html += eRow('Infraestructura',   `(${fmt(tInfra)})${cLabel}`,   'sub');
+  if (tMit     > 1) html += eRow('Mitigaciones',      `(${fmt(tMit)})${cLabel}`,     'sub');
+  if (tFact    > 1) html += eRow('Factibilización',   `(${fmt(tFact)})${cLabel}`,    'sub');
+  if (tSanInv  > 1) html += eRow('San. Inversión',    `(${fmt(tSanInv)})${cLabel}`,  'sub');
+  if (tSanOp   > 1) html += eRow('San. Operacional',  `(${fmt(tSanOp)})${cLabel}`,   'sub');
+  if (tSanIng  > 1) html += eRow('San. Ingresos',     `+${fmt(tSanIng)}${cLabel}`,   'sub');
+  if (tSanVenta> 1) html += eRow('San. Venta neg.',   `+${fmt(tSanVenta)}${cLabel}`, 'sub');
+  if (tComerc  > 1) html += eRow('Comercialización',  `(${fmt(tComerc)})${cLabel}`,  'sub');
+  if (tMant    > 1) html += eRow('Mantención',         `(${fmt(tMant)})${cLabel}`,    'sub');
+  html += eRow('Total Costos', `(${fmt(fin.totalCost)})${cLabel}`, 'total');
   html += `<div class="un-eerr-result" style="background:${resBg}">
     <span style="color:${resColor}">Resultado</span>
     <span style="color:${resColor}">${fmtUF(fin.totalNeto)}</span>
