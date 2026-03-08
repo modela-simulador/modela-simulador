@@ -3,6 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; frame-ancestors 'none';">
+  <meta http-equiv="X-Frame-Options" content="DENY">
+  <meta http-equiv="X-Content-Type-Options" content="nosniff">
+  <meta name="referrer" content="no-referrer">
   <title>Modela · Simulador Inmobiliario</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8/hammer.min.js"></script>
@@ -1955,18 +1959,6 @@
     </div>
   </div>
 
-  <!-- Tabla Aportes de Capital -->
-  <div class="fin-section-wrap" style="margin-top:24px">
-    <div class="fin-header-row">
-      <div>
-        <div class="chart-title">Aportes de Capital</div>
-        <div class="chart-subtitle" id="capital-table-subtitle">Valores en UF</div>
-      </div>
-    </div>
-    <div class="fin-scroll">
-      <div id="capitalTableContainer"></div>
-    </div>
-  </div>
 </div>
 
 <div class="loading-overlay" id="loading">
@@ -1977,30 +1969,93 @@
 
 <script>
 // ════════════════════════════════════════════════════════════
-// AUTH — Credenciales & session management
+// AUTH — Credenciales hasheadas & session management seguro
 // ════════════════════════════════════════════════════════════
 
 const AUTH_USERS = {
-  'admin':    { password: 'modela2026', name: 'Administrador' },
-  'demo':     { password: 'demo',       name: 'Demo' },
+  'admin': { hash: 'be937117364594bbf4992371581edf109977e273694bc5fe07a1cfc6a11d99d1', name: 'Administrador' },
+  'demo':  { hash: '2a97516c354b68848cdbd8f54a226a0a55b21ed138e207ad6c5cbb9c00aa5aea', name: 'Demo' },
 };
 
-function isAuthenticated() {
-  return sessionStorage.getItem('modela_auth') === 'true';
+// ── SHA-256 helper ──
+async function sha256(message) {
+  const data = new TextEncoder().encode(message);
+  const buf  = await crypto.subtle.digest('SHA-256', data);
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-function handleLogin(evt) {
-  evt.preventDefault();
-  const user = document.getElementById('login-user').value.trim().toLowerCase();
-  const pass = document.getElementById('login-pass').value;
-  const errorEl = document.getElementById('login-error');
+// ── Token de sesion firmado ──
+const _SESSION_SECRET = 'mDl$2026!xK9';
 
-  if (AUTH_USERS[user] && AUTH_USERS[user].password === pass) {
-    sessionStorage.setItem('modela_auth', 'true');
+async function createSessionToken(user) {
+  const ts  = Date.now();
+  const sig = await sha256(user + ts + _SESSION_SECRET);
+  return btoa(JSON.stringify({ user, ts, sig }));
+}
+
+function isAuthenticated() {
+  const token = sessionStorage.getItem('modela_token');
+  if (!token) return false;
+  try {
+    const { user, ts, sig } = JSON.parse(atob(token));
+    // Token valido si existe usuario y no ha pasado mas de 30 min
+    if (!AUTH_USERS[user]) return false;
+    if (Date.now() - ts > 30 * 60 * 1000) {
+      sessionStorage.removeItem('modela_token');
+      return false;
+    }
+    return true;
+  } catch { return false; }
+}
+
+// ── Rate limiting ──
+let _loginAttempts = 0;
+let _lockoutUntil  = 0;
+
+async function handleLogin(evt) {
+  evt.preventDefault();
+  const user    = document.getElementById('login-user').value.trim().toLowerCase();
+  const pass    = document.getElementById('login-pass').value;
+  const errorEl = document.getElementById('login-error');
+  const btn     = document.querySelector('.lp-login-btn');
+
+  // Bloqueo por intentos fallidos
+  if (Date.now() < _lockoutUntil) {
+    const secs = Math.ceil((_lockoutUntil - Date.now()) / 1000);
+    errorEl.textContent = 'Demasiados intentos. Espere ' + secs + ' segundos.';
+    errorEl.style.display = 'block';
+    return;
+  }
+
+  const hash = await sha256(pass);
+
+  if (AUTH_USERS[user] && AUTH_USERS[user].hash === hash) {
+    _loginAttempts = 0;
+    const token = await createSessionToken(user);
+    sessionStorage.setItem('modela_token', token);
     sessionStorage.setItem('modela_user', AUTH_USERS[user].name);
     errorEl.style.display = 'none';
+    errorEl.textContent = 'Usuario o contraseña incorrectos';
     transitionToSimulator();
   } else {
+    _loginAttempts++;
+    if (_loginAttempts >= 5) {
+      _lockoutUntil = Date.now() + 60000;
+      errorEl.textContent = 'Demasiados intentos. Espere 60 segundos.';
+      btn.disabled = true;
+      const countdown = setInterval(() => {
+        const secs = Math.ceil((_lockoutUntil - Date.now()) / 1000);
+        if (secs <= 0) {
+          clearInterval(countdown);
+          btn.disabled = false;
+          errorEl.textContent = 'Usuario o contraseña incorrectos';
+          errorEl.style.display = 'none';
+          _loginAttempts = 0;
+        } else {
+          errorEl.textContent = 'Demasiados intentos. Espere ' + secs + ' segundos.';
+        }
+      }, 1000);
+    }
     errorEl.style.display = 'block';
     const card = document.querySelector('.lp-login-card');
     card.classList.add('lp-login-shake');
@@ -2009,7 +2064,7 @@ function handleLogin(evt) {
 }
 
 function handleLogout() {
-  sessionStorage.removeItem('modela_auth');
+  sessionStorage.removeItem('modela_token');
   sessionStorage.removeItem('modela_user');
   const sim = document.getElementById('simulator-app');
   const lp  = document.getElementById('landing-page');
@@ -2020,7 +2075,9 @@ function handleLogout() {
   window.scrollTo(0, 0);
   document.getElementById('login-user').value = '';
   document.getElementById('login-pass').value = '';
-  document.getElementById('login-error').style.display = 'none';
+  const errorEl = document.getElementById('login-error');
+  errorEl.style.display = 'none';
+  errorEl.textContent = 'Usuario o contraseña incorrectos';
 }
 
 let _simInitialized = false;
@@ -2056,8 +2113,29 @@ function transitionToSimulator() {
     lp.style.display = 'none';
     lp.classList.add('hidden');
     sim.classList.remove('hidden');
-    _simInitialized = true;  // will run via normal init path
+    _simInitialized = true;
   }
+})();
+
+// ── Timeout por inactividad (30 min) ──
+(function setupInactivityTimeout() {
+  let _inactivityTimer;
+  const TIMEOUT_MS = 30 * 60 * 1000;
+
+  function resetTimer() {
+    clearTimeout(_inactivityTimer);
+    _inactivityTimer = setTimeout(() => {
+      if (isAuthenticated()) {
+        handleLogout();
+        alert('Sesion expirada por inactividad.');
+      }
+    }, TIMEOUT_MS);
+  }
+
+  ['click', 'keydown', 'scroll', 'mousemove', 'touchstart'].forEach(evt => {
+    document.addEventListener(evt, resetTimer, { passive: true });
+  });
+  resetTimer();
 })();
 
 
@@ -2760,40 +2838,51 @@ function switchProductTab(btn) {
 
 // ── Tab 1: Tabla de productos ──
 
+function escapeHTML(str) {
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+function safeJSStr(str) {
+  return String(str).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'\\"')
+    .replace(/</g,'\\x3c').replace(/>/g,'\\x3e');
+}
+
 function renderProductsTable() {
   const tbody = document.getElementById('prod-table-body');
   if (!tbody) return;
   tbody.innerHTML = '';
   const prodNames = Object.keys(PRODUCTS);
-  const sigOptions = prodNames.map(n => '<option value="' + n + '">' + n + '</option>').join('');
+  const sigOptions = prodNames.map(n => '<option value="' + escapeHTML(n) + '">' + escapeHTML(n) + '</option>').join('');
 
   for (const name of prodNames) {
     const p = PRODUCTS[name];
     const color = PRODUCT_COLORS[name] || '#94a3b8';
     const family = getFamily(name);
     const tr = document.createElement('tr');
+    const eName = escapeHTML(name);
+    const sName = safeJSStr(name);
     tr.innerHTML = '<td><div class="prod-name-cell">' +
       '<div class="prod-color-dot" style="background:' + color + '"></div>' +
-      '<input type="text" value="' + name + '" data-orig="' + name + '" ' +
-      'onchange="renameProduct(this.dataset.orig, this.value)" style="font-weight:500;text-align:left"></div></td>' +
-      '<td><input type="number" value="' + p.ticket + '" min="100" step="100" ' +
-      'onchange="updateProductField(\'' + name + '\',\'ticket\',+this.value)"></td>' +
-      '<td><input type="number" value="' + p.velVenta + '" min="0.1" step="0.1" ' +
-      'onchange="updateProductField(\'' + name + '\',\'velVenta\',+this.value)"></td>' +
+      '<input type="text" value="' + eName + '" data-orig="' + eName + '" ' +
+      'onchange="renameProduct(this.dataset.orig, this.value)" style="font-weight:500;text-align:left" maxlength="30"></div></td>' +
+      '<td><input type="number" value="' + p.ticket + '" min="100" max="100000" step="100" ' +
+      'onchange="updateProductField(\'' + sName + '\',\'ticket\',+this.value)"></td>' +
+      '<td><input type="number" value="' + p.velVenta + '" min="0.1" max="50" step="0.1" ' +
+      'onchange="updateProductField(\'' + sName + '\',\'velVenta\',+this.value)"></td>' +
       '<td><input type="number" value="' + Math.round(p.incidencia * 100) + '" min="1" max="50" step="1" ' +
-      'onchange="updateProductField(\'' + name + '\',\'incidencia\',this.value/100)"></td>' +
-      '<td><input type="number" value="' + p.eficiencia + '" min="1" step="1" ' +
-      'onchange="updateProductField(\'' + name + '\',\'eficiencia\',+this.value)"></td>' +
-      '<td><input type="number" value="' + p.minUnidades + '" min="1" step="5" ' +
-      'onchange="updateProductField(\'' + name + '\',\'minUnidades\',+this.value)"></td>' +
-      '<td><select onchange="updateProductField(\'' + name + '\',\'family\',this.value)">' +
+      'onchange="updateProductField(\'' + sName + '\',\'incidencia\',this.value/100)"></td>' +
+      '<td><input type="number" value="' + p.eficiencia + '" min="1" max="500" step="1" ' +
+      'onchange="updateProductField(\'' + sName + '\',\'eficiencia\',+this.value)"></td>' +
+      '<td><input type="number" value="' + p.minUnidades + '" min="1" max="5000" step="5" ' +
+      'onchange="updateProductField(\'' + sName + '\',\'minUnidades\',+this.value)"></td>' +
+      '<td><select onchange="updateProductField(\'' + sName + '\',\'family\',this.value)">' +
       '<option value="unifam"' + (family === 'unifam' ? ' selected' : '') + '>Unifamiliar</option>' +
       '<option value="ds19"' + (family === 'ds19' ? ' selected' : '') + '>DS19</option>' +
       '<option value="depto"' + (family === 'depto' ? ' selected' : '') + '>Edificios</option>' +
       '</select></td>' +
-      '<td><select onchange="updateProductField(\'' + name + '\',\'siguiente\',this.value||null)">' +
+      '<td><select onchange="updateProductField(\'' + sName + '\',\'siguiente\',this.value||null)">' +
       '<option value="">—</option>' + sigOptions + '</select></td>' +
-      '<td><button class="btn-del-row" onclick="deleteProduct(\'' + name + '\')" title="Eliminar">&#10005;</button></td>';
+      '<td><button class="btn-del-row" onclick="deleteProduct(\'' + sName + '\')" title="Eliminar">&#10005;</button></td>';
 
     // Set siguiente select value
     const sigSel = tr.querySelectorAll('select')[1];
@@ -2808,17 +2897,24 @@ function updateProductField(name, field, value) {
   if (field === 'siguiente') {
     PRODUCTS[name].siguiente = value || null;
   } else if (field === 'family') {
+    if (!['unifam','ds19','depto'].includes(value)) return;
     PRODUCTS[name].family = value;
-  } else if (field === 'incidencia' || field === 'velVenta') {
-    PRODUCTS[name][field] = parseFloat(value) || 0;
+  } else if (field === 'incidencia') {
+    PRODUCTS[name].incidencia = Math.max(0.01, Math.min(0.5, parseFloat(value) || 0));
+  } else if (field === 'velVenta') {
+    PRODUCTS[name].velVenta = Math.max(0.1, Math.min(50, parseFloat(value) || 0));
   } else {
-    PRODUCTS[name][field] = parseInt(value) || 0;
+    let num = parseInt(value) || 0;
+    if (field === 'ticket')      num = Math.max(100, Math.min(100000, num));
+    if (field === 'eficiencia')  num = Math.max(1, Math.min(500, num));
+    if (field === 'minUnidades') num = Math.max(1, Math.min(5000, num));
+    PRODUCTS[name][field] = num;
   }
   updateProductsResetBtnState();
 }
 
 function renameProduct(oldName, newName) {
-  newName = newName.trim();
+  newName = newName.trim().replace(/<[^>]*>/g, '').substring(0, 30).trim();
   if (!newName || newName === oldName) { renderProductsTable(); return; }
   if (PRODUCTS[newName]) { alert('Ya existe un producto con ese nombre.'); renderProductsTable(); return; }
 
@@ -2853,7 +2949,8 @@ function renameProduct(oldName, newName) {
 }
 
 function deleteProduct(name) {
-  if (!confirm('Eliminar "' + name + '"?')) return;
+  if (!PRODUCTS[name]) return;
+  if (!confirm('Eliminar "' + escapeHTML(name) + '"?')) return;
 
   delete PRODUCTS[name];
   delete PRODUCT_COLORS[name];
@@ -2903,9 +3000,9 @@ function renderStockZones() {
     for (const pName of uniqueProds) {
       if (!PRODUCTS[pName]) continue;
       const val = STOCK_INI[zName]?.[pName] ?? PRODUCTS[pName]?.minUnidades ?? 0;
-      gridHTML += '<div class="stock-label">' + pName + '</div>' +
-        '<input type="number" value="' + val + '" min="0" step="10" ' +
-        'onchange="updateStockIni(\'' + zName + '\',\'' + pName + '\',parseInt(this.value)||0)">';
+      gridHTML += '<div class="stock-label">' + escapeHTML(pName) + '</div>' +
+        '<input type="number" value="' + val + '" min="0" max="10000" step="10" ' +
+        'onchange="updateStockIni(\'' + safeJSStr(zName) + '\',\'' + safeJSStr(pName) + '\',Math.max(0,Math.min(10000,parseInt(this.value)||0)))">';
     }
 
     const section = document.createElement('div');
@@ -3207,9 +3304,11 @@ function simulate(params) {
     : (params.yearIndustrial ?? 2033);
 
   // PDUC mitigaciones con monto dinámico
-  // Total = mitUFPerViv × 13.900 × 1.19; Nuevo Acceso a Batuco = fijo 550.515
+  // Total = mitUFPerViv × viviendas_PDUC × 1.19; Nuevo Acceso a Batuco = fijo 550.515
   // Mig2 = Mig3 = (total − fijo) / 2
-  const pducTotalMonto  = Math.round(mitUFPerViv * 13900 * 1.19);
+  // Más Vivienda (×1.33) escala las viviendas PDUC → más mitigaciones
+  const vivMultMit       = activeMasVivienda ? 1.33 : 1.0;
+  const pducTotalMonto  = Math.round(mitUFPerViv * 13900 * vivMultMit * 1.19);
   const m2m3Monto       = Math.max(0, Math.round((pducTotalMonto - NUEVO_ACCESO_MONTO) / 2));
   const PDUC_MITS_DYNAMIC = PDUC_MIT_CONFIG.map(c => ({ ...c, monto: m2m3Monto }));
 
@@ -8369,171 +8468,8 @@ function renderFinancialTable(results) {
   html += '</tbody></table>';
   container.innerHTML = html;
 
-  // ── Renderizar tabla de Aportes de Capital ──
-  renderCapitalTable({
-    displayYears, ingByYear, costByYear,
-    sanitIngVals, sanitOpVals, opResultByYear,
-    sanitInvVals, sanitVentaVals, sanitNetByYear,
-    netByYear, tierraTotByYear
-  });
 }
 
-// ────────────────────────────────────────────────────────────
-// TABLA APORTES DE CAPITAL
-// ────────────────────────────────────────────────────────────
-function renderCapitalTable(d) {
-  const container = document.getElementById('capitalTableContainer');
-  if (!container) return;
-
-  // Subtítulo moneda
-  const subEl = document.getElementById('capital-table-subtitle');
-  if (subEl) subEl.textContent = `Valores en ${CURRENCY.mode === 'UF' ? 'UF' : 'USD'}`;
-
-  const { displayYears, ingByYear, costByYear, sanitIngVals, sanitOpVals,
-          opResultByYear, sanitInvVals, sanitVentaVals, sanitNetByYear,
-          netByYear } = d;
-
-  const fmt  = v => v === 0 ? '—' : Math.round(toDisp(v)).toLocaleString('es-CL');
-  const fmtN = v => v === 0 ? '—' : '-' + Math.round(toDisp(Math.abs(v))).toLocaleString('es-CL');
-  const ncols = 2 + displayYears.length;
-
-  // Req. Capital Tierra por año
-  const reqTierraByYear = {};
-  for (const y of displayYears) reqTierraByYear[y] = ingByYear[y] - costByYear[y];
-
-  // Acumulado y cálculo de capital de trabajo
-  const acumByYear = {};
-  let cum = 0, capMin = 0, capMinYear = null, cum2025 = 0;
-  for (const y of displayYears) {
-    cum += netByYear[y] ?? 0;
-    acumByYear[y] = cum;
-    if (cum < capMin) { capMin = cum; capMinYear = y; }
-    if (y <= 2025) cum2025 = cum;
-  }
-  const porGastar = capMin - cum2025;
-
-  // ── Helpers de celdas ──
-  const mixedCell = v => {
-    const cc = v > 0 ? ' class="fin-pos"' : (v < 0 ? ' class="fin-neg"' : '');
-    return `<td${cc}>${fmt(v)}</td>`;
-  };
-  const mixedTotal = v => {
-    const cc = v > 0 ? 'col-total fin-pos' : (v < 0 ? 'col-total fin-neg' : 'col-total');
-    return `<td class="${cc}">${fmt(v)}</td>`;
-  };
-  const costCell = v => {
-    if (v === 0) return '<td>—</td>';
-    return `<td class="fin-neg">${fmtN(v)}</td>`;
-  };
-  const costTotal = v => {
-    if (v === 0) return '<td class="col-total">—</td>';
-    return `<td class="col-total fin-neg">${fmtN(v)}</td>`;
-  };
-  const posCell = v => {
-    if (v === 0) return '<td>—</td>';
-    return `<td class="fin-pos">${fmt(v)}</td>`;
-  };
-  const posTotal = v => {
-    if (v === 0) return '<td class="col-total">—</td>';
-    return `<td class="col-total fin-pos">${fmt(v)}</td>`;
-  };
-
-  const totalOf = obj => displayYears.reduce((s, y) => s + (obj[y] ?? 0), 0);
-
-  // ── Construir HTML ──
-  let h = `<table class="fin-table"><thead><tr><th class="col-label" style="min-width:200px"></th><th class="col-total"></th>`;
-  for (const y of displayYears) h += `<th>${y}</th>`;
-  h += '</tr></thead><tbody>';
-
-  // ── NEGOCIO VENTA TIERRA ──
-  h += `<tr class="fin-section"><td class="col-label" colspan="${ncols}">NEGOCIO VENTA TIERRA</td></tr>`;
-
-  // Ingresos Venta Tierra
-  const ingTotal = totalOf(ingByYear);
-  h += `<tr><td class="col-label" style="padding-left:16px">Ingresos Venta Tierra</td>${posTotal(ingTotal)}`;
-  for (const y of displayYears) h += posCell(ingByYear[y]);
-  h += '</tr>';
-
-  // Costos totales
-  const costTotal_ = totalOf(costByYear);
-  h += `<tr><td class="col-label" style="padding-left:16px">Costos totales</td>${costTotal(costTotal_)}`;
-  for (const y of displayYears) h += costCell(costByYear[y]);
-  h += '</tr>';
-
-  // Requerimiento Capital Tierra
-  const reqTTotal = totalOf(reqTierraByYear);
-  h += `<tr class="fin-subtotal"><td class="col-label" style="font-weight:700">Requerimiento Capital</td>${mixedTotal(reqTTotal)}`;
-  for (const y of displayYears) h += mixedCell(reqTierraByYear[y]);
-  h += '</tr>';
-
-  // ── NEGOCIO SANITARIA ──
-  h += `<tr class="fin-section"><td class="col-label" colspan="${ncols}">NEGOCIO SANITARIA</td></tr>`;
-
-  // Ingresos Operacionales
-  const sIngTotal = totalOf(sanitIngVals);
-  h += `<tr><td class="col-label" style="padding-left:16px">Ingresos Operacionales</td>${posTotal(sIngTotal)}`;
-  for (const y of displayYears) h += posCell(sanitIngVals[y]);
-  h += '</tr>';
-
-  // Egresos Operacionales
-  const sOpTotal = totalOf(sanitOpVals);
-  h += `<tr><td class="col-label" style="padding-left:16px">Egresos Operacionales</td>${costTotal(sOpTotal)}`;
-  for (const y of displayYears) h += costCell(sanitOpVals[y]);
-  h += '</tr>';
-
-  // Margen Operacional
-  const opResTotal = totalOf(opResultByYear);
-  h += `<tr style="font-weight:600"><td class="col-label" style="padding-left:16px;font-weight:700">Margen Operacional</td>${mixedTotal(opResTotal)}`;
-  for (const y of displayYears) h += mixedCell(opResultByYear[y]);
-  h += '</tr>';
-
-  // Inversiones sanitarias
-  const sInvTotal = totalOf(sanitInvVals);
-  h += `<tr><td class="col-label" style="padding-left:16px">Inversiones sanitarias</td>${costTotal(sInvTotal)}`;
-  for (const y of displayYears) h += costCell(sanitInvVals[y]);
-  h += '</tr>';
-
-  // Requerimiento Capital Sanitaria
-  const reqSTotal = totalOf(sanitNetByYear);
-  h += `<tr class="fin-subtotal"><td class="col-label" style="font-weight:700">Requerimiento Capital</td>${mixedTotal(reqSTotal)}`;
-  for (const y of displayYears) h += mixedCell(sanitNetByYear[y]);
-  h += '</tr>';
-
-  // Espaciador
-  h += `<tr class="fin-spacer"><td colspan="${ncols}"></td></tr>`;
-
-  // ── Requerimiento combinado ──
-  const reqCombTotal = totalOf(netByYear);
-  h += `<tr class="fin-net"><td class="col-label" style="font-weight:700">Requerimiento combinado</td>${mixedTotal(reqCombTotal)}`;
-  for (const y of displayYears) h += mixedCell(netByYear[y]);
-  h += '</tr>';
-
-  // Acumulado
-  h += `<tr class="fin-cum"><td class="col-label" style="font-weight:700">Acumulado</td><td class="col-total"></td>`;
-  for (const y of displayYears) {
-    const v = acumByYear[y];
-    const isMin = (y === capMinYear && capMin < 0);
-    const style = isMin ? ' style="background:#fee2e2;font-weight:700"' : '';
-    const cc = v > 0 ? 'fin-pos' : (v < 0 ? 'fin-neg' : '');
-    h += `<td${cc ? ` class="${cc}"` : ''}${style}>${fmt(v)}</td>`;
-  }
-  h += '</tr>';
-
-  // Espaciador
-  h += `<tr class="fin-spacer"><td colspan="${ncols}"></td></tr>`;
-  h += `<tr class="fin-spacer"><td colspan="${ncols}"></td></tr>`;
-
-  // ── Capital de Trabajo / Gastado / Por Gastar ──
-  const cLabel = CURRENCY.mode === 'UF' ? ' UF' : ' USD';
-  const fmtInd = v => v === 0 ? '—' : Math.round(toDisp(v)).toLocaleString('es-CL') + cLabel;
-
-  h += `<tr class="fin-indicator"><td class="col-label">Capital de Trabajo</td><td class="col-total fin-neg">${fmtInd(capMin)}</td><td colspan="${displayYears.length}"></td></tr>`;
-  h += `<tr class="fin-indicator"><td class="col-label">Gastado</td><td class="col-total">${fmtInd(cum2025)}</td><td colspan="${displayYears.length}"></td></tr>`;
-  h += `<tr class="fin-indicator"><td class="col-label">por Gastar</td><td class="col-total" style="background:#fef9c3;font-weight:700">${fmtInd(porGastar)}</td><td colspan="${displayYears.length}"></td></tr>`;
-
-  h += '</tbody></table>';
-  container.innerHTML = h;
-}
 
 // ────────────────────────────────────────────────────────────
 // DESCARGA CSV del flujo financiero
