@@ -19,10 +19,120 @@
       font-family: 'Inter', system-ui, -apple-system, sans-serif;
       background: #f1f5f9;
       color: #1e293b;
+      margin: 0;
+      padding: 0;
+    }
+    #simulator-app {
       display: flex;
       height: 100vh;
       overflow: hidden;
     }
+    #simulator-app.hidden { display: none; }
+
+    /* ══════════════════════════════════════════════════════════
+       LANDING PAGE
+       ══════════════════════════════════════════════════════════ */
+
+    :root {
+      --m-blue: #2B6CB0;
+      --m-blue-dark: #1E4F85;
+      --m-blue-deep: #153E6B;
+      --m-gold: #a89867;
+      --m-gold-light: #c4b58a;
+      --m-dark: #1A1825;
+      --m-text: #39363d;
+      --m-light: #EDF2F7;
+      --m-gray: #9d9c99;
+    }
+
+    #landing-page { background: var(--m-dark); }
+    #landing-page.hidden { display: none; }
+
+    /* ── Hero ── */
+    .lp-hero {
+      min-height: 100vh;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      background: linear-gradient(160deg, var(--m-dark) 0%, #1f1b2e 40%, var(--m-blue-deep) 100%);
+      color: #fff; text-align: center; padding: 60px 24px;
+      position: relative; overflow: hidden;
+    }
+    .lp-hero::before {
+      content: ''; position: absolute; inset: 0;
+      background: radial-gradient(ellipse at 30% 80%, rgba(43,108,176,0.15) 0%, transparent 60%),
+                  radial-gradient(ellipse at 70% 20%, rgba(168,152,103,0.10) 0%, transparent 50%);
+      pointer-events: none;
+    }
+    .lp-hero-logo-svg {
+      width: 72px; height: 72px; margin-bottom: 32px; position: relative;
+    }
+    .lp-hero h1 {
+      font-size: 52px; font-weight: 700; letter-spacing: -1px;
+      line-height: 1.15; margin-bottom: 16px; position: relative;
+      background: linear-gradient(135deg, #fff 60%, var(--m-gold-light));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .lp-hero-tagline {
+      font-size: 18px; color: rgba(255,255,255,0.55); max-width: 520px;
+      line-height: 1.6; margin-bottom: 40px; position: relative; font-weight: 300;
+    }
+
+    /* ── Login ── */
+    .lp-hero-content { display: flex; flex-direction: column; align-items: center; position: relative; margin-bottom: 36px; }
+    .lp-footer-text { position: absolute; bottom: 24px; font-size: 12px; color: rgba(255,255,255,0.2); letter-spacing: 1px; }
+    .lp-login-card {
+      width: 380px; max-width: 100%; background: rgba(255,255,255,0.05);
+      backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+      border-radius: 16px; padding: 36px 32px;
+      border: 1px solid rgba(255,255,255,0.1); position: relative;
+    }
+    .lp-login-title { font-size: 18px; font-weight: 600; color: rgba(255,255,255,0.9); text-align: center; margin-bottom: 24px; }
+    .lp-login-field { margin-bottom: 18px; }
+    .lp-login-label { display: block; font-size: 13px; font-weight: 500; color: rgba(255,255,255,0.5); margin-bottom: 6px; }
+    .lp-login-input {
+      width: 100%; padding: 11px 14px; border: 1.5px solid rgba(255,255,255,0.12); border-radius: 8px;
+      font-family: inherit; font-size: 14px; color: #fff;
+      transition: border-color 0.2s, box-shadow 0.2s; background: rgba(255,255,255,0.06);
+      outline: none; box-sizing: border-box;
+    }
+    .lp-login-input::placeholder { color: rgba(255,255,255,0.25); }
+    .lp-login-input:focus { border-color: var(--m-gold); box-shadow: 0 0 0 3px rgba(168,152,103,0.15); background: rgba(255,255,255,0.08); }
+    .lp-login-btn {
+      width: 100%; padding: 12px; background: var(--m-gold); color: #fff;
+      border: none; border-radius: 8px; font-weight: 600; font-size: 14px;
+      font-family: inherit; cursor: pointer; transition: all 0.2s;
+      margin-top: 6px; box-shadow: 0 4px 20px rgba(168,152,103,0.3);
+    }
+    .lp-login-btn:hover { background: var(--m-gold-light); transform: translateY(-1px); }
+    .lp-login-error {
+      display: none; color: #fca5a5; font-size: 12px; text-align: center;
+      margin-top: 12px; padding: 8px; background: rgba(220,38,38,0.15); border-radius: 6px;
+    }
+    @keyframes lpShake {
+      0%, 100% { transform: translateX(0); }
+      20%, 60% { transform: translateX(-6px); }
+      40%, 80% { transform: translateX(6px); }
+    }
+    .lp-login-shake { animation: lpShake 0.4s ease-in-out; }
+
+
+    /* ── Transitions ── */
+    .lp-fade-out { animation: lpFadeOut 0.45s ease-out forwards; }
+    @keyframes lpFadeOut { to { opacity: 0; transform: translateY(-16px); } }
+    .sim-fade-in { animation: lpSimFadeIn 0.5s ease-out forwards; }
+    @keyframes lpSimFadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+    /* ── Logout btn ── */
+    .logout-btn {
+      padding: 4px 10px; border-radius: 5px; background: transparent;
+      border: 1px solid #e2e8f0; color: #94a3b8; font-size: 10px;
+      font-weight: 500; cursor: pointer; font-family: inherit;
+      transition: all 0.15s; line-height: 1.4;
+    }
+    .logout-btn:hover { background: #fef2f2; border-color: #fca5a5; color: #dc2626; }
+
+    /* ── Smooth scroll ── */
+    html { scroll-behavior: smooth; }
 
     /* ── SIDEBAR ── */
     .sidebar {
@@ -399,6 +509,258 @@
     #policy-prc.active { background: #fef2f2; border-color: #991b1b; color: #991b1b; }
     #policy-prc.active::before { background: #991b1b; }
 
+    /* ── SURFACE MODAL & BUTTON ── */
+    .btn-surface {
+      width: 100%; margin-top: 10px; padding: 7px 12px;
+      font-size: 11px; font-weight: 600; font-family: inherit;
+      color: #475569; background: #f8fafc; border: 1.5px solid #cbd5e1;
+      border-radius: 6px; cursor: pointer; transition: all 0.15s;
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+    }
+    .btn-surface:hover { background: #f1f5f9; border-color: #94a3b8; color: #334155; }
+    .btn-surface.changed {
+      border-color: #f59e0b; color: #d97706; background: #fffbeb;
+    }
+    .btn-surface.changed:hover { background: #fef3c7; }
+    .btn-surface.changed::after {
+      content: '●'; font-size: 8px; color: #f59e0b;
+    }
+
+    .surface-overlay {
+      position: fixed; inset: 0; z-index: 9000;
+      background: rgba(15,23,42,0.7); display: flex;
+      align-items: center; justify-content: center;
+      backdrop-filter: blur(2px);
+    }
+    .surface-modal {
+      background: #fff; border-radius: 12px; width: 92%; max-width: 500px;
+      box-shadow: 0 25px 50px rgba(0,0,0,0.25); overflow: hidden;
+      animation: surfModalIn 0.2s ease-out;
+    }
+    @keyframes surfModalIn {
+      from { opacity: 0; transform: scale(0.95) translateY(10px); }
+      to   { opacity: 1; transform: scale(1) translateY(0); }
+    }
+    .surface-modal-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 18px; background: #0f172a; color: #f8fafc;
+    }
+    .surface-modal-header h3 {
+      font-size: 13px; font-weight: 700; margin: 0; letter-spacing: 0.3px;
+    }
+    .surface-modal-body { padding: 18px 20px 12px; }
+    .surface-modal-footer {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 20px 14px; border-top: 1px solid #e2e8f0;
+    }
+    .surface-ok-btn {
+      padding: 6px 28px; font-size: 12px; font-weight: 600; font-family: inherit;
+      color: #fff; background: #2563eb; border: none; border-radius: 6px;
+      cursor: pointer; transition: background 0.15s;
+    }
+    .surface-ok-btn:hover { background: #1d4ed8; }
+
+    /* ── SURFACE REDISTRIBUTION BARS ── */
+    .surface-pool { margin-bottom: 12px; }
+    .surface-pool-label {
+      font-size: 10px; font-weight: 600; color: #475569;
+      margin-bottom: 5px; display: flex; justify-content: space-between; align-items: center;
+    }
+    .surface-pool-total { color: #94a3b8; font-weight: 400; font-size: 9.5px; }
+    .surface-bar {
+      position: relative; height: 28px; border-radius: 5px;
+      overflow: visible; display: flex; background: #e2e8f0;
+      user-select: none; cursor: default;
+    }
+    .surface-bar-sub { height: 18px; border-radius: 4px; }
+    .surface-seg {
+      height: 100%; display: flex; align-items: center; justify-content: center;
+      font-size: 8.5px; font-weight: 500; color: #fff; overflow: hidden;
+      white-space: nowrap; position: relative; min-width: 0;
+    }
+    .surface-seg:first-child { border-radius: 5px 0 0 5px; }
+    .surface-seg:last-child  { border-radius: 0 5px 5px 0; }
+    .surface-seg:only-child  { border-radius: 5px; }
+    .surface-seg span { pointer-events: none; text-shadow: 0 1px 2px rgba(0,0,0,0.35); }
+    .surface-divider {
+      position: absolute; top: -4px; width: 20px; height: calc(100% + 8px);
+      cursor: col-resize; z-index: 10; display: flex; align-items: center;
+      justify-content: center; transform: translateX(-50%);
+      touch-action: none;
+    }
+    .surface-divider::after {
+      content: '⋮'; font-size: 14px; line-height: 1; color: #fff;
+      width: 14px; height: calc(100% - 2px); border-radius: 3px;
+      background: rgba(30,64,175,0.55); display: flex; align-items: center;
+      justify-content: center; text-shadow: 0 1px 1px rgba(0,0,0,0.3);
+      box-shadow: 0 0 0 2px rgba(255,255,255,0.7);
+      transition: all 0.15s;
+    }
+    .surface-divider:hover::after, .surface-divider.dragging::after {
+      background: #2563eb; box-shadow: 0 0 0 2px #fff, 0 0 8px rgba(37,99,235,0.5);
+      transform: scaleY(1.1);
+    }
+    .surface-hint {
+      font-size: 8.5px; color: #94a3b8; text-align: center; margin: 3px 0 1px;
+      font-style: italic;
+    }
+    .surface-sub { margin-top: 4px; padding-left: 0; }
+    .surface-sub-row {
+      display: flex; align-items: center; gap: 6px; margin-bottom: 3px;
+    }
+    .surface-sub-label {
+      font-size: 9px; color: #64748b; min-width: 62px; text-align: right;
+      flex-shrink: 0;
+    }
+    .surface-sub-bar-wrap { flex: 1; }
+    .surface-reset-btn {
+      font-size: 9.5px; color: #64748b; background: #f1f5f9; border: 1px solid #cbd5e1;
+      border-radius: 4px; padding: 2px 8px; cursor: pointer; font-family: inherit;
+      transition: all 0.15s;
+    }
+    .surface-reset-btn:hover { background: #e2e8f0; color: #334155; }
+    .surface-reset-btn.changed { border-color: #f59e0b; color: #d97706; background: #fffbeb; }
+    .surface-reset-btn.changed:hover { background: #fef3c7; }
+    .surface-tooltip {
+      position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%);
+      background: #1e293b; color: #fff; font-size: 9.5px; padding: 2px 6px;
+      border-radius: 3px; white-space: nowrap; pointer-events: none;
+      z-index: 20; opacity: 0; transition: opacity 0.1s;
+    }
+    .surface-divider:hover .surface-tooltip,
+    .surface-divider.dragging .surface-tooltip { opacity: 1; }
+    /* ══════════════════════════════════════════════════════════
+       PRODUCTOS INMOBILIARIOS MODAL
+       ══════════════════════════════════════════════════════════ */
+
+    /* Boton sidebar */
+    .btn-products {
+      width: 100%; margin-top: 6px; padding: 7px 12px;
+      font-size: 11px; font-weight: 600; font-family: inherit;
+      color: #475569; background: #f8fafc; border: 1.5px solid #cbd5e1;
+      border-radius: 6px; cursor: pointer; transition: all 0.15s;
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+    }
+    .btn-products:hover { background: #f1f5f9; border-color: #94a3b8; color: #334155; }
+    .btn-products.changed { border-color: #f59e0b; color: #d97706; background: #fffbeb; }
+    .btn-products.changed:hover { background: #fef3c7; }
+
+    /* Overlay */
+    .products-overlay {
+      position: fixed; inset: 0; z-index: 9000;
+      background: rgba(15,23,42,0.7); display: flex;
+      align-items: center; justify-content: center;
+      backdrop-filter: blur(2px);
+    }
+    .products-modal {
+      background: #fff; border-radius: 12px; width: 94%; max-width: 880px;
+      max-height: 88vh; display: flex; flex-direction: column;
+      box-shadow: 0 25px 50px rgba(0,0,0,0.25); overflow: hidden;
+      animation: surfModalIn 0.2s ease-out;
+    }
+    .products-modal-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 18px; background: #0f172a; color: #f8fafc; flex-shrink: 0;
+    }
+    .products-modal-header h3 { font-size: 13px; font-weight: 700; margin: 0; letter-spacing: 0.3px; }
+    .products-modal-body { flex: 1; overflow-y: auto; padding: 0; }
+    .products-modal-footer {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 20px 14px; border-top: 1px solid #e2e8f0; flex-shrink: 0;
+    }
+
+    /* Tabs */
+    .prod-tabs {
+      display: flex; border-bottom: 1px solid #e2e8f0; padding: 0 18px;
+      background: #f8fafc; flex-shrink: 0;
+    }
+    .prod-tab {
+      padding: 10px 16px; font-size: 11px; font-weight: 600;
+      color: #64748b; cursor: pointer; border: none; background: none;
+      border-bottom: 2px solid transparent; font-family: inherit;
+      transition: all 0.15s;
+    }
+    .prod-tab:hover { color: #334155; }
+    .prod-tab.active { color: #2563eb; border-bottom-color: #2563eb; }
+    .prod-tab-content { display: none; padding: 16px 20px; }
+    .prod-tab-content.active { display: block; }
+    #tab-products { padding: 10px 14px; }
+
+    /* Tabla de productos */
+    .prod-table { width: 100%; border-collapse: collapse; font-size: 11px; table-layout: fixed; }
+    .prod-table thead th {
+      text-align: left; padding: 7px 6px; font-size: 9px; font-weight: 600;
+      color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px;
+      border-bottom: 2px solid #e2e8f0; white-space: nowrap; vertical-align: bottom;
+    }
+    .prod-table tbody td {
+      padding: 5px 6px; border-bottom: 1px solid #f1f5f9; vertical-align: middle;
+    }
+    .prod-table tbody tr:hover { background: #f8fafc; }
+    .prod-name-cell { display: flex; align-items: center; gap: 6px; font-weight: 500; }
+    .prod-color-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .prod-table input[type="number"], .prod-table input[type="text"] {
+      width: 100%; padding: 5px 6px; border: 1px solid #e2e8f0;
+      border-radius: 4px; font-size: 11px; font-family: inherit;
+      color: #0f172a; background: #fff; outline: none; text-align: right;
+      transition: border-color 0.15s; box-sizing: border-box;
+    }
+    .prod-table input[type="text"] { text-align: left; }
+    .prod-table input:focus { border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,0.1); }
+    .prod-table select {
+      width: 100%; padding: 5px 4px; border: 1px solid #e2e8f0; border-radius: 4px;
+      font-size: 10px; font-family: inherit; color: #0f172a; background: #fff;
+      cursor: pointer; box-sizing: border-box;
+    }
+    .btn-del-row {
+      background: none; border: none; color: #cbd5e1; cursor: pointer;
+      font-size: 14px; padding: 2px 4px; transition: color 0.15s; line-height: 1;
+    }
+    .btn-del-row:hover { color: #ef4444; }
+    .btn-add-product {
+      padding: 6px 16px; font-size: 11px; font-weight: 600; font-family: inherit;
+      color: #2563eb; background: #eff6ff; border: 1.5px dashed #93c5fd;
+      border-radius: 6px; cursor: pointer; transition: all 0.15s;
+    }
+    .btn-add-product:hover { background: #dbeafe; border-color: #60a5fa; }
+
+    /* Stock por zona */
+    .stock-zones-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 24px; }
+    .stock-zone-section { margin-bottom: 14px; }
+    .stock-zone-title {
+      font-size: 11px; font-weight: 600; color: #334155;
+      margin-bottom: 6px; display: flex; align-items: center; gap: 6px;
+      padding-bottom: 4px; border-bottom: 1px solid #e2e8f0;
+    }
+    .stock-zone-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .stock-grid {
+      display: grid; grid-template-columns: 1fr 72px; gap: 3px 10px;
+      align-items: center; font-size: 11px;
+    }
+    .stock-label { color: #64748b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .stock-grid input {
+      padding: 4px 6px; border: 1px solid #e2e8f0; border-radius: 4px;
+      font-size: 11px; font-family: inherit; text-align: right;
+      color: #0f172a; background: #fff; outline: none; box-sizing: border-box;
+    }
+    .stock-grid input:focus { border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,0.1); }
+
+    /* Mix de familias */
+    .family-mix-section { margin-bottom: 22px; }
+    .family-mix-title {
+      font-size: 12px; font-weight: 600; color: #334155;
+      margin-bottom: 8px; display: flex; align-items: center;
+      justify-content: space-between;
+    }
+    .family-mix-zone-label { display: flex; align-items: center; gap: 6px; }
+    .family-mix-total { font-size: 10px; color: #94a3b8; font-weight: 400; }
+    .family-mix-legend {
+      display: flex; gap: 16px; margin-top: 8px; font-size: 10px; color: #64748b;
+    }
+    .family-mix-legend-item { display: flex; align-items: center; gap: 5px; }
+    .family-mix-legend-dot { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
+
+
     .crisis-cycle-wrap {
       display: inline-flex; align-items: center; gap: 4px;
       opacity: 0.35; pointer-events: none; transition: opacity 0.15s;
@@ -681,13 +1043,57 @@
 </head>
 <body>
 
+<!-- ═══════════════════════════════════════════════════════════
+     LANDING PAGE
+     ═══════════════════════════════════════════════════════════ -->
+<div id="landing-page">
+  <section class="lp-hero">
+    <div class="lp-hero-content">
+      <svg class="lp-hero-logo-svg" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="1" y="1" width="98" height="98" rx="4" stroke="rgba(255,255,255,0.3)" stroke-width="2"/>
+        <text fill="white" font-family="Inter, system-ui, sans-serif" font-weight="700" font-size="26" letter-spacing="2">
+          <tspan x="12" y="38">MO</tspan>
+          <tspan x="12" y="63">DE</tspan>
+          <tspan x="12" y="88">LA</tspan>
+        </text>
+      </svg>
+      <h1>Simulador Inmobiliario</h1>
+      <p class="lp-hero-tagline">Plataforma de modelacion financiera para desarrollo territorial</p>
+    </div>
+    <div class="lp-login-card">
+      <h2 class="lp-login-title">Iniciar Sesion</h2>
+      <form id="login-form" onsubmit="handleLogin(event)">
+        <div class="lp-login-field">
+          <label class="lp-login-label">Usuario</label>
+          <input type="text" id="login-user" class="lp-login-input" placeholder="Ingresa tu usuario" autocomplete="username">
+        </div>
+        <div class="lp-login-field">
+          <label class="lp-login-label">Contrasena</label>
+          <input type="password" id="login-pass" class="lp-login-input" placeholder="Ingresa tu contrasena" autocomplete="current-password">
+        </div>
+        <div class="lp-login-error" id="login-error">Usuario o contrasena incorrectos</div>
+        <button type="submit" class="lp-login-btn">Entrar</button>
+      </form>
+    </div>
+    <div class="lp-footer-text">Modela &copy; 2026</div>
+  </section>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     SIMULATOR APP
+     ═══════════════════════════════════════════════════════════ -->
+<div id="simulator-app" class="hidden">
+
 <!-- SIDEBAR -->
 <div class="sidebar">
   <div>
     <div class="brand">
       <img src="data:image/jpeg;base64,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" alt="Modela">
     </div>
-    <div class="brand-sub" style="margin-top:4px">Simulador Inmobiliario</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-top:4px">
+      <div class="brand-sub">Simulador Inmobiliario</div>
+      <button class="logout-btn" onclick="handleLogout()" title="Cerrar sesion">Salir</button>
+    </div>
     <!-- Selector de moneda -->
     <div class="currency-wrap">
       <div class="curr-toggle">
@@ -702,6 +1108,8 @@
         </div>
       </div>
     </div>
+    <button class="btn-products" id="btnProducts" onclick="openProductsModal()">Productos Inmobiliarios</button>
+    <button class="btn-surface" id="btnSurface" onclick="openSurfaceModal()">Modificar superficies</button>
   </div>
 
   <div class="divider"></div>
@@ -1033,6 +1441,134 @@
       <div class="un-info-panel" id="un-info-panel">
         <div class="un-info-panel-empty">Selecciona un segmento<br>para ver sus datos</div>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal Superficie ── -->
+<div id="surface-overlay" class="surface-overlay" style="display:none" onclick="if(event.target===this)closeSurfaceModal()">
+  <div class="surface-modal">
+    <div class="surface-modal-header">
+      <h3>Configuracion de Superficie</h3>
+      <button class="un-close" onclick="closeSurfaceModal()">&#10005;</button>
+    </div>
+    <div class="surface-modal-body">
+      <div class="surface-hint" style="margin-bottom:10px">Arrastra los separadores ⋮ para redistribuir hectareas entre zonas</div>
+
+      <!-- PDUC Pool -->
+      <div class="surface-pool">
+        <div class="surface-pool-label">
+          PDUC <span class="surface-pool-total" id="pduc-pool-total">323.72 Ha</span>
+        </div>
+        <div class="surface-bar" id="bar-pduc-main"></div>
+        <div class="surface-sub" id="sub-pduc-g">
+          <div class="surface-sub-row">
+            <div class="surface-sub-label">Distrito G</div>
+            <div class="surface-sub-bar-wrap">
+              <div class="surface-bar surface-bar-sub" id="bar-pduc-g"></div>
+            </div>
+          </div>
+        </div>
+        <div class="surface-sub" id="sub-pduc-d40">
+          <div class="surface-sub-row">
+            <div class="surface-sub-label">Distrito 4.0</div>
+            <div class="surface-sub-bar-wrap">
+              <div class="surface-bar surface-bar-sub" id="bar-pduc-d40"></div>
+            </div>
+          </div>
+        </div>
+        <div class="surface-sub" id="sub-pduc-ind">
+          <div class="surface-sub-row">
+            <div class="surface-sub-label">Industrial</div>
+            <div class="surface-sub-bar-wrap">
+              <div class="surface-bar surface-bar-sub" id="bar-pduc-ind"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- AUDP Pool -->
+      <div class="surface-pool">
+        <div class="surface-pool-label">
+          AUDP <span class="surface-pool-total" id="audp-pool-total">52.15 Ha</span>
+        </div>
+        <div class="surface-bar" id="bar-audp-main"></div>
+        <div class="surface-sub" id="sub-audp-bat">
+          <div class="surface-sub-row">
+            <div class="surface-sub-label">Batuco</div>
+            <div class="surface-sub-bar-wrap">
+              <div class="surface-bar surface-bar-sub" id="bar-audp-bat"></div>
+            </div>
+          </div>
+        </div>
+        <div class="surface-sub" id="sub-audp-col">
+          <div class="surface-sub-row">
+            <div class="surface-sub-label">Colina</div>
+            <div class="surface-sub-bar-wrap">
+              <div class="surface-bar surface-bar-sub" id="bar-audp-col"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="surface-modal-footer">
+      <button class="surface-reset-btn" id="surfaceResetBtn" onclick="resetSurfaceConfig()">Restablecer</button>
+      <button class="surface-ok-btn" onclick="closeSurfaceModal()">OK</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL PRODUCTOS INMOBILIARIOS -->
+<div id="products-overlay" class="products-overlay" style="display:none"
+     onclick="if(event.target===this)closeProductsModal()">
+  <div class="products-modal">
+    <div class="products-modal-header">
+      <h3>Productos Inmobiliarios</h3>
+      <button class="un-close" onclick="closeProductsModal()">&#10005;</button>
+    </div>
+    <div class="prod-tabs">
+      <button class="prod-tab active" data-tab="tab-products" onclick="switchProductTab(this)">Productos</button>
+      <button class="prod-tab" data-tab="tab-stock" onclick="switchProductTab(this)">Stock por Zona</button>
+      <button class="prod-tab" data-tab="tab-family-mix" onclick="switchProductTab(this)">Mix de Familias</button>
+    </div>
+    <div class="products-modal-body">
+      <div class="prod-tab-content active" id="tab-products">
+        <table class="prod-table">
+          <thead>
+            <tr>
+              <th style="min-width:110px">Producto</th>
+              <th style="width:80px;text-align:right">Ticket (UF)</th>
+              <th style="width:80px;text-align:right">Vel. Venta<br><span style="font-weight:400;text-transform:none;letter-spacing:0;color:#b0b8c4">(Un/mes)</span></th>
+              <th style="width:74px;text-align:right">Incidencia<br><span style="font-weight:400;text-transform:none;letter-spacing:0;color:#b0b8c4">(%)</span></th>
+              <th style="width:80px;text-align:right">Eficiencia<br><span style="font-weight:400;text-transform:none;letter-spacing:0;color:#b0b8c4">(Un/Ha)</span></th>
+              <th style="width:68px;text-align:right">Min. Uds</th>
+              <th style="width:88px;text-align:center">Familia</th>
+              <th style="width:95px;text-align:center">Siguiente</th>
+              <th style="width:28px"></th>
+            </tr>
+          </thead>
+          <tbody id="prod-table-body"></tbody>
+        </table>
+        <div style="margin-top:10px">
+          <button class="btn-add-product" onclick="addNewProduct()">+ Agregar Producto</button>
+        </div>
+      </div>
+      <div class="prod-tab-content" id="tab-stock">
+        <div id="stock-zones-container" class="stock-zones-grid"></div>
+      </div>
+      <div class="prod-tab-content" id="tab-family-mix">
+        <p style="font-size:11px;color:#64748b;margin:0 0 14px">Arrastra los separadores para redistribuir el cupo maximo de viviendas entre familias por zona</p>
+        <div id="family-mix-container"></div>
+        <div class="family-mix-legend" style="margin-top:16px">
+          <div class="family-mix-legend-item"><div class="family-mix-legend-dot" style="background:#60a5fa"></div>DS19</div>
+          <div class="family-mix-legend-item"><div class="family-mix-legend-dot" style="background:#9ca3af"></div>Unifamiliar</div>
+          <div class="family-mix-legend-item"><div class="family-mix-legend-dot" style="background:#34d399"></div>Edificios</div>
+        </div>
+      </div>
+    </div>
+    <div class="products-modal-footer">
+      <button class="surface-reset-btn" id="productsResetBtn" onclick="resetProductsConfig()">Restablecer</button>
+      <button class="surface-ok-btn" onclick="closeProductsModal()">OK</button>
     </div>
   </div>
 </div>
@@ -1437,7 +1973,95 @@
   <div class="loading-spinner"></div>
 </div>
 
+</div><!-- cierre #simulator-app -->
+
 <script>
+// ════════════════════════════════════════════════════════════
+// AUTH — Credenciales & session management
+// ════════════════════════════════════════════════════════════
+
+const AUTH_USERS = {
+  'admin':    { password: 'modela2026', name: 'Administrador' },
+  'demo':     { password: 'demo',       name: 'Demo' },
+};
+
+function isAuthenticated() {
+  return sessionStorage.getItem('modela_auth') === 'true';
+}
+
+function handleLogin(evt) {
+  evt.preventDefault();
+  const user = document.getElementById('login-user').value.trim().toLowerCase();
+  const pass = document.getElementById('login-pass').value;
+  const errorEl = document.getElementById('login-error');
+
+  if (AUTH_USERS[user] && AUTH_USERS[user].password === pass) {
+    sessionStorage.setItem('modela_auth', 'true');
+    sessionStorage.setItem('modela_user', AUTH_USERS[user].name);
+    errorEl.style.display = 'none';
+    transitionToSimulator();
+  } else {
+    errorEl.style.display = 'block';
+    const card = document.querySelector('.lp-login-card');
+    card.classList.add('lp-login-shake');
+    setTimeout(() => card.classList.remove('lp-login-shake'), 450);
+  }
+}
+
+function handleLogout() {
+  sessionStorage.removeItem('modela_auth');
+  sessionStorage.removeItem('modela_user');
+  const sim = document.getElementById('simulator-app');
+  const lp  = document.getElementById('landing-page');
+  sim.classList.add('hidden');
+  sim.style.display = '';
+  lp.classList.remove('hidden');
+  lp.style.display = '';
+  window.scrollTo(0, 0);
+  document.getElementById('login-user').value = '';
+  document.getElementById('login-pass').value = '';
+  document.getElementById('login-error').style.display = 'none';
+}
+
+let _simInitialized = false;
+
+function transitionToSimulator() {
+  const lp  = document.getElementById('landing-page');
+  const sim = document.getElementById('simulator-app');
+
+  lp.classList.add('lp-fade-out');
+
+  setTimeout(() => {
+    lp.style.display = 'none';
+    lp.classList.add('hidden');
+    lp.classList.remove('lp-fade-out');
+
+    sim.classList.remove('hidden');
+    sim.classList.add('sim-fade-in');
+
+    if (!_simInitialized) {
+      _simInitialized = true;
+      if (typeof runAndRender === 'function') runAndRender();
+    }
+
+    setTimeout(() => sim.classList.remove('sim-fade-in'), 550);
+  }, 450);
+}
+
+// Check session on load
+(function checkAuthOnLoad() {
+  if (isAuthenticated()) {
+    const lp  = document.getElementById('landing-page');
+    const sim = document.getElementById('simulator-app');
+    lp.style.display = 'none';
+    lp.classList.add('hidden');
+    sim.classList.remove('hidden');
+    _simInitialized = true;  // will run via normal init path
+  }
+})();
+
+
+
 // ════════════════════════════════════════════════════════════
 // DATA CONSTANTS
 // ════════════════════════════════════════════════════════════
@@ -1459,7 +2083,8 @@ const PRODUCTS = {
 // Deptos en PDUC (Distrito G, Distrito 4.0) usan 180 u/ha; en AUDP quedan en 145.
 function getZoneEficiencia(pName, zName) {
   const base = PRODUCTS[pName]?.eficiencia ?? 0;
-  if (pName.startsWith('Deptos ') && (zName === 'Distrito G' || zName === 'Distrito 4.0')) return 190;
+  const fam = getFamily(pName);
+  if (fam === 'depto' && (zName === 'Distrito G' || zName === 'Distrito 4.0')) return 190;
   return base;
 }
 
@@ -1535,9 +2160,9 @@ const STOCK_INI = {
 const MAX_GLOBAL_OPS = 25;  // Tope combinado de operadores PDUC (Distrito G + 4.0)
 
 // ── INDUSTRIAL LOTS ──
-const IND_HA_TOTAL    = 112.56;
-const IND_MENOR_HA    = 35;                           // Logística Menor: 35 Ha fijas
-const IND_MAYOR_HA    = IND_HA_TOTAL - IND_MENOR_HA;  // Logística Mayor: 77.56 Ha (+ Más Industria)
+let IND_HA_TOTAL    = 112.56;
+let IND_MENOR_HA    = 35;                           // Logística Menor: 35 Ha fijas
+let IND_MAYOR_HA    = IND_HA_TOTAL - IND_MENOR_HA;  // Logística Mayor: 77.56 Ha (+ Más Industria)
 const indMenorPriceUFHa = 30000;  // 3.0 UF/m² × 10,000 m²/Ha
 const indMayorPriceUFHa = 45000;  // 4.5 UF/m² × 10,000 m²/Ha
 // Cada escenario tiene su duración, punto de inflexión (t0Factor) y curvatura (kFactor)
@@ -1552,7 +2177,7 @@ const IND_SCENARIO_PARAMS = {
 
 // ── COMMERCIAL AREAS ──
 // Hectáreas comerciales por zona (complementarias al uso residencial)
-const COMM_HA = {
+let COMM_HA = {
   'AUDP Batuco':  6.94,
   'AUDP Colina':  5.23,
   'Distrito G':   9.66,
@@ -1573,7 +2198,7 @@ const COMM_COLORS = {
 };
 
 // Otros usos Distrito 4.0 — mitad de ha total, venta a los 7 años del inicio
-const OTROS_HA     = { 'Distrito 4.0': 29.03 };
+let OTROS_HA     = { 'Distrito 4.0': 29.03 };
 const OTROS_OFFSET = 7;
 const OTROS_COLOR  = '#991b1b';  // rojo oscuro
 
@@ -1668,9 +2293,9 @@ const FACTIBILIZACION = {
   },
 };
 // Shares por Ha desarrollables (fijos, independiente de qué zonas estén activas)
-const AUDP_HA_TOTAL = 23.45 + 28.70;                         // 52.15 (Batuco:23.45 + Colina:28.70)
-const PDUC_HA_TOTAL = 157.70 + 53.46 + IND_HA_TOTAL;         // 323.72 (G:157.70 + 4.0:53.46 + IND:112.56)
-const FACT_SHARE = {
+let AUDP_HA_TOTAL = 23.45 + 28.70;                         // 52.15 (Batuco:23.45 + Colina:28.70)
+let PDUC_HA_TOTAL = 157.70 + 53.46 + IND_HA_TOTAL;         // 323.72 (G:157.70 + 4.0:53.46 + IND:112.56)
+let FACT_SHARE = {
   'AUDP Batuco': 23.45    / AUDP_HA_TOTAL,
   'AUDP Colina': 28.70    / AUDP_HA_TOTAL,
   'Distrito G':  157.70   / PDUC_HA_TOTAL,
@@ -1724,9 +2349,762 @@ const ZONE_FAMILY_MAX = {
 };
 
 function getFamily(pName) {
+  if (PRODUCTS[pName]?.family) return PRODUCTS[pName].family;
   if (pName.startsWith('Casas') || pName.startsWith('Townhouses')) return 'unifam';
   if (pName.startsWith('DS19'))                                     return 'ds19';
   return 'depto';
+}
+
+// ════════════════════════════════════════════════════════════
+// PRODUCTOS: SNAPSHOTS DE DEFAULTS (para Restablecer)
+// ════════════════════════════════════════════════════════════
+const PRODUCTS_DEFAULTS = JSON.parse(JSON.stringify(PRODUCTS));
+const STOCK_INI_DEFAULTS = JSON.parse(JSON.stringify(STOCK_INI));
+const ZONE_FAMILY_MAX_DEFAULTS = JSON.parse(JSON.stringify(ZONE_FAMILY_MAX));
+const PROD_ORDER_DEFAULTS = [...PROD_ORDER];
+const PROD_COLORS_DEFAULTS = JSON.parse(JSON.stringify(PRODUCT_COLORS));
+
+// ════════════════════════════════════════════════════════════
+// SUPERFICIE CONFIGURABLE (redistribucion interactiva)
+// ════════════════════════════════════════════════════════════
+const SURFACE_DEFAULTS = Object.freeze({
+  pduc: Object.freeze({
+    distritoG:  Object.freeze({ total: 157.70, resid: 148.04, comm: 9.66 }),
+    distrito40: Object.freeze({ total: 53.46,  resid: 24.43,  otros: 29.03 }),
+    industrial: Object.freeze({ total: 112.56, menor: 35.00,  mayor: 77.56 }),
+  }),
+  audp: Object.freeze({
+    batuco: Object.freeze({ total: 23.45, resid: 16.51, comm: 6.94 }),
+    colina: Object.freeze({ total: 28.70, resid: 23.47, comm: 5.23 }),
+  }),
+  origMaxViv: Object.freeze({
+    'AUDP Batuco': 2011, 'AUDP Colina': 2696,
+    'Distrito G': 10425, 'Distrito 4.0': 3475,
+  }),
+  origHa: Object.freeze({
+    'AUDP Batuco': 16.51, 'AUDP Colina': 23.47,
+    'Distrito G': 148.04, 'Distrito 4.0': 24.43,
+  }),
+  origFamilyMax: Object.freeze({
+    'AUDP Batuco':  Object.freeze({ unifam: 250,  ds19: 600,  depto: 1161 }),
+    'AUDP Colina':  Object.freeze({ unifam: 390,  ds19: 600,  depto: 1706 }),
+    'Distrito G':   Object.freeze({ unifam: 3224, ds19: 3993, depto: 3208 }),
+    'Distrito 4.0': Object.freeze({ unifam: 0,    ds19: 0,    depto: 3475 }),
+  }),
+});
+
+const PDUC_POOL = 323.72;
+const AUDP_POOL = 52.15;
+
+let surfaceConfig = JSON.parse(JSON.stringify(SURFACE_DEFAULTS));
+
+function applySurfaceConfig() {
+  const cfg = surfaceConfig;
+
+  // -- Residencial ha y maxViviendas --
+  const zoneMap = {
+    'AUDP Batuco':  cfg.audp.batuco.resid,
+    'AUDP Colina':  cfg.audp.colina.resid,
+    'Distrito G':   cfg.pduc.distritoG.resid,
+    'Distrito 4.0': cfg.pduc.distrito40.resid,
+  };
+  for (const [zName, newHa] of Object.entries(zoneMap)) {
+    const origHa = SURFACE_DEFAULTS.origHa[zName];
+    const ratio  = origHa > 0 ? newHa / origHa : 0;
+    ZONAS_DEF[zName].ha = newHa;
+    ZONAS_DEF[zName].maxViviendas = Math.round(SURFACE_DEFAULTS.origMaxViv[zName] * ratio);
+    const origFam = SURFACE_DEFAULTS.origFamilyMax[zName];
+    ZONE_FAMILY_MAX[zName] = {
+      unifam: Math.round(origFam.unifam * ratio),
+      ds19:   Math.round(origFam.ds19   * ratio),
+      depto:  Math.round(origFam.depto  * ratio),
+    };
+  }
+
+  // -- Comercial --
+  COMM_HA['AUDP Batuco'] = cfg.audp.batuco.comm;
+  COMM_HA['AUDP Colina'] = cfg.audp.colina.comm;
+  COMM_HA['Distrito G']  = cfg.pduc.distritoG.comm;
+
+  // -- Otros usos --
+  OTROS_HA['Distrito 4.0'] = cfg.pduc.distrito40.otros;
+
+  // -- Industrial --
+  IND_HA_TOTAL = cfg.pduc.industrial.total;
+  IND_MENOR_HA = cfg.pduc.industrial.menor;
+  IND_MAYOR_HA = cfg.pduc.industrial.mayor;
+
+  // -- Totales de pool y shares de factibilizacion --
+  AUDP_HA_TOTAL = cfg.audp.batuco.total + cfg.audp.colina.total;
+  PDUC_HA_TOTAL = cfg.pduc.distritoG.total + cfg.pduc.distrito40.total + cfg.pduc.industrial.total;
+
+  FACT_SHARE = {
+    'AUDP Batuco':  cfg.audp.batuco.total  / AUDP_HA_TOTAL,
+    'AUDP Colina':  cfg.audp.colina.total  / AUDP_HA_TOTAL,
+    'Distrito G':   cfg.pduc.distritoG.total  / PDUC_HA_TOTAL,
+    'Distrito 4.0': cfg.pduc.distrito40.total / PDUC_HA_TOTAL,
+    'Industrial':   cfg.pduc.industrial.total / PDUC_HA_TOTAL,
+  };
+}
+
+function resetSurfaceConfig() {
+  surfaceConfig = JSON.parse(JSON.stringify(SURFACE_DEFAULTS));
+  renderAllSurfaceBars();
+  updateResetBtnState();
+}
+
+function updateResetBtnState() {
+  const changed = JSON.stringify(surfaceConfig.pduc) !== JSON.stringify(SURFACE_DEFAULTS.pduc) ||
+                  JSON.stringify(surfaceConfig.audp) !== JSON.stringify(SURFACE_DEFAULTS.audp);
+  // Boton reset dentro del modal
+  const btn = document.getElementById('surfaceResetBtn');
+  if (btn) {
+    btn.classList.toggle('changed', changed);
+    btn.textContent = changed ? 'Restablecer *' : 'Restablecer';
+  }
+  // Boton sidebar
+  const sideBtn = document.getElementById('btnSurface');
+  if (sideBtn) sideBtn.classList.toggle('changed', changed);
+}
+
+function openSurfaceModal() {
+  const overlay = document.getElementById('surface-overlay');
+  overlay.style.display = 'flex';
+  renderAllSurfaceBars();
+  // Guardar snapshot para cancelar si se necesita
+  window._surfaceSnapshot = JSON.parse(JSON.stringify(surfaceConfig));
+}
+
+function closeSurfaceModal() {
+  document.getElementById('surface-overlay').style.display = 'none';
+  runAndRender();
+  updateResetBtnState();
+}
+
+// Cerrar con Esc
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') {
+    if (document.getElementById('products-overlay').style.display === 'flex') {
+      closeProductsModal();
+    } else if (document.getElementById('surface-overlay').style.display === 'flex') {
+      closeSurfaceModal();
+    }
+  }
+});
+
+// ── SURFACE BAR RENDERING & DRAG LOGIC ──
+
+const SURFACE_COLORS = {
+  'Distrito G':   '#3b82f6',
+  'Distrito 4.0': '#8b5cf6',
+  'Industrial':   '#f59e0b',
+  'Batuco':       '#10b981',
+  'Colina':       '#06b6d4',
+  'resid':   '#3b82f6',
+  'comm':    '#f97316',
+  'otros':   '#a855f7',
+  'menor':   '#eab308',
+  'mayor':   '#d97706',
+  'residB':  '#10b981',
+  'commB':   '#f97316',
+  'residC':  '#06b6d4',
+  'commC':   '#f97316',
+};
+
+/* Configuracion de cada barra: barId, pool total, segmentos y getter/setter en surfaceConfig */
+function getBarConfigs() {
+  const cfg = surfaceConfig;
+  return [
+    {
+      id: 'bar-pduc-main', pool: PDUC_POOL, minSeg: 5,
+      segs: [
+        { key:'Distrito G',   color: SURFACE_COLORS['Distrito G'],   get val(){ return cfg.pduc.distritoG.total; },  set val(v){ cfg.pduc.distritoG.total = v; } },
+        { key:'Distrito 4.0', color: SURFACE_COLORS['Distrito 4.0'], get val(){ return cfg.pduc.distrito40.total; }, set val(v){ cfg.pduc.distrito40.total = v; } },
+        { key:'Industrial',   color: SURFACE_COLORS['Industrial'],   get val(){ return cfg.pduc.industrial.total; }, set val(v){ cfg.pduc.industrial.total = v; } },
+      ],
+      onMove: redistributePduc,
+    },
+    {
+      id: 'bar-pduc-g', pool: null, minSeg: 1,
+      getPool(){ return cfg.pduc.distritoG.total; },
+      segs: [
+        { key:'Residencial', color:'#3b82f6', get val(){ return cfg.pduc.distritoG.resid; }, set val(v){ cfg.pduc.distritoG.resid = v; } },
+        { key:'Comercial',   color:'#f97316', get val(){ return cfg.pduc.distritoG.comm; },  set val(v){ cfg.pduc.distritoG.comm = v; } },
+      ],
+    },
+    {
+      id: 'bar-pduc-d40', pool: null, minSeg: 1,
+      getPool(){ return cfg.pduc.distrito40.total; },
+      segs: [
+        { key:'Residencial', color:'#8b5cf6', get val(){ return cfg.pduc.distrito40.resid; }, set val(v){ cfg.pduc.distrito40.resid = v; } },
+        { key:'Otros Usos',  color:'#a855f7', get val(){ return cfg.pduc.distrito40.otros; }, set val(v){ cfg.pduc.distrito40.otros = v; } },
+      ],
+    },
+    {
+      id: 'bar-pduc-ind', pool: null, minSeg: 1,
+      getPool(){ return cfg.pduc.industrial.total; },
+      segs: [
+        { key:'Menor',  color:'#eab308', get val(){ return cfg.pduc.industrial.menor; }, set val(v){ cfg.pduc.industrial.menor = v; } },
+        { key:'Mayor',  color:'#d97706', get val(){ return cfg.pduc.industrial.mayor; }, set val(v){ cfg.pduc.industrial.mayor = v; } },
+      ],
+    },
+    {
+      id: 'bar-audp-main', pool: AUDP_POOL, minSeg: 5,
+      segs: [
+        { key:'Batuco', color: SURFACE_COLORS['Batuco'], get val(){ return cfg.audp.batuco.total; }, set val(v){ cfg.audp.batuco.total = v; } },
+        { key:'Colina', color: SURFACE_COLORS['Colina'], get val(){ return cfg.audp.colina.total; }, set val(v){ cfg.audp.colina.total = v; } },
+      ],
+      onMove: redistributeAudp,
+    },
+    {
+      id: 'bar-audp-bat', pool: null, minSeg: 1,
+      getPool(){ return cfg.audp.batuco.total; },
+      segs: [
+        { key:'Residencial', color:'#10b981', get val(){ return cfg.audp.batuco.resid; }, set val(v){ cfg.audp.batuco.resid = v; } },
+        { key:'Comercial',   color:'#f97316', get val(){ return cfg.audp.batuco.comm; },  set val(v){ cfg.audp.batuco.comm = v; } },
+      ],
+    },
+    {
+      id: 'bar-audp-col', pool: null, minSeg: 1,
+      getPool(){ return cfg.audp.colina.total; },
+      segs: [
+        { key:'Residencial', color:'#06b6d4', get val(){ return cfg.audp.colina.resid; }, set val(v){ cfg.audp.colina.resid = v; } },
+        { key:'Comercial',   color:'#f97316', get val(){ return cfg.audp.colina.comm; },  set val(v){ cfg.audp.colina.comm = v; } },
+      ],
+    },
+  ];
+}
+
+/* Cuando se mueve un divisor en la barra principal PDUC, redistribuir sub-asignaciones proporcionalmente */
+function redistributePduc() {
+  const cfg = surfaceConfig;
+  const def = SURFACE_DEFAULTS;
+  // Distrito G subs
+  const gRatio = cfg.pduc.distritoG.total / def.pduc.distritoG.total;
+  cfg.pduc.distritoG.resid = +(def.pduc.distritoG.resid * gRatio).toFixed(2);
+  cfg.pduc.distritoG.comm  = +(cfg.pduc.distritoG.total - cfg.pduc.distritoG.resid).toFixed(2);
+  // Distrito 4.0 subs
+  const d4Ratio = cfg.pduc.distrito40.total / def.pduc.distrito40.total;
+  cfg.pduc.distrito40.resid = +(def.pduc.distrito40.resid * d4Ratio).toFixed(2);
+  cfg.pduc.distrito40.otros = +(cfg.pduc.distrito40.total - cfg.pduc.distrito40.resid).toFixed(2);
+  // Industrial subs
+  const indRatio = cfg.pduc.industrial.total / def.pduc.industrial.total;
+  cfg.pduc.industrial.menor = +(def.pduc.industrial.menor * indRatio).toFixed(2);
+  cfg.pduc.industrial.mayor = +(cfg.pduc.industrial.total - cfg.pduc.industrial.menor).toFixed(2);
+}
+
+function redistributeAudp() {
+  const cfg = surfaceConfig;
+  const def = SURFACE_DEFAULTS;
+  const bRatio = cfg.audp.batuco.total / def.audp.batuco.total;
+  cfg.audp.batuco.resid = +(def.audp.batuco.resid * bRatio).toFixed(2);
+  cfg.audp.batuco.comm  = +(cfg.audp.batuco.total - cfg.audp.batuco.resid).toFixed(2);
+  const cRatio = cfg.audp.colina.total / def.audp.colina.total;
+  cfg.audp.colina.resid = +(def.audp.colina.resid * cRatio).toFixed(2);
+  cfg.audp.colina.comm  = +(cfg.audp.colina.total - cfg.audp.colina.resid).toFixed(2);
+}
+
+function renderSurfaceBar(barCfg) {
+  const el = document.getElementById(barCfg.id);
+  if (!el) return;
+  const pool = barCfg.pool || (barCfg.getPool ? barCfg.getPool() : 0);
+  el.innerHTML = '';
+  const segs = barCfg.segs;
+  segs.forEach((seg, i) => {
+    const pct = pool > 0 ? (seg.val / pool) * 100 : 0;
+    const div = document.createElement('div');
+    div.className = 'surface-seg';
+    div.style.width = pct + '%';
+    div.style.background = seg.color;
+    div.innerHTML = '<span>' + seg.key + ' ' + seg.val.toFixed(1) + '</span>';
+    el.appendChild(div);
+
+    // Divisor entre segmentos (no despues del ultimo)
+    if (i < segs.length - 1) {
+      const divider = document.createElement('div');
+      divider.className = 'surface-divider';
+      // posicionar: sumar % de segmentos 0..i
+      let leftPct = 0;
+      for (let j = 0; j <= i; j++) leftPct += pool > 0 ? (segs[j].val / pool) * 100 : 0;
+      divider.style.left = leftPct + '%';
+      divider.innerHTML = '<div class="surface-tooltip">' + segs[i].val.toFixed(1) + ' | ' + segs[i+1].val.toFixed(1) + '</div>';
+      divider.dataset.barId = barCfg.id;
+      divider.dataset.divIdx = i;
+      divider.addEventListener('pointerdown', onDividerDown);
+      divider.addEventListener('mousedown', onDividerDown);
+      divider.addEventListener('touchstart', onDividerDown, {passive: false});
+      el.appendChild(divider);
+    }
+  });
+}
+
+function renderAllSurfaceBars() {
+  const configs = getBarConfigs();
+  configs.forEach(c => renderSurfaceBar(c));
+  updateResetBtnState();
+}
+
+function onDividerDown(e) {
+  e.preventDefault();
+  e.stopPropagation();
+  // Avoid double-firing (touch + mouse/pointer)
+  if (e.type === 'mousedown' && window._surfDragging) return;
+  if (e.type === 'pointerdown' && e.pointerType === 'mouse' && window._surfDragging) return;
+  window._surfDragging = true;
+
+  const divider = e.currentTarget;
+  divider.classList.add('dragging');
+  const barId = divider.dataset.barId;
+  const divIdx = parseInt(divider.dataset.divIdx);
+  const configs = getBarConfigs();
+  const barCfg = configs.find(c => c.id === barId);
+  if (!barCfg) { window._surfDragging = false; return; }
+  const barEl = document.getElementById(barId);
+  const pool = barCfg.pool || (barCfg.getPool ? barCfg.getPool() : 0);
+  const minSeg = barCfg.minSeg || 1;
+
+  // Capture pointer if available
+  if (e.pointerId != null && divider.setPointerCapture) {
+    try { divider.setPointerCapture(e.pointerId); } catch(_){}
+  }
+
+  function getClientX(ev) {
+    if (ev.touches && ev.touches.length) return ev.touches[0].clientX;
+    return ev.clientX;
+  }
+
+  function onMove(ev) {
+    ev.preventDefault();
+    const barRect = barEl.getBoundingClientRect();
+    const x = getClientX(ev) - barRect.left;
+    const pct = Math.max(0, Math.min(1, x / barRect.width));
+    const haAtCursor = pct * pool;
+
+    let sumBefore = 0;
+    for (let j = 0; j < divIdx; j++) sumBefore += barCfg.segs[j].val;
+    let sumAfter = 0;
+    for (let j = divIdx + 2; j < barCfg.segs.length; j++) sumAfter += barCfg.segs[j].val;
+
+    let leftVal = haAtCursor - sumBefore;
+    let rightVal = pool - haAtCursor - sumAfter;
+
+    if (leftVal < minSeg) { leftVal = minSeg; rightVal = pool - sumBefore - leftVal - sumAfter; }
+    if (rightVal < minSeg) { rightVal = minSeg; leftVal = pool - sumBefore - rightVal - sumAfter; }
+    leftVal = Math.max(minSeg, leftVal);
+    rightVal = Math.max(minSeg, rightVal);
+
+    barCfg.segs[divIdx].val = +leftVal.toFixed(2);
+    barCfg.segs[divIdx + 1].val = +rightVal.toFixed(2);
+
+    if (barCfg.onMove) barCfg.onMove();
+    renderAllSurfaceBars();
+  }
+
+  function onUp(ev) {
+    window._surfDragging = false;
+    divider.classList.remove('dragging');
+    document.removeEventListener('pointermove', onMove);
+    document.removeEventListener('pointerup', onUp);
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+    document.removeEventListener('touchmove', onMove);
+    document.removeEventListener('touchend', onUp);
+    document.removeEventListener('touchcancel', onUp);
+    updateResetBtnState();
+  }
+
+  document.addEventListener('pointermove', onMove);
+  document.addEventListener('pointerup', onUp);
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('mouseup', onUp);
+  document.addEventListener('touchmove', onMove, {passive: false});
+  document.addEventListener('touchend', onUp);
+  document.addEventListener('touchcancel', onUp);
+}
+
+function initSurfaceBars() {
+  renderAllSurfaceBars();
+}
+
+// ════════════════════════════════════════════════════════════
+// PRODUCTOS INMOBILIARIOS MODAL
+// ════════════════════════════════════════════════════════════
+
+const FAMILY_COLORS = { ds19: '#60a5fa', unifam: '#9ca3af', depto: '#34d399' };
+const FAMILY_LABELS = { ds19: 'DS19', unifam: 'Unifamiliar', depto: 'Edificios' };
+const NEW_PROD_PALETTE = ['#f472b6','#fb923c','#a3e635','#22d3ee','#818cf8','#f87171','#4ade80','#facc15'];
+let _newProdCounter = 0;
+
+// ── Open / Close / Tabs ──
+
+function openProductsModal() {
+  document.getElementById('products-overlay').style.display = 'flex';
+  renderProductsTable();
+  renderStockZones();
+  renderFamilyMixBars();
+  updateProductsResetBtnState();
+}
+
+function closeProductsModal() {
+  document.getElementById('products-overlay').style.display = 'none';
+  updateProductsResetBtnState();
+  runAndRender();
+}
+
+function switchProductTab(btn) {
+  document.querySelectorAll('.prod-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.prod-tab-content').forEach(c => c.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById(btn.dataset.tab).classList.add('active');
+}
+
+// ── Tab 1: Tabla de productos ──
+
+function renderProductsTable() {
+  const tbody = document.getElementById('prod-table-body');
+  if (!tbody) return;
+  tbody.innerHTML = '';
+  const prodNames = Object.keys(PRODUCTS);
+  const sigOptions = prodNames.map(n => '<option value="' + n + '">' + n + '</option>').join('');
+
+  for (const name of prodNames) {
+    const p = PRODUCTS[name];
+    const color = PRODUCT_COLORS[name] || '#94a3b8';
+    const family = getFamily(name);
+    const tr = document.createElement('tr');
+    tr.innerHTML = '<td><div class="prod-name-cell">' +
+      '<div class="prod-color-dot" style="background:' + color + '"></div>' +
+      '<input type="text" value="' + name + '" data-orig="' + name + '" ' +
+      'onchange="renameProduct(this.dataset.orig, this.value)" style="font-weight:500;text-align:left"></div></td>' +
+      '<td><input type="number" value="' + p.ticket + '" min="100" step="100" ' +
+      'onchange="updateProductField(\'' + name + '\',\'ticket\',+this.value)"></td>' +
+      '<td><input type="number" value="' + p.velVenta + '" min="0.1" step="0.1" ' +
+      'onchange="updateProductField(\'' + name + '\',\'velVenta\',+this.value)"></td>' +
+      '<td><input type="number" value="' + Math.round(p.incidencia * 100) + '" min="1" max="50" step="1" ' +
+      'onchange="updateProductField(\'' + name + '\',\'incidencia\',this.value/100)"></td>' +
+      '<td><input type="number" value="' + p.eficiencia + '" min="1" step="1" ' +
+      'onchange="updateProductField(\'' + name + '\',\'eficiencia\',+this.value)"></td>' +
+      '<td><input type="number" value="' + p.minUnidades + '" min="1" step="5" ' +
+      'onchange="updateProductField(\'' + name + '\',\'minUnidades\',+this.value)"></td>' +
+      '<td><select onchange="updateProductField(\'' + name + '\',\'family\',this.value)">' +
+      '<option value="unifam"' + (family === 'unifam' ? ' selected' : '') + '>Unifamiliar</option>' +
+      '<option value="ds19"' + (family === 'ds19' ? ' selected' : '') + '>DS19</option>' +
+      '<option value="depto"' + (family === 'depto' ? ' selected' : '') + '>Edificios</option>' +
+      '</select></td>' +
+      '<td><select onchange="updateProductField(\'' + name + '\',\'siguiente\',this.value||null)">' +
+      '<option value="">—</option>' + sigOptions + '</select></td>' +
+      '<td><button class="btn-del-row" onclick="deleteProduct(\'' + name + '\')" title="Eliminar">&#10005;</button></td>';
+
+    // Set siguiente select value
+    const sigSel = tr.querySelectorAll('select')[1];
+    if (sigSel && p.siguiente) sigSel.value = p.siguiente;
+
+    tbody.appendChild(tr);
+  }
+}
+
+function updateProductField(name, field, value) {
+  if (!PRODUCTS[name]) return;
+  if (field === 'siguiente') {
+    PRODUCTS[name].siguiente = value || null;
+  } else if (field === 'family') {
+    PRODUCTS[name].family = value;
+  } else if (field === 'incidencia' || field === 'velVenta') {
+    PRODUCTS[name][field] = parseFloat(value) || 0;
+  } else {
+    PRODUCTS[name][field] = parseInt(value) || 0;
+  }
+  updateProductsResetBtnState();
+}
+
+function renameProduct(oldName, newName) {
+  newName = newName.trim();
+  if (!newName || newName === oldName) { renderProductsTable(); return; }
+  if (PRODUCTS[newName]) { alert('Ya existe un producto con ese nombre.'); renderProductsTable(); return; }
+
+  PRODUCTS[newName] = { ...PRODUCTS[oldName] };
+  delete PRODUCTS[oldName];
+
+  PRODUCT_COLORS[newName] = PRODUCT_COLORS[oldName] || '#94a3b8';
+  delete PRODUCT_COLORS[oldName];
+
+  const idx = PROD_ORDER.indexOf(oldName);
+  if (idx >= 0) PROD_ORDER[idx] = newName;
+
+  for (const p of Object.values(PRODUCTS)) {
+    if (p.siguiente === oldName) p.siguiente = newName;
+  }
+
+  for (const zone of Object.values(STOCK_INI)) {
+    if (zone[oldName] !== undefined) { zone[newName] = zone[oldName]; delete zone[oldName]; }
+  }
+
+  for (const zDef of Object.values(ZONAS_DEF)) {
+    const i = zDef.iniciales.indexOf(oldName);
+    if (i >= 0) zDef.iniciales[i] = newName;
+    if (zDef.deferred) {
+      for (const d of zDef.deferred) { if (d.product === oldName) d.product = newName; }
+    }
+  }
+
+  renderProductsTable();
+  renderStockZones();
+  updateProductsResetBtnState();
+}
+
+function deleteProduct(name) {
+  if (!confirm('Eliminar "' + name + '"?')) return;
+
+  delete PRODUCTS[name];
+  delete PRODUCT_COLORS[name];
+  const idx = PROD_ORDER.indexOf(name);
+  if (idx >= 0) PROD_ORDER.splice(idx, 1);
+
+  for (const p of Object.values(PRODUCTS)) { if (p.siguiente === name) p.siguiente = null; }
+  for (const zone of Object.values(STOCK_INI)) { delete zone[name]; }
+  for (const zDef of Object.values(ZONAS_DEF)) {
+    zDef.iniciales = zDef.iniciales.filter(n => n !== name);
+    if (zDef.deferred) zDef.deferred = zDef.deferred.filter(d => d.product !== name);
+  }
+
+  renderProductsTable();
+  renderStockZones();
+  updateProductsResetBtnState();
+}
+
+function addNewProduct() {
+  const baseName = 'Nuevo ' + (++_newProdCounter);
+  PRODUCTS[baseName] = {
+    ticket: 3000, velVenta: 2.0, incidencia: 0.10, eficiencia: 50,
+    minUnidades: 50, siguiente: null, family: 'depto',
+  };
+  PRODUCT_COLORS[baseName] = NEW_PROD_PALETTE[_newProdCounter % NEW_PROD_PALETTE.length];
+  PROD_ORDER.push(baseName);
+  renderProductsTable();
+  updateProductsResetBtnState();
+  const tbody = document.getElementById('prod-table-body');
+  if (tbody.lastElementChild) tbody.lastElementChild.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+// ── Tab 2: Stock por zona ──
+
+function renderStockZones() {
+  const container = document.getElementById('stock-zones-container');
+  if (!container) return;
+  container.innerHTML = '';
+
+  for (const [zName, zDef] of Object.entries(ZONAS_DEF)) {
+    const zColor = ZONE_COLORS[zName] || '#94a3b8';
+    const allProds = [...zDef.iniciales, ...(zDef.deferred ?? []).map(d => d.product)];
+    // Remove duplicates
+    const uniqueProds = [...new Set(allProds)];
+
+    let gridHTML = '';
+    for (const pName of uniqueProds) {
+      if (!PRODUCTS[pName]) continue;
+      const val = STOCK_INI[zName]?.[pName] ?? PRODUCTS[pName]?.minUnidades ?? 0;
+      gridHTML += '<div class="stock-label">' + pName + '</div>' +
+        '<input type="number" value="' + val + '" min="0" step="10" ' +
+        'onchange="updateStockIni(\'' + zName + '\',\'' + pName + '\',parseInt(this.value)||0)">';
+    }
+
+    const section = document.createElement('div');
+    section.className = 'stock-zone-section';
+    section.innerHTML = '<div class="stock-zone-title">' +
+      '<div class="stock-zone-dot" style="background:' + zColor + '"></div>' +
+      (ZONA_DISPLAY_NAME[zName] || zName) +
+      '</div><div class="stock-grid">' + gridHTML + '</div>';
+    container.appendChild(section);
+  }
+}
+
+function updateStockIni(zName, pName, value) {
+  if (!STOCK_INI[zName]) STOCK_INI[zName] = {};
+  STOCK_INI[zName][pName] = value;
+  updateProductsResetBtnState();
+}
+
+// ── Tab 3: Mix de familias (barras arrastrables) ──
+
+function renderFamilyMixBars() {
+  const container = document.getElementById('family-mix-container');
+  if (!container) return;
+  container.innerHTML = '';
+
+  for (const [zName, fMax] of Object.entries(ZONE_FAMILY_MAX)) {
+    const pool = fMax.ds19 + fMax.unifam + fMax.depto;
+    if (pool <= 0) continue;
+    const zColor = ZONE_COLORS[zName] || '#94a3b8';
+    const barId = 'fmbar-' + zName.replace(/\s+/g, '-').replace(/\./g, '');
+
+    const section = document.createElement('div');
+    section.className = 'family-mix-section';
+    section.innerHTML = '<div class="family-mix-title">' +
+      '<div class="family-mix-zone-label"><div class="stock-zone-dot" style="background:' + zColor + '"></div>' +
+      (ZONA_DISPLAY_NAME[zName] || zName) + '</div>' +
+      '<span class="family-mix-total">' + pool.toLocaleString() + ' viviendas</span></div>' +
+      '<div class="surface-bar" id="' + barId + '" data-zone="' + zName + '"></div>';
+    container.appendChild(section);
+
+    renderOneFamilyBar(barId, zName);
+  }
+}
+
+function renderOneFamilyBar(barId, zName) {
+  const el = document.getElementById(barId);
+  if (!el) return;
+  const fMax = ZONE_FAMILY_MAX[zName];
+  const pool = fMax.ds19 + fMax.unifam + fMax.depto;
+  if (pool <= 0) return;
+  el.innerHTML = '';
+
+  const segs = [
+    { key: 'ds19', label: 'DS19', color: FAMILY_COLORS.ds19, val: fMax.ds19 },
+    { key: 'unifam', label: 'Unifam.', color: FAMILY_COLORS.unifam, val: fMax.unifam },
+    { key: 'depto', label: 'Edificios', color: FAMILY_COLORS.depto, val: fMax.depto },
+  ];
+
+  segs.forEach((seg, i) => {
+    const pct = (seg.val / pool) * 100;
+    const div = document.createElement('div');
+    div.className = 'surface-seg';
+    div.style.width = pct + '%';
+    div.style.background = seg.color;
+    const pctLabel = Math.round(pct);
+    if (pct > 8) {
+      div.innerHTML = '<span>' + seg.label + ' ' + seg.val.toLocaleString() + ' (' + pctLabel + '%)</span>';
+    } else if (pct > 3) {
+      div.innerHTML = '<span>' + pctLabel + '%</span>';
+    }
+    el.appendChild(div);
+
+    if (i < segs.length - 1) {
+      let leftPct = 0;
+      for (let j = 0; j <= i; j++) leftPct += (segs[j].val / pool) * 100;
+      const divider = document.createElement('div');
+      divider.className = 'surface-divider';
+      divider.style.left = leftPct + '%';
+      divider.innerHTML = '<div class="surface-tooltip">' + segs[i].val.toLocaleString() + ' | ' + segs[i+1].val.toLocaleString() + '</div>';
+      divider.dataset.barId = barId;
+      divider.dataset.zone = zName;
+      divider.dataset.divIdx = String(i);
+      divider.addEventListener('pointerdown', onFamilyDividerDown);
+      divider.addEventListener('mousedown', onFamilyDividerDown);
+      divider.addEventListener('touchstart', onFamilyDividerDown, {passive: false});
+      el.appendChild(divider);
+    }
+  });
+}
+
+function onFamilyDividerDown(e) {
+  e.preventDefault();
+  e.stopPropagation();
+  if (e.type === 'mousedown' && window._famDragging) return;
+  window._famDragging = true;
+
+  const divider = e.currentTarget;
+  divider.classList.add('dragging');
+  const barId = divider.dataset.barId;
+  const zName = divider.dataset.zone;
+  const divIdx = parseInt(divider.dataset.divIdx);
+  const barEl = document.getElementById(barId);
+  const fMax = ZONE_FAMILY_MAX[zName];
+  const pool = fMax.ds19 + fMax.unifam + fMax.depto;
+  const keys = ['ds19', 'unifam', 'depto'];
+
+  if (e.pointerId != null && divider.setPointerCapture) {
+    try { divider.setPointerCapture(e.pointerId); } catch(_) {}
+  }
+
+  function getX(ev) { return ev.touches?.length ? ev.touches[0].clientX : ev.clientX; }
+
+  function onMove(ev) {
+    ev.preventDefault();
+    const rect = barEl.getBoundingClientRect();
+    const x = getX(ev) - rect.left;
+    const pct = Math.max(0, Math.min(1, x / rect.width));
+    const valAtCursor = pct * pool;
+
+    let sumBefore = 0;
+    for (let j = 0; j < divIdx; j++) sumBefore += fMax[keys[j]];
+    let sumAfter = 0;
+    for (let j = divIdx + 2; j < keys.length; j++) sumAfter += fMax[keys[j]];
+
+    let leftVal = Math.max(0, valAtCursor - sumBefore);
+    let rightVal = Math.max(0, pool - valAtCursor - sumAfter);
+
+    // Ensure total stays constant
+    if (leftVal + rightVal + sumBefore + sumAfter !== pool) {
+      rightVal = pool - sumBefore - sumAfter - leftVal;
+    }
+    if (rightVal < 0) { rightVal = 0; leftVal = pool - sumBefore - sumAfter; }
+
+    fMax[keys[divIdx]] = Math.round(leftVal);
+    fMax[keys[divIdx + 1]] = Math.round(rightVal);
+
+    renderOneFamilyBar(barId, zName);
+    updateProductsResetBtnState();
+  }
+
+  function onUp() {
+    window._famDragging = false;
+    document.removeEventListener('pointermove', onMove);
+    document.removeEventListener('pointerup', onUp);
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+    document.removeEventListener('touchmove', onMove);
+    document.removeEventListener('touchend', onUp);
+  }
+
+  document.addEventListener('pointermove', onMove);
+  document.addEventListener('pointerup', onUp);
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('mouseup', onUp);
+  document.addEventListener('touchmove', onMove, {passive: false});
+  document.addEventListener('touchend', onUp);
+}
+
+// ── Reset + deteccion de cambios ──
+
+function resetProductsConfig() {
+  // Restore PRODUCTS
+  for (const k of Object.keys(PRODUCTS)) delete PRODUCTS[k];
+  Object.assign(PRODUCTS, JSON.parse(JSON.stringify(PRODUCTS_DEFAULTS)));
+
+  // Restore STOCK_INI
+  for (const k of Object.keys(STOCK_INI)) delete STOCK_INI[k];
+  Object.assign(STOCK_INI, JSON.parse(JSON.stringify(STOCK_INI_DEFAULTS)));
+
+  // Restore ZONE_FAMILY_MAX
+  for (const k of Object.keys(ZONE_FAMILY_MAX)) delete ZONE_FAMILY_MAX[k];
+  Object.assign(ZONE_FAMILY_MAX, JSON.parse(JSON.stringify(ZONE_FAMILY_MAX_DEFAULTS)));
+
+  // Restore PROD_ORDER
+  PROD_ORDER.length = 0;
+  PROD_ORDER.push(...PROD_ORDER_DEFAULTS);
+
+  // Restore PRODUCT_COLORS
+  for (const k of Object.keys(PRODUCT_COLORS)) delete PRODUCT_COLORS[k];
+  Object.assign(PRODUCT_COLORS, JSON.parse(JSON.stringify(PROD_COLORS_DEFAULTS)));
+
+  renderProductsTable();
+  renderStockZones();
+  renderFamilyMixBars();
+  updateProductsResetBtnState();
+}
+
+function updateProductsResetBtnState() {
+  const changed = JSON.stringify(PRODUCTS) !== JSON.stringify(PRODUCTS_DEFAULTS) ||
+                  JSON.stringify(STOCK_INI) !== JSON.stringify(STOCK_INI_DEFAULTS) ||
+                  JSON.stringify(ZONE_FAMILY_MAX) !== JSON.stringify(ZONE_FAMILY_MAX_DEFAULTS);
+
+  const btn = document.getElementById('productsResetBtn');
+  if (btn) {
+    btn.classList.toggle('changed', changed);
+    btn.textContent = changed ? 'Restablecer *' : 'Restablecer';
+  }
+  const sideBtn = document.getElementById('btnProducts');
+  if (sideBtn) sideBtn.classList.toggle('changed', changed);
 }
 
 // ════════════════════════════════════════════════════════════
@@ -2650,7 +4028,7 @@ function simulate(params) {
   //   Distrito G:   148.04 res + 9.66 comercial  = 157.70
   //   Distrito 4.0: 24.43  res + 29.03 otros usos = 53.46
   // Usando Ha completas garantizamos que la suma de tierra siempre = COSTO_TIERRA_TOTAL = 1.2MM.
-  const PDUC_HA_FULL_ZONE = { 'Distrito G': 157.70, 'Distrito 4.0': 53.46 };
+  const PDUC_HA_FULL_ZONE = { 'Distrito G': surfaceConfig.pduc.distritoG.total, 'Distrito 4.0': surfaceConfig.pduc.distrito40.total };
   const pducZonesActive = ['Distrito G', 'Distrito 4.0'].filter(z => activeZones.has(z));
   for (const z of pducZonesActive) {
     const zAlloc      = PDUC_TIERRA_TOTAL * (PDUC_HA_FULL_ZONE[z] ?? ZONAS_DEF[z].ha) / PDUC_HA_TOTAL;
@@ -5417,10 +6795,10 @@ function computeBUData(results) {
   }
 
   // ── Prorrateo anual ──────────────────────────────────────────────────────
-  const costsHab   = { tierra:{}, infra:{}, mit:{}, san:{}, sanOp:{}, sanVta:{}, com:{}, fact:{}, mant:{}, tierraByZone:{} };
-  const costsCom   = { tierra:{}, infra:{}, mit:{}, san:{}, sanOp:{}, sanVta:{}, com:{}, fact:{}, mant:{}, tierraByZone:{} };
+  const costsHab   = { tierra:{}, infra:{}, mit:{}, san:{}, sanOp:{}, sanVta:{}, com:{}, fact:{}, mant:{}, tierraByZone:{}, factByZone:{}, infraByZone:{}, mitByZone:{}, mantByZone:{}, sanByZone:{}, sanOpByZone:{} };
+  const costsCom   = { tierra:{}, infra:{}, mit:{}, san:{}, sanOp:{}, sanVta:{}, com:{}, fact:{}, mant:{}, tierraByZone:{}, factByZone:{}, infraByZone:{}, mitByZone:{}, mantByZone:{}, sanByZone:{}, sanOpByZone:{} };
   const costsInd   = { tierra:{}, infra:{}, mit:{}, san:{}, sanOp:{}, sanVta:{}, com:{}, fact:{}, mant:{}, tierraByZone:{} };
-  const costsOtros = { tierra:{}, infra:{}, mit:{}, san:{}, sanOp:{}, sanVta:{}, com:{}, fact:{}, mant:{}, tierraByZone:{} };
+  const costsOtros = { tierra:{}, infra:{}, mit:{}, san:{}, sanOp:{}, sanVta:{}, com:{}, fact:{}, mant:{}, tierraByZone:{}, factByZone:{}, infraByZone:{}, mitByZone:{}, mantByZone:{}, sanByZone:{}, sanOpByZone:{} };
 
   // Ha acumuladas por BU (para peso sanitaria)
   let cumIndHa   = 0;
@@ -5516,6 +6894,22 @@ function computeBUData(results) {
     costsInd.infra[y]   = infraInd;
     costsOtros.infra[y] = infraOtros;
 
+    // Desglose infra por zona
+    for (const z of ['AUDP Batuco', 'AUDP Colina', 'Distrito G', 'Distrito 4.0']) {
+      const inf = infraByZone?.[z]?.[y] ?? 0;
+      const rZH   = revenueByZone?.[z]?.[y] ?? 0;
+      const rZPRC = prcRevByZone?.[z]?.[y] ?? 0;
+      const rZC   = Math.max(0, (commercialRevByZone?.[z]?.[y] ?? 0) - rZPRC);
+      const rZO   = z === 'Distrito 4.0' ? (otrosRevByYear?.[y] ?? 0) : rZPRC;
+      const rZTot = rZH + rZC + rZO || 1;
+      if (!costsHab.infraByZone[z])   costsHab.infraByZone[z] = {};
+      if (!costsCom.infraByZone[z])   costsCom.infraByZone[z] = {};
+      if (!costsOtros.infraByZone[z]) costsOtros.infraByZone[z] = {};
+      costsHab.infraByZone[z][y]   = inf * rZH / rZTot;
+      costsCom.infraByZone[z][y]   = inf * rZC / rZTot;
+      costsOtros.infraByZone[z][y] = inf * rZO / rZTot;
+    }
+
     // MITIGACIONES
     // Grupos: 'AUDP Batuco', 'AUDP Colina' → 100% Hab
     // 'PDUC' → split Hab(PDUC zones) / Ind / Otros por revenue
@@ -5542,6 +6936,23 @@ function computeBUData(results) {
     costsInd.mit[y]   = mitPDUCInd + mitOtherInd;
     costsOtros.mit[y] = mitPDUCOtros;
 
+    // Desglose mitigaciones por zona (Hab)
+    // AUDP: 100% Hab cada barrio + porción proporcional de mitOther
+    // PDUC Hab: split G vs 4.0 por revenue + porción proporcional de mitOther
+    const rG = revenueByZone?.['Distrito G']?.[y] ?? 0;
+    const r40 = revenueByZone?.['Distrito 4.0']?.[y] ?? 0;
+    const rGD = rG + r40 || 1;
+    const rBat = revenueByZone?.['AUDP Batuco']?.[y] ?? 0;
+    const rCol = revenueByZone?.['AUDP Colina']?.[y] ?? 0;
+    const rAllHab = rG + r40 + rBat + rCol || 1;
+    for (const z of ['AUDP Batuco','AUDP Colina','Distrito G','Distrito 4.0']) {
+      if (!costsHab.mitByZone[z]) costsHab.mitByZone[z] = {};
+    }
+    costsHab.mitByZone['AUDP Batuco'][y] = mitAudpBat + mitOtherHab * rBat / rAllHab;
+    costsHab.mitByZone['AUDP Colina'][y] = mitAudpCol + mitOtherHab * rCol / rAllHab;
+    costsHab.mitByZone['Distrito G'][y]   = mitPDUCHab * rG / rGD + mitOtherHab * rG / rAllHab;
+    costsHab.mitByZone['Distrito 4.0'][y] = mitPDUCHab * r40 / rGD + mitOtherHab * r40 / rAllHab;
+
     // SANITARIA — Industrial absorbe 20% fijo; el 80% restante se reparte entre hab/com/otros
     const IND_SAN_PCT = 0.20;
     cumIndHa   += industrialHaByYear?.[y] ?? 0;
@@ -5564,6 +6975,21 @@ function computeBUData(results) {
     costsOtros.san[y] = san * wOtros; costsOtros.sanOp[y] = sanOp * wOtros;
     costsHab.sanVta[y] = 0; costsInd.sanVta[y] = 0;
     costsCom.sanVta[y] = 0; costsOtros.sanVta[y] = 0;
+
+    // Desglose sanitaria por zona (Hab) — proporcional a viviendas vendidas por zona
+    {
+      const vBat = unitsByZone?.['AUDP Batuco']?.[y] ?? 0;
+      const vCol = unitsByZone?.['AUDP Colina']?.[y] ?? 0;
+      const vG   = unitsByZone?.['Distrito G']?.[y] ?? 0;
+      const v40  = unitsByZone?.['Distrito 4.0']?.[y] ?? 0;
+      const vTot = vBat + vCol + vG + v40 || 1;
+      for (const [z, v] of [['AUDP Batuco',vBat],['AUDP Colina',vCol],['Distrito G',vG],['Distrito 4.0',v40]]) {
+        if (!costsHab.sanByZone[z])   costsHab.sanByZone[z] = {};
+        if (!costsHab.sanOpByZone[z]) costsHab.sanOpByZone[z] = {};
+        costsHab.sanByZone[z][y]   = san * wHab * v / vTot;
+        costsHab.sanOpByZone[z][y] = sanOp * wHab * v / vTot;
+      }
+    }
 
     // COMERCIALIZACIÓN — 2% de revenue propio
     costsHab.com[y]   = rH * 0.02;
@@ -5591,6 +7017,17 @@ function computeBUData(results) {
                        + fDist40  * factRevRatioOtros['Distrito 4.0'];
     costsInd.fact[y]   = fInd;
 
+    // Desglose de factibilización por zona para cada BU
+    for (const z of ['AUDP Batuco', 'AUDP Colina', 'Distrito G', 'Distrito 4.0']) {
+      const fz = factBZmerged[z]?.[y] ?? 0;
+      if (!costsHab.factByZone[z])   costsHab.factByZone[z] = {};
+      if (!costsCom.factByZone[z])   costsCom.factByZone[z] = {};
+      if (!costsOtros.factByZone[z]) costsOtros.factByZone[z] = {};
+      costsHab.factByZone[z][y]   = fz * factRevRatioHab[z];
+      costsCom.factByZone[z][y]   = fz * factRevRatioCom[z];
+      costsOtros.factByZone[z][y] = fz * factRevRatioOtros[z];
+    }
+
     // MANTENCIÓN — prorate por Ha vendida (4 BUs)
     const habHaTotal   = Object.keys(ZONAS_DEF).reduce((s, z) => s + (landByZone?.[z]?.[y] ?? 0), 0);
     const comHaAnnual  = Object.keys(ZONAS_DEF).reduce((s, z) => s + (comHaByZoneData?.[z]?.[y] ?? 0), 0);
@@ -5602,6 +7039,15 @@ function computeBUData(results) {
     costsCom.mant[y]   = mant * comHaAnnual / haTotal;
     costsInd.mant[y]   = mant * indHaTotal  / haTotal;
     costsOtros.mant[y] = mant * otrosHaAnn  / haTotal;
+
+    // Desglose mantencion por zona (Hab) — proporcional a Ha vendidas por zona
+    {
+      for (const z of ['AUDP Batuco', 'AUDP Colina', 'Distrito G', 'Distrito 4.0']) {
+        const zHa = landByZone?.[z]?.[y] ?? 0;
+        if (!costsHab.mantByZone[z]) costsHab.mantByZone[z] = {};
+        costsHab.mantByZone[z][y] = habHaTotal > 0 ? costsHab.mant[y] * zHa / habHaTotal : 0;
+      }
+    }
   }
 
   // ── Ingresos sanitarios: pertenecen a Habitacional e Industrial (split por peso) ──
@@ -6091,23 +7537,27 @@ function renderBUEERR(buKey, buData, zoneFilter) {
   }
 
   const c       = bu.costs;
-  // Tierra: usar datos exactos por zona si están disponibles, sino escalar
-  const tierra = (activeZonesArr && c.tierraByZone && Object.keys(c.tierraByZone).length > 0)
-    ? activeZonesArr.reduce((s, z) => s + sumY(c.tierraByZone[z] ?? {}), 0)
-    : sumY(c.tierra) * cosZoneScale;
-  const infra   = sumY(c.infra)     * cosZoneScale;
-  const mit     = sumY(c.mit)       * cosZoneScale;
+  // Helper: sumar por zona si hay desglose disponible, sino escalar
+  function sumByZoneOrScale(byZoneObj, totalObj, scale) {
+    if (activeZonesArr && byZoneObj && Object.keys(byZoneObj).length > 0) {
+      return activeZonesArr.reduce((s, z) => s + sumY(byZoneObj[z] ?? {}), 0);
+    }
+    return (typeof totalObj === 'object' ? sumAllObj(totalObj) : sumY(totalObj)) * scale;
+  }
+  const tierra  = sumByZoneOrScale(c.tierraByZone, c.tierra, cosZoneScale);
+  const infra   = sumByZoneOrScale(c.infraByZone,  c.infra,  cosZoneScale);
+  const mit     = sumByZoneOrScale(c.mitByZone,    c.mit,    cosZoneScale);
+  const fact    = sumByZoneOrScale(c.factByZone,   c.fact,   cosZoneScale);
+  const mant    = sumByZoneOrScale(c.mantByZone,   c.mant,   cosZoneScale);
   const comCost = sumY(c.com)       * cosZoneScale;
-  const fact    = sumAllObj(c.fact) * cosZoneScale;
-  const mant    = sumY(c.mant)      * cosZoneScale;
   const totCostOp = tierra + infra + mit + comCost + fact + mant;
   const resOp     = ingOp - totCostOp;
 
   // ── Negocio Sanitario (solo Hab e Ind) ──
   const sanIng  = sumY(bu.sanIngByYear)  * cosZoneScale;
   const sanVta  = sumY(bu.sanVtaByYear)  * cosZoneScale;
-  const sanCost = sumY(c.san)            * cosZoneScale;
-  const sanOpC  = sumY(c.sanOp)          * cosZoneScale;
+  const sanCost = sumByZoneOrScale(c.sanByZone,   c.san,   cosZoneScale);
+  const sanOpC  = sumByZoneOrScale(c.sanOpByZone,  c.sanOp, cosZoneScale);
   const ingSan  = sanIng + sanVta;
   const costSan = sanCost + sanOpC;
   const resSan  = ingSan - costSan;
@@ -6210,10 +7660,17 @@ function computeBUVanTir(buKey, buData, zoneFilter) {
     cosZoneScale = zoneRev / totalBURev;
   }
 
+  // Helper: sumar costo por zona si hay desglose, sino escalar (misma lógica que renderBUEERR)
+  const zoneOrScale = (byZoneObj, totalVal, scale, yr) => {
+    if (activeZonesArr && byZoneObj && Object.keys(byZoneObj).length > 0) {
+      return activeZonesArr.reduce((s, z) => s + (byZoneObj[z]?.[yr] ?? 0), 0);
+    }
+    return totalVal * scale;
+  };
+
   const cfArr = years.map(y => {
     let ing = 0;
     if (buKey === 'ind') {
-      // Industrial: sub-zona o total
       if (zoneFilter === 'log-menor')      ing = bu.menorRevByYear?.[y] ?? 0;
       else if (zoneFilter === 'log-mayor') ing = bu.mayorRevByYear?.[y] ?? 0;
       else                                 ing = bu.revByYear?.[y] ?? 0;
@@ -6226,9 +7683,16 @@ function computeBUVanTir(buKey, buData, zoneFilter) {
       ing  = (bu.revByYear?.[y]??0);
       ing += (bu.sanIngByYear?.[y]??0) + (bu.sanVtaByYear?.[y]??0);
     }
-    const cost = ((c.tierra?.[y]??0) + (c.infra?.[y]??0) + (c.mit?.[y]??0) +
-                  (c.san?.[y]??0)    + (c.sanOp?.[y]??0)  + (c.com?.[y]??0) +
-                  (c.fact?.[y]??0)   + (c.mant?.[y]??0)) * cosZoneScale;
+    // Costos: usar desgloses por zona cuando existan (consistente con renderBUEERR)
+    const tierra = zoneOrScale(c.tierraByZone, c.tierra?.[y]??0, cosZoneScale, y);
+    const infra  = zoneOrScale(c.infraByZone,  c.infra?.[y]??0,  cosZoneScale, y);
+    const mit    = zoneOrScale(c.mitByZone,    c.mit?.[y]??0,    cosZoneScale, y);
+    const fact   = zoneOrScale(c.factByZone,   c.fact?.[y]??0,   cosZoneScale, y);
+    const mant   = zoneOrScale(c.mantByZone,   c.mant?.[y]??0,   cosZoneScale, y);
+    const san    = zoneOrScale(c.sanByZone,    c.san?.[y]??0,    cosZoneScale, y);
+    const sanOp  = zoneOrScale(c.sanOpByZone,  c.sanOp?.[y]??0,  cosZoneScale, y);
+    const com    = (c.com?.[y]??0) * cosZoneScale;
+    const cost   = tierra + infra + mit + fact + mant + san + sanOp + com;
     return ing - cost;
   });
 
@@ -7672,6 +9136,7 @@ async function downloadFinancialXLSX() {
 }
 
 function runAndRender() {
+  applySurfaceConfig();
   const escenario = document.getElementById('escenario').value;
   const params = {
     yearBatuco:    parseInt(document.getElementById('year-batuco').value),
@@ -7732,6 +9197,7 @@ function runAndRender() {
           results.years = results.years.filter(y => y <= trimEnd);
         }
         lastResults = results;
+        window._dbgResults = results;
         // Reflejar el año de inicio industrial derivado en el input (auto-calculado desde PDUCStart+2)
         const indInput = document.getElementById('year-industrial');
         const pducActive = params.activeDistritoG || params.activeDistrito40;
@@ -8515,7 +9981,8 @@ function _buildPDF(btn) {
 // ════════════════════════════════════════════════════════════
 
 renderLegend();
-runAndRender();
+initSurfaceBars();
+if (isAuthenticated()) { runAndRender(); }
 
 // ════════════════════════════════════════════════════════════
 // UNIDADES DE NEGOCIO — Dashboard
@@ -8562,8 +10029,8 @@ function renderUNChart() {
   const mit3Year = years.find(y => (cumPDUCViv[y] ?? 0) >= 12000) ?? null;
 
   // Helpers
-  const lastActive  = fn => { let l = simStart; for (const y of years) if ((fn(y)??0)>0) l=y; return l; };
-  const firstActive = fn => { for (const y of years) if ((fn(y)??0)>0) return y; return simStart; };
+  const lastActive  = fn => { let l = null; for (const y of years) if ((fn(y)??0)>0) l=y; return l ?? simStart; };
+  const firstActive = fn => { for (const y of years) if ((fn(y)??0)>0) return y; return null; };
 
   const firstBat   = firstActive(y => r.unitsByZone?.['AUDP Batuco']?.[y]);
   const lastBat    = lastActive(y => r.unitsByZone?.['AUDP Batuco']?.[y]);
@@ -8578,11 +10045,37 @@ function renderUNChart() {
   const lastIndMenor  = lastActive(y => r.industrialMenorHaByYear?.[y]);
   const firstIndMayor = firstActive(y => r.industrialMayorHaByYear?.[y]);
   const lastIndMayor  = lastActive(y => r.industrialMayorHaByYear?.[y]);
-  const comFn      = y => Object.keys(ZONAS_DEF).reduce((s,z) => s+(r.commercialHaByZone?.[z]?.[y]??0), 0);
-  const firstCom   = firstActive(comFn);
-  const lastCom    = lastActive(comFn);
-  const firstComMenor = firstActive(y => r.comMenorHaByYear?.[y]);
-  const lastComMenor  = lastActive(y => r.comMenorHaByYear?.[y]);
+  // Com Mayor por zona (= commercialHa - prcHa = comercio puro sin PRC)
+  const comMayorZoneFn = (zName) => (y) =>
+    (r.commercialHaByZone?.[zName]?.[y] ?? 0) - (r.prcHaByZone?.[zName]?.[y] ?? 0);
+  const firstComMayorBat  = firstActive(comMayorZoneFn('AUDP Batuco'));
+  const lastComMayorBat   = lastActive(comMayorZoneFn('AUDP Batuco'));
+  const firstComMayorCol  = firstActive(comMayorZoneFn('AUDP Colina'));
+  const lastComMayorCol   = lastActive(comMayorZoneFn('AUDP Colina'));
+  const firstComMayorG  = firstActive(comMayorZoneFn('Distrito G'));
+  const lastComMayorG   = lastActive(comMayorZoneFn('Distrito G'));
+  const firstComMayor40 = firstActive(comMayorZoneFn('Distrito 4.0'));
+  const lastComMayor40  = lastActive(comMayorZoneFn('Distrito 4.0'));
+
+  // Com Menor por zona
+  const comMenorZoneFn = (zName) => (y) => r.comMenorHaByZone?.[zName]?.[y] ?? 0;
+  const firstComMenorBat  = firstActive(comMenorZoneFn('AUDP Batuco'));
+  const lastComMenorBat   = lastActive(comMenorZoneFn('AUDP Batuco'));
+  const firstComMenorCol  = firstActive(comMenorZoneFn('AUDP Colina'));
+  const lastComMenorCol   = lastActive(comMenorZoneFn('AUDP Colina'));
+  const firstComMenorG  = firstActive(comMenorZoneFn('Distrito G'));
+  const lastComMenorG   = lastActive(comMenorZoneFn('Distrito G'));
+  const firstComMenor40 = firstActive(comMenorZoneFn('Distrito 4.0'));
+  const lastComMenor40  = lastActive(comMenorZoneFn('Distrito 4.0'));
+
+  // PRC / Otros Usos por zona AUDP (solo visibles cuando PRC activo)
+  const prcZoneFn = (zName) => (y) => r.prcHaByZone?.[zName]?.[y] ?? 0;
+  const firstOtrosBat = firstActive(prcZoneFn('AUDP Batuco'));
+  const lastOtrosBat  = lastActive(prcZoneFn('AUDP Batuco'));
+  const firstOtrosCol = firstActive(prcZoneFn('AUDP Colina'));
+  const lastOtrosCol  = lastActive(prcZoneFn('AUDP Colina'));
+
+  // Otros Usos PDUC (sin cambio)
   const firstOtros = firstActive(y => r.otrosHaByYear?.[y]);
   const lastOtros  = lastActive(y => r.otrosHaByYear?.[y]);
 
@@ -8601,46 +10094,85 @@ function renderUNChart() {
   const sortedEvYears = [...new Set(evDefs.map(e => e.year))].sort((a,b) => a-b);
 
   // ── Barras de unidades de negocio ──
-  // Colores: Habitacional=amarillo, Industrial=morado, Comercio=naranja, OtrosUsos=verde teal
+  // Agrupadas por negocio: Batuco → Colina → PDUC
+  // Colores: Habitacional=amarillo, Industrial=morado, Comercio=rojo, OtrosUsos=azul
   const BUS_UNITS = [
-    { id:'batuco', label:'Barrio Batuco',    color:'#fef08a', border:'#a16207',
+    // ── Batuco ──
+    { id:'batuco',        label:'Res. Batuco',      color:'#fef08a', border:'#a16207',
       start:firstBat, end:lastBat,
       phases: activePRC
         ? [{start:firstBat,   end:firstBat+4, sub:'AUDP', color:'#fef08a'},
            {start:firstBat+5, end:lastBat,    sub:'PRC',  color:'#fef9c3'}] : null },
-    { id:'colina', label:'Barrio E. Colina', color:'#fef08a', border:'#a16207',
+    { id:'com-menor-bat', label:'C.Men. Batuco',    color:'#fecaca', border:'#b91c1c',
+      start:firstComMenorBat, end:lastComMenorBat },
+    { id:'com-mayor-bat', label:'C.May. Batuco',    color:'#f87171', border:'#991b1b',
+      start:firstComMayorBat, end:lastComMayorBat },
+    ...(activePRC ? [
+      { id:'otros-bat',   label:'Otros Batuco',     color:'#bfdbfe', border:'#1e40af',
+        start:firstOtrosBat, end:lastOtrosBat }
+    ] : []),
+    null,
+    // ── Colina ──
+    { id:'colina',        label:'Res. Colina',      color:'#fef08a', border:'#a16207',
       start:firstCol, end:lastCol,
       phases: activePRC
         ? [{start:firstCol,   end:firstCol+4, sub:'AUDP', color:'#fef08a'},
            {start:firstCol+5, end:lastCol,    sub:'PRC',  color:'#fef9c3'}] : null },
-    { id:'g',  label:'Barrio G',   color:'#fde047', border:'#713f12', start:firstG,  end:lastG  },
-    { id:'40', label:'Barrio 4.0', color:'#fde047', border:'#713f12', start:first40, end:last40 },
+    { id:'com-menor-col', label:'C.Men. Colina',    color:'#fecaca', border:'#b91c1c',
+      start:firstComMenorCol, end:lastComMenorCol },
+    { id:'com-mayor-col', label:'C.May. Colina',    color:'#f87171', border:'#991b1b',
+      start:firstComMayorCol, end:lastComMayorCol },
+    ...(activePRC ? [
+      { id:'otros-col',   label:'Otros Colina',     color:'#bfdbfe', border:'#1e40af',
+        start:firstOtrosCol, end:lastOtrosCol }
+    ] : []),
     null,
-    { id:'log-menor', label:'Logística Menor', color:'#ede9fe', border:'#7c3aed',
-      start:firstIndMenor, end:lastIndMenor },
-    { id:'log-mayor', label:'Logística Mayor', color:'#c4b5fd', border:'#5b21b6',
-      start:firstIndMayor, end:lastIndMayor },
+    // ── Distrito G ──
+    { id:'g',             label:'Res. Distrito G',   color:'#fde047', border:'#713f12',
+      start:firstG, end:lastG },
+    { id:'com-menor-g',   label:'C.Men. G',          color:'#fecaca', border:'#b91c1c',
+      start:firstComMenorG, end:lastComMenorG },
+    { id:'com-mayor-g',   label:'C.May. G',          color:'#f87171', border:'#991b1b',
+      start:firstComMayorG, end:lastComMayorG },
     null,
-    { id:'com-menor', label:'Comercio Menor', color:'#ffedd5', border:'#c2410c',
-      start:firstComMenor, end:lastComMenor },
-    { id:'com-mayor', label:'Comercio Mayor', color:'#fdba74', border:'#c2410c',
-      start:firstCom, end:lastCom },
-    null,
-    { id:'otros', label:'Otros Usos', color:'#99f6e4', border:'#0f766e',
+    // ── Distrito 4.0 ──
+    { id:'40',            label:'Res. Distrito 4.0', color:'#fde047', border:'#713f12',
+      start:first40, end:last40 },
+    { id:'com-menor-40',  label:'C.Men. 4.0',        color:'#fecaca', border:'#b91c1c',
+      start:firstComMenor40, end:lastComMenor40 },
+    { id:'com-mayor-40',  label:'C.May. 4.0',        color:'#f87171', border:'#991b1b',
+      start:firstComMayor40, end:lastComMayor40 },
+    { id:'otros',         label:'Otros Usos',        color:'#bfdbfe', border:'#1e40af',
       start:firstOtros, end:lastOtros },
+    null,
+    // ── Industrial ──
+    { id:'log-menor',     label:'Ind. Menor',        color:'#ede9fe', border:'#7c3aed',
+      start:firstIndMenor, end:lastIndMenor },
+    { id:'log-mayor',     label:'Ind. Mayor',        color:'#c4b5fd', border:'#5b21b6',
+      start:firstIndMayor, end:lastIndMayor },
   ];
 
   // ── Layout ──
-  const ROW_H = 40, ROW_GAP = 4, SEP_H = 12;
+  const ROW_H = 32, ROW_GAP = 3, SEP_H = 10;
   const LABEL_W = 166, TOP_H = 92, RIGHT_PAD = 60, BOT_H = 100;
   const YEARS_SPAN = simEnd - CHART_START + 2;
   const PX_PER_YEAR = Math.max(30, Math.floor(1100 / YEARS_SPAN));
   const CHART_W = YEARS_SPAN * PX_PER_YEAR;
   const TOTAL_W = LABEL_W + CHART_W + RIGHT_PAD;
 
+  // Filtrar BUS_UNITS sin datos (start === null) y separadores huérfanos
+  const _filtered = BUS_UNITS.filter(bu => bu === null || bu.start !== null);
+  // Limpiar separadores consecutivos o al inicio/final
+  const _clean = [];
+  for (let i = 0; i < _filtered.length; i++) {
+    if (_filtered[i] === null && (i === 0 || _filtered[i-1] === null || i === _filtered.length-1)) continue;
+    _clean.push(_filtered[i]);
+  }
+  if (_clean.length && _clean[_clean.length-1] === null) _clean.pop();
+
   const rows = [];
   let yPos = TOP_H;
-  for (const bu of BUS_UNITS) {
+  for (const bu of _clean) {
     if (bu === null) { rows.push({type:'sep', y:yPos, h:SEP_H}); yPos += SEP_H + ROW_GAP; }
     else             { rows.push({type:'row', y:yPos, h:ROW_H, bu}); yPos += ROW_H + ROW_GAP; }
   }
@@ -9014,267 +10546,498 @@ function computeSegmentEERR(buId, segStart, segEnd, forceIsFirst = null) {
   if (!r) return null;
   const RECEP_LAG  = 2;
   const BASE_YEAR  = 2023;
-  const IND_VIV_EQ = 15;
-  const BU_ZONE    = { batuco:'AUDP Batuco', colina:'AUDP Colina', g:'Distrito G', '40':'Distrito 4.0' };
-  const RES_ZONES  = new Set(['batuco','colina','g','40']);
-  const ALL_ZONES  = Object.values(BU_ZONE);
-  const DIRECT_FACT_ZONES = new Set(['AUDP Batuco','AUDP Colina']); // tienen fact directo conocido
-  const zoneName   = BU_ZONE[buId] ?? null;
-  const allYears   = r.years;
-  // Extender el último segmento de cada BU hasta el final de la simulación.
-  // sanitariaEndYear = último año con recepciones = último año de ventas + RECEP_LAG (2).
-  // Sin esta extensión, sanOp/sanIng/sanVenta de esos ~2 años extra quedan fuera de todos
-  // los segmentos y el total D2 no cuadra con D1.
-  const _buRevY    = (bid, y) => {
-    if (bid === 'log-menor') return r.industrialMenorRevByYear?.[y] ?? 0;
-    if (bid === 'log-mayor') return r.industrialMayorRevByYear?.[y] ?? 0;
-    if (bid === 'otros')     return r.otrosRevByYear?.[y] ?? 0;
-    if (bid === 'com-mayor') return Object.values(r.commercialRevByZone ?? {}).reduce((s,z)=>s+(z[y]??0),0);
-    if (bid === 'com-menor') return r.comMenorRevByYear?.[y] ?? 0;
-    const zn = BU_ZONE[bid]; return zn ? (r.revenueByZone?.[zn]?.[y] ?? 0) : 0;
+  const IND_SAN_PCT = 0.20;
+
+  // ── Configuración por BU ──
+  const BU_CFG = {
+    'batuco':         { zones:['AUDP Batuco'],    rev:'hab',       grp:'AUDP Batuco' },
+    'colina':         { zones:['AUDP Colina'],    rev:'hab',       grp:'AUDP Colina' },
+    'g':              { zones:['Distrito G'],      rev:'hab',       grp:'PDUC' },
+    '40':             { zones:['Distrito 4.0'],    rev:'hab',       grp:'PDUC' },
+    'com-menor-bat':  { zones:['AUDP Batuco'],    rev:'com-menor', grp:'AUDP Batuco' },
+    'com-menor-col':  { zones:['AUDP Colina'],    rev:'com-menor', grp:'AUDP Colina' },
+    'com-menor-g':    { zones:['Distrito G'],      rev:'com-menor', grp:'PDUC' },
+    'com-menor-40':   { zones:['Distrito 4.0'],    rev:'com-menor', grp:'PDUC' },
+    'com-mayor-bat':  { zones:['AUDP Batuco'],    rev:'com-mayor', grp:'AUDP Batuco' },
+    'com-mayor-col':  { zones:['AUDP Colina'],    rev:'com-mayor', grp:'AUDP Colina' },
+    'com-mayor-g':    { zones:['Distrito G'],      rev:'com-mayor', grp:'PDUC' },
+    'com-mayor-40':   { zones:['Distrito 4.0'],    rev:'com-mayor', grp:'PDUC' },
+    'log-menor':      { zones:[],                  rev:'ind-menor', grp:'PDUC' },
+    'log-mayor':      { zones:[],                  rev:'ind-mayor', grp:'PDUC' },
+    'otros-bat':      { zones:['AUDP Batuco'],    rev:'prc',       grp:'AUDP Batuco' },
+    'otros-col':      { zones:['AUDP Colina'],    rev:'prc',       grp:'AUDP Colina' },
+    'otros':          { zones:['Distrito 4.0'],    rev:'otros',     grp:'PDUC' },
   };
-  const isLastSeg      = !allYears.some(y => y > segEnd && _buRevY(buId, y) > 0);
-  const effectiveSegEnd = isLastSeg ? allYears[allYears.length - 1] : segEnd;
-  const segYears   = allYears.filter(y => y >= segStart && y <= effectiveSegEnd);
-  const isPDUC     = ['g','40','log-menor','log-mayor','otros'].includes(buId);
-  const isComMayor = buId === 'com-mayor';
-  const isInd      = buId === 'log-menor' || buId === 'log-mayor';
+  const cfg = BU_CFG[buId];
+  if (!cfg) return null;
+
+  const ALL_HAB_ZONES = ['AUDP Batuco','AUDP Colina','Distrito G','Distrito 4.0'];
+  const AUDP_ZONES    = ['AUDP Batuco','AUDP Colina'];
+
+  // Flags derivados
+  const isAUDP     = cfg.grp.startsWith('AUDP');
+  const isPDUC     = cfg.grp === 'PDUC';
+  const isHab      = cfg.rev === 'hab';
+  const isComMayor = cfg.rev === 'com-mayor';
+  const isComMenor = cfg.rev === 'com-menor';
+  const isPRC      = cfg.rev === 'prc';
+  const isInd      = cfg.rev === 'ind-menor' || cfg.rev === 'ind-mayor';
+  const isOtros    = cfg.rev === 'otros';
+
+  const allYears = r.years;
+
   // Ratio de superficie para prorrateo industrial (Menor vs Mayor)
   const indSurfRatio = isInd
     ? ((buId === 'log-menor' ? (r.effectiveIndMenorHa ?? IND_MENOR_HA) : (r.effectiveIndMayorHa ?? IND_MAYOR_HA))
        / (r.effectiveIndHaTotal ?? IND_HA_TOTAL))
     : 0;
-  const isComMenor = buId === 'com-menor';
 
-  // ── cumIndHaByYear ──
-  const cumIndHaByYear = {};
-  { let c = 0; for (const y of allYears) { c += r.industrialHaByYear?.[y] ?? 0; cumIndHaByYear[y] = c; } }
-
-  // ── habShare por zona y año: para prorratear infraestructura hab/comercial ──
-  const zoneHabShareByYear = {};
-  const zoneLifetimeHabShare = {};
-  for (const zName of ALL_ZONES) {
-    zoneHabShareByYear[zName] = {};
-    let totHab = 0, totComm = 0;
-    for (const y of allYears) {
-      const hab  = r.revenueByZone?.[zName]?.[y] ?? 0;
-      const comm = r.commercialRevByZone?.[zName]?.[y] ?? 0;
-      const tot  = hab + comm;
-      zoneHabShareByYear[zName][y] = tot > 0 ? hab / tot : 1.0;
-      totHab += hab; totComm += comm;
-    }
-    zoneLifetimeHabShare[zName] = (totHab + totComm) > 0 ? totHab / (totHab + totComm) : 1.0;
-  }
-
-  // ── Factibilización: directo Batuco/Colina + pool PDUC prorrateado por ingresos ──
-  // Pool PDUC = total proyecto fact − Batuco directo − Colina directo
+  // ── Revenue helper ──
   const getBURevYear = (bid, y) => {
-    if (bid === 'log-menor') return r.industrialMenorRevByYear?.[y] ?? 0;
-    if (bid === 'log-mayor') return r.industrialMayorRevByYear?.[y] ?? 0;
-    if (bid === 'otros')     return r.otrosRevByYear?.[y] ?? 0;
-    if (bid === 'com-mayor') return Object.values(r.commercialRevByZone ?? {}).reduce((s,z)=>s+(z[y]??0),0);
-    if (bid === 'com-menor') return r.comMenorRevByYear?.[y] ?? 0;
-    const zn = BU_ZONE[bid]; return zn ? (r.revenueByZone?.[zn]?.[y] ?? 0) : 0;
+    const c = BU_CFG[bid];
+    if (!c) return 0;
+    switch (c.rev) {
+      case 'hab':       return c.zones.reduce((s,z) => s + (r.revenueByZone?.[z]?.[y] ?? 0), 0);
+      case 'com-menor': return c.zones.reduce((s,z) => s + (r.comMenorRevByZone?.[z]?.[y] ?? 0), 0);
+      case 'com-mayor': return c.zones.reduce((s,z) =>
+        s + (r.commercialRevByZone?.[z]?.[y] ?? 0) - (r.prcRevByZone?.[z]?.[y] ?? 0), 0);
+      case 'prc':       return c.zones.reduce((s,z) => s + (r.prcRevByZone?.[z]?.[y] ?? 0), 0);
+      case 'ind-menor': return r.industrialMenorRevByYear?.[y] ?? 0;
+      case 'ind-mayor': return r.industrialMayorRevByYear?.[y] ?? 0;
+      case 'otros':     return r.otrosRevByYear?.[y] ?? 0;
+      default: return 0;
+    }
   };
 
+  // ── Determinar rango de años efectivo ──
+  // Primer segmento: extiende hacia atrás hasta allYears[0] para capturar costos pre-revenue
+  // Último segmento: extiende hasta el final para capturar sanVenta / sanOp tardíos
+  const isFirstSeg = forceIsFirst === true ||
+    (forceIsFirst === null && !allYears.some(y => y < segStart && getBURevYear(buId, y) > 0));
+  const isLastSeg  = !allYears.some(y => y > segEnd && getBURevYear(buId, y) > 0);
+  // ── Primer año con factibilización (puede ser pre-sim, ej: 2023) ──
+  let firstFactYear = allYears[0];
+  for (const [zKey, byY] of Object.entries(r.factByZone ?? {})) {
+    for (const yk of Object.keys(byY)) {
+      const y = parseInt(yk);
+      if ((byY[yk] ?? 0) > 0 && y < firstFactYear) firstFactYear = y;
+    }
+  }
+
+  const effectiveStart = isFirstSeg ? firstFactYear : segStart;
+  const effectiveEnd   = isLastSeg  ? allYears[allYears.length - 1] : segEnd;
+  // Construir segYears: incluye años pre-sim de fact + años del rango de simulación
+  const segYears = [];
+  for (let y = effectiveStart; y <= effectiveEnd; y++) {
+    if (y < allYears[0] || allYears.includes(y)) segYears.push(y);
+  }
+
+  // ── factRevRatio por zona (replica D1 líneas 5945-5955) ──
+  const factRevRatioHab = {}, factRevRatioCom = {}, factRevRatioOtros = {};
+  for (const z of ALL_HAB_ZONES) {
+    const totH = allYears.reduce((s, y) => s + (r.revenueByZone?.[z]?.[y] ?? 0), 0);
+    const totC = allYears.reduce((s, y) => {
+      return s + Math.max(0, (r.commercialRevByZone?.[z]?.[y] ?? 0) - (r.prcRevByZone?.[z]?.[y] ?? 0));
+    }, 0);
+    const totO = z === 'Distrito 4.0'
+      ? allYears.reduce((s, y) => s + (r.otrosRevByYear?.[y] ?? 0), 0)
+      : allYears.reduce((s, y) => s + (r.prcRevByZone?.[z]?.[y] ?? 0), 0);
+    const tot = totH + totC + totO || 1;
+    factRevRatioHab[z]   = totH / tot;
+    factRevRatioCom[z]   = totC / tot;
+    factRevRatioOtros[z] = totO / tot;
+  }
+
+  // ── Pre-computar acumulados para sanitaria (replica D1 líneas 6131-6150) ──
+  // Construimos mapas {year: valor acumulado} para todas las allYears
+  const cumMap = { indHa:{}, comHa:{}, otrosHa:{}, viv:{} };
+  const cumMapIng = { indHa:{}, comHa:{}, otrosHa:{} }; // para sanIng/sanVta (pesos diferentes)
+  // Unidades acumuladas por zona (para distribución sanitaria en años sin ventas anuales)
+  const cumVivByZone = {};
+  const _cVivZ = {};
+  for (const z of ALL_HAB_ZONES) { cumVivByZone[z] = {}; _cVivZ[z] = 0; }
+  let _cIndHa=0, _cComHa=0, _cOtrosHa=0;
+  let _cIndHa2=0, _cComHa2=0, _cOtrosHa2=0;
+  // comHa per zone acumulado (para split sanitaria com entre zonas)
+  const cumComHaZone = {}, cumOtrosHaZone = {};
+  for (const z of ALL_HAB_ZONES) { cumComHaZone[z] = {}; }
+  for (const z of ['AUDP Batuco','AUDP Colina','Distrito 4.0']) { cumOtrosHaZone[z] = {}; }
+  const _cComHaZ = {}, _cOtrosHaZ = {};
+  for (const z of ALL_HAB_ZONES) { _cComHaZ[z] = 0; }
+  for (const z of ['AUDP Batuco','AUDP Colina','Distrito 4.0']) { _cOtrosHaZ[z] = 0; }
+
+  for (const y of allYears) {
+    _cIndHa += r.industrialHaByYear?.[y] ?? 0;
+    // comHa = com-mayor ha per zone (commercialHa - prcHa), same as D1's comHaByZoneData
+    let comHaY = 0;
+    for (const z of ALL_HAB_ZONES) {
+      const zh = Math.max(0, (r.commercialHaByZone?.[z]?.[y] ?? 0) - (r.prcHaByZone?.[z]?.[y] ?? 0));
+      _cComHaZ[z] += zh;
+      cumComHaZone[z][y] = _cComHaZ[z];
+      comHaY += zh;
+    }
+    _cComHa += comHaY;
+    // otrosHa: AUDP = prcHa, D4.0 = otrosHaByYear (same as D1's otrosHaByZoneData)
+    let otrosHaY = 0;
+    for (const z of ['AUDP Batuco','AUDP Colina']) {
+      const zh = r.prcHaByZone?.[z]?.[y] ?? 0;
+      _cOtrosHaZ[z] += zh;
+      cumOtrosHaZone[z][y] = _cOtrosHaZ[z];
+      otrosHaY += zh;
+    }
+    { const zh = r.otrosHaByYear?.[y] ?? 0;
+      _cOtrosHaZ['Distrito 4.0'] += zh;
+      cumOtrosHaZone['Distrito 4.0'][y] = _cOtrosHaZ['Distrito 4.0'];
+      otrosHaY += zh;
+    }
+    _cOtrosHa += otrosHaY;
+
+    cumMap.indHa[y]   = _cIndHa;
+    cumMap.comHa[y]   = _cComHa;
+    cumMap.otrosHa[y] = _cOtrosHa;
+    cumMap.viv[y]     = r.cumVivByYear?.[y] ?? 0;
+    // Acumular viviendas por zona (para distribución sanitaria en años sin ventas anuales)
+    for (const z of ALL_HAB_ZONES) {
+      _cVivZ[z] += r.unitsByZone?.[z]?.[y] ?? 0;
+      cumVivByZone[z][y] = _cVivZ[z];
+    }
+
+    // Para sanIng/sanVta (misma acumulación pero se usan pesos distintos)
+    _cIndHa2 += r.industrialHaByYear?.[y] ?? 0;
+    _cComHa2 += comHaY;
+    _cOtrosHa2 += otrosHaY;
+    cumMapIng.indHa[y]   = _cIndHa2;
+    cumMapIng.comHa[y]   = _cComHa2;
+    cumMapIng.otrosHa[y] = _cOtrosHa2;
+  }
+
+  // ── Revenue totales del proyecto por año ──
   const totalRevByYear = {};
   for (const y of allYears) {
     totalRevByYear[y] =
-      Object.values(r.revenueByZone ?? {}).reduce((s,z)=>s+(z[y]??0),0) +
-      Object.values(r.commercialRevByZone ?? {}).reduce((s,z)=>s+(z[y]??0),0) +
+      Object.values(r.revenueByZone ?? {}).reduce((s,zv)=>s+(zv[y]??0),0) +
+      Object.values(r.commercialRevByZone ?? {}).reduce((s,zv)=>s+(zv[y]??0),0) +
       (r.industrialRevByYear?.[y] ?? 0) + (r.otrosRevByYear?.[y] ?? 0) +
       (r.comMenorRevByYear?.[y] ?? 0);
   }
-  const totalProjectRevLifetime = Object.values(totalRevByYear).reduce((s,v)=>s+v,0);
-  const buLifetimeRev = allYears.reduce((s,y) => s + getBURevYear(buId, y), 0);
-  const buShareRatio  = totalProjectRevLifetime > 0 ? buLifetimeRev / totalProjectRevLifetime : 0;
 
-  // Pool PDUC = todo factByZone excepto Batuco y Colina (que tienen coste directo conocido)
-  const pduc_by_year = {};  // año → pool PDUC de ese año (pre-sim + sim)
-  for (const [zName, byY] of Object.entries(r.factByZone ?? {})) {
-    if (DIRECT_FACT_ZONES.has(zName)) continue;
-    for (const [yk, v] of Object.entries(byY)) {
-      const y = parseInt(yk);
-      pduc_by_year[y] = (pduc_by_year[y] ?? 0) + v;
-    }
-  }
-
-  // factMap años de simulación: directo (solo Batuco/Colina) + share del pool PDUC
-  // Se usa revenue share DEL AÑO (mismo mecanismo que mantención) para garantizar cierre:
-  //   sum(factMap[y] para todos los BU con año y en sus segYears) = directFact_y + pduc_y
-  // El lifetime share causaba pérdida: BUs como G/4.0 no tienen segmentos cubriendo 2029-2032
-  // y sus shares de esos años se calculaban pero nunca aparecían en ninguna fila de segmento.
-  const factMap = {};
-  for (const y of allYears) {
-    const directFact = (zoneName && DIRECT_FACT_ZONES.has(zoneName))
-                       ? (r.factByZone?.[zoneName]?.[y] ?? 0) : 0;
-    const pduc_y    = pduc_by_year[y] ?? 0;
-    // Share del año: garantiza sum=1 para todos los BU activos en ese año.
-    // Fallback a lifetime share si no hay revenue (año sin actividad — poco probable en sim).
-    const pducShare = totalRevByYear[y] > 0
-      ? pduc_y * (getBURevYear(buId, y) / totalRevByYear[y])
-      : pduc_y * buShareRatio;
-    factMap[y] = directFact + pducShare;
-  }
-
-  // Pre-sim rows: distribuidas proporcionalmente entre TODOS los segmentos del BU,
-  // según el peso de ingresos del segmento respecto al BU total.
-  // Esto garantiza que cada segmento cargue su parte de la inversión inicial → TIR calculable.
-  // Cada segmento recibe segShareOfBU; al sumar todos los segmentos → 100% de costos pre-sim.
-  const segRevenue    = segYears.reduce((s, y) => s + getBURevYear(buId, y), 0);
-  const segShareOfBU  = buLifetimeRev > 0 ? segRevenue / buLifetimeRev : 0;
-  const preSimShare   = forceIsFirst === false ? 0 : segShareOfBU;
-
-  const preSimRows = [];
-  if (preSimShare > 0) {
-    const preSimByYear = {};
-    // Directo pre-sim (Batuco / Colina)
-    if (zoneName && DIRECT_FACT_ZONES.has(zoneName)) {
-      for (const [yk, v] of Object.entries(r.factByZone?.[zoneName] ?? {})) {
-        const y = parseInt(yk);
-        if (!allYears.includes(y) && v > 1)
-          preSimByYear[y] = (preSimByYear[y] ?? 0) + v;
-      }
-    }
-    // PDUC pool pre-sim × lifetime revenue share del BU
-    for (const [yk, v] of Object.entries(pduc_by_year)) {
-      const y = parseInt(yk);
-      if (!allYears.includes(y) && v > 1)
-        preSimByYear[y] = (preSimByYear[y] ?? 0) + v * buShareRatio;
-    }
-    for (const [yk, adj] of Object.entries(preSimByYear)) {
-      const scaled = adj * preSimShare;
-      if (scaled > 0.5) preSimRows.push({ y: parseInt(yk),
-        revHab:0, revComm:0, revInd:0, revOtros:0, revTotal:0,
-        tierra:0, infra:0, mit:0, fact:scaled,
-        sanInv:0, sanOp:0, sanIng:0, sanVenta:0, sanNet:0,
-        comerc:0, mant:0, costTotal:scaled, neto:-scaled });
-    }
-    preSimRows.sort((a, b) => a.y - b.y);
-  }
-
-  // ── earlyRows: pagos sanitarios en años ANTES del segStart ──
-  // Distribuidos proporcionalmente igual que preSimRows.
-  const IND_SAN_PCT_EARLY = 0.20;
-  const earlyRows = [];
-  if (preSimShare > 0) {
-    for (const y of allYears) {
-      if (y >= segStart) break;
-      const eSanInv = r.sanitariaByYear?.[y] ?? 0;
-      if (!(eSanInv > 0)) continue;
-      const eCumViv = r.cumVivByYear?.[y] ?? 0;
-      if (eCumViv !== 0) continue;
-      const svFull = isInd
-        ? eSanInv * IND_SAN_PCT_EARLY * indSurfRatio
-        : eSanInv * (1 - IND_SAN_PCT_EARLY) * buShareRatio;
-      const sv = svFull * preSimShare;
-      if (sv > 0.5) earlyRows.push({ y, revHab:0, revComm:0, revInd:0, revOtros:0, revTotal:0,
-                       tierra:0, infra:0, mit:0, fact:0,
-                       sanInv:sv, sanOp:0, sanIng:0, sanVenta:0, sanNet:sv,
-                       comerc:0, mant:0, costTotal:sv, neto:-sv });
-    }
-  }
-
-  // ── cumVivZone ──
-  const cumVivZone = {};
-  if (RES_ZONES.has(buId) && zoneName) {
+  // ── cumVivZone: viviendas acumuladas por zona residencial (para sanitaria hab por zona) ──
+  const cumVivZoneMap = {};
+  for (const zn of ALL_HAB_ZONES) {
+    cumVivZoneMap[zn] = {};
     let cum = 0;
     for (const y of allYears) {
-      cum += r.unitsByZone?.[zoneName]?.[y - RECEP_LAG] ?? 0;
-      cumVivZone[y] = cum;
+      cum += r.unitsByZone?.[zn]?.[y - RECEP_LAG] ?? 0;
+      cumVivZoneMap[zn][y] = cum;
     }
   }
 
+  // ── Iterar segYears y generar rows ──
   const rows = [];
   for (const y of segYears) {
     // ── Revenue ──
     let revHab = 0, revComm = 0, revInd = 0, revOtros = 0;
-    if      (buId === 'log-menor') revInd   = r.industrialMenorRevByYear?.[y] ?? 0;
-    else if (buId === 'log-mayor') revInd   = r.industrialMayorRevByYear?.[y] ?? 0;
-    else if (buId === 'otros')     revOtros = r.otrosRevByYear?.[y] ?? 0;
-    else if (isComMayor)           revComm  = Object.values(r.commercialRevByZone ?? {})
-                                               .reduce((s, z) => s + (z[y] ?? 0), 0);
-    else if (isComMenor)           revComm  = r.comMenorRevByYear?.[y] ?? 0;
-    else revHab = r.revenueByZone?.[zoneName]?.[y] ?? 0;
+    switch (cfg.rev) {
+      case 'hab':
+        revHab = cfg.zones.reduce((s,z) => s + (r.revenueByZone?.[z]?.[y] ?? 0), 0); break;
+      case 'com-menor':
+        revComm = cfg.zones.reduce((s,z) => s + (r.comMenorRevByZone?.[z]?.[y] ?? 0), 0); break;
+      case 'com-mayor':
+        revComm = cfg.zones.reduce((s,z) =>
+          s + (r.commercialRevByZone?.[z]?.[y] ?? 0) - (r.prcRevByZone?.[z]?.[y] ?? 0), 0); break;
+      case 'prc':
+        revOtros = cfg.zones.reduce((s,z) => s + (r.prcRevByZone?.[z]?.[y] ?? 0), 0); break;
+      case 'ind-menor': revInd   = r.industrialMenorRevByYear?.[y] ?? 0; break;
+      case 'ind-mayor': revInd   = r.industrialMayorRevByYear?.[y] ?? 0; break;
+      case 'otros':     revOtros = r.otrosRevByYear?.[y] ?? 0; break;
+    }
     const revTotal = revHab + revComm + revInd + revOtros;
 
-    // ── Tierra ──
-    // log-menor y log-mayor comparten tierraByZone['Industrial'] por ratio de superficie
-    const tierra = (isComMayor || isComMenor) ? 0
-                 : isInd      ? (r.tierraByZone?.['Industrial']?.[y] ?? 0) * indSurfRatio
-                 : buId === 'otros' ? 0
-                 : (r.tierraByZone?.[zoneName]?.[y] ?? 0);
+    // ═══ COSTOS — Replica D1 computeBUData exactamente ═══
 
-    // ── Infraestructura: prorrateada por share hab/com ──
-    let infra = 0;
+    // ── TIERRA (D1 líneas 5990-6050) ──
+    // Per zona: split hab/com/otros por revenue ratio dentro de zona
+    let tierra = 0;
     if (isInd) {
-      infra = (r.infraByZone?.['Ciudad Industrial']?.[y] ?? 0) * indSurfRatio;
-    } else if (isComMayor) {
-      // Suma la porción comercial de cada zona
-      infra = ALL_ZONES.reduce((sum, zName) => {
-        const sh = zoneHabShareByYear[zName]?.[y] ?? 1.0;
-        return sum + (r.infraByZone?.[zName]?.[y] ?? 0) * (1 - sh);
-      }, 0);
-    } else if (buId !== 'otros' && zoneName) {
-      // Residencial: solo porción habitacional
-      infra = (r.infraByZone?.[zoneName]?.[y] ?? 0) * (zoneHabShareByYear[zoneName]?.[y] ?? 1.0);
-    }
-
-    // ── Mitigaciones ──
-    let mit = 0;
-    if (!isComMayor && !isComMenor) {
-      if (isPDUC) {
-        const pducRev = (r.revenueByZone?.['Distrito G']?.[y]   ?? 0) +
-                        (r.revenueByZone?.['Distrito 4.0']?.[y] ?? 0) +
-                        (r.industrialRevByYear?.[y]              ?? 0) +
-                        (r.otrosRevByYear?.[y]                   ?? 0);
-        const pducMit = r.mitByGroup?.['PDUC']?.[y] ?? 0;
-        mit = pducRev > 0 ? pducMit * (revTotal / pducRev) : 0;
-      } else if (zoneName) {
-        mit = r.mitByGroup?.[zoneName]?.[y] ?? 0;
+      tierra = (r.tierraByZone?.['Industrial']?.[y] ?? 0) * indSurfRatio;
+    } else if (isComMenor) {
+      tierra = 0; // com-menor: sin costos
+    } else if (cfg.zones.length > 0) {
+      for (const z of cfg.zones) {
+        const t = r.tierraByZone?.[z]?.[y] ?? 0;
+        if (t === 0) continue;
+        const rZH = r.revenueByZone?.[z]?.[y] ?? 0;
+        let rZC, rZO;
+        if (z === 'Distrito 4.0') {
+          rZC = r.commercialRevByZone?.[z]?.[y] ?? 0;
+          rZO = r.otrosRevByYear?.[y] ?? 0;
+        } else {
+          const rZPRC = r.prcRevByZone?.[z]?.[y] ?? 0;
+          rZC = Math.max(0, (r.commercialRevByZone?.[z]?.[y] ?? 0) - rZPRC);
+          rZO = rZPRC;
+        }
+        const rZTot = rZH + rZC + rZO || 1;
+        if (isHab) tierra += t * rZH / rZTot;
+        else if (isComMayor) tierra += t * rZC / rZTot;
+        else if (isPRC || isOtros) tierra += t * rZO / rZTot;
       }
     }
 
-    // ── Factibilización: todos los BUs usan factMap (lifetime revenue share) ──
-    // Garantiza sum(fact_D2 por BU) = D1 total.
-    // La fórmula anterior de com-mayor (habShare) causaba doble conteo sobre pduc_y.
-    const fact = factMap[y] ?? 0;
-
-    // ── Sanitaria — Industrial absorbe 20% fijo, resto 80% proporcional a viviendas ──
-    const IND_SAN_PCT = 0.20;
-    let sanInv = 0, sanOp = 0, sanIng = 0, sanVenta = 0;
-    const cumVivAll = r.cumVivByYear?.[y] ?? 0;
+    // ── INFRAESTRUCTURA (D1 líneas 6052-6086) ──
+    // Per zona: split hab/comMayor/otros por revenue ratio (PRC separado de comercial)
+    let infra = 0;
     if (isInd) {
-      // 20% total para industrial, prorrateado por superficie entre Menor/Mayor
-      const share = IND_SAN_PCT * indSurfRatio;
-      sanInv   = (r.sanitariaByYear?.[y]      ?? 0) * share;
-      sanOp    = (r.sanitariaOpCostByYear?.[y] ?? 0) * share;
-      sanIng   = (r.sanitariaIngByYear?.[y]    ?? 0) * share;
-      sanVenta = (r.sanitariaVentaByYear?.[y]  ?? 0) * share;
-    } else if (RES_ZONES.has(buId) && cumVivAll > 0) {
-      // 80% restante proporcional a viviendas acumuladas de cada zona
-      const share = ((cumVivZone[y] ?? 0) / cumVivAll) * (1 - IND_SAN_PCT);
-      sanInv   = (r.sanitariaByYear?.[y]      ?? 0) * share;
-      sanOp    = (r.sanitariaOpCostByYear?.[y] ?? 0) * share;
-      sanIng   = (r.sanitariaIngByYear?.[y]    ?? 0) * share;
-      sanVenta = (r.sanitariaVentaByYear?.[y]  ?? 0) * share;
-    } else if (cumVivAll === 0 && (r.sanitariaByYear?.[y] ?? 0) > 0 && !isInd) {
-      // Fallback: no hay viviendas aún. Porción no-industrial por revenue share.
-      sanInv = (r.sanitariaByYear?.[y] ?? 0) * (1 - IND_SAN_PCT) * buShareRatio;
+      infra = (r.infraByZone?.['Ciudad Industrial']?.[y] ?? 0) * indSurfRatio;
+    } else if (isComMenor) {
+      infra = 0;
+    } else if (cfg.zones.length > 0) {
+      for (const z of cfg.zones) {
+        const inf = r.infraByZone?.[z]?.[y] ?? 0;
+        if (inf === 0) continue;
+        const rZH   = r.revenueByZone?.[z]?.[y] ?? 0;
+        const rZPRC = r.prcRevByZone?.[z]?.[y] ?? 0;
+        const rZC   = Math.max(0, (r.commercialRevByZone?.[z]?.[y] ?? 0) - rZPRC);
+        const rZO   = z === 'Distrito 4.0' ? (r.otrosRevByYear?.[y] ?? 0) : rZPRC;
+        const rZTot = rZH + rZC + rZO || 1;
+        if (isHab) infra += inf * rZH / rZTot;
+        else if (isComMayor) infra += inf * rZC / rZTot;
+        else if (isPRC || isOtros) infra += inf * rZO / rZTot;
+      }
+    }
+
+    // ── MITIGACIONES (D1 líneas 6088-6130) ──
+    let mit = 0;
+    if (isHab || isInd || isOtros) {
+      const mitAudpBat   = r.mitByGroup?.['AUDP Batuco']?.[y] ?? 0;
+      const mitAudpCol   = r.mitByGroup?.['AUDP Colina']?.[y] ?? 0;
+      const mitPDUCTotal = r.mitByGroup?.['PDUC']?.[y] ?? 0;
+      const mitOther = Math.max(0, (r.mitigacionesByYear?.[y] ?? 0) - mitAudpBat - mitAudpCol - mitPDUCTotal);
+
+      const rBat = r.revenueByZone?.['AUDP Batuco']?.[y] ?? 0;
+      const rCol = r.revenueByZone?.['AUDP Colina']?.[y] ?? 0;
+      const rG   = r.revenueByZone?.['Distrito G']?.[y] ?? 0;
+      const r40  = r.revenueByZone?.['Distrito 4.0']?.[y] ?? 0;
+      const rI   = r.industrialRevByYear?.[y] ?? 0;
+      const rO   = r.otrosRevByYear?.[y] ?? 0;
+      const rH   = rBat + rCol + rG + r40;
+      const rHabPDUC = rG + r40;
+      const pducBase = rHabPDUC + rI + rO || 1;
+      const mitPDUCHab   = mitPDUCTotal * rHabPDUC / pducBase;
+      const mitPDUCInd   = mitPDUCTotal * rI / pducBase;
+      const mitPDUCOtros = mitPDUCTotal * rO / pducBase;
+      const rHI = rH + rI || 1;
+      const mitOtherHab = mitOther * rH / rHI;
+      const mitOtherInd = mitOther * rI / rHI;
+      const rAllHab = rBat + rCol + rG + r40 || 1;
+      const rGD = rG + r40 || 1;
+
+      if (isHab) {
+        if      (buId === 'batuco') mit = mitAudpBat + mitOtherHab * rBat / rAllHab;
+        else if (buId === 'colina') mit = mitAudpCol + mitOtherHab * rCol / rAllHab;
+        else if (buId === 'g')      mit = mitPDUCHab * rG / rGD + mitOtherHab * rG / rAllHab;
+        else if (buId === '40')     mit = mitPDUCHab * r40 / rGD + mitOtherHab * r40 / rAllHab;
+      } else if (isInd) {
+        mit = (mitPDUCInd + mitOtherInd) * indSurfRatio;
+      } else if (isOtros) {
+        mit = mitPDUCOtros;
+      }
+    }
+
+    // ── FACTIBILIZACIÓN (D1 líneas 6175-6204) ──
+    // Usa r.factByZone directamente (NO merged) para preservar timing pre-sim en VAN
+    let fact = 0;
+    if (isComMenor) {
+      fact = 0;
+    } else if (isInd) {
+      fact = (r.factByZone?.['Industrial']?.[y] ?? 0) * indSurfRatio;
+    } else if (cfg.zones.length > 0) {
+      for (const z of cfg.zones) {
+        const fz = r.factByZone?.[z]?.[y] ?? 0;
+        if (isHab)          fact += fz * (factRevRatioHab[z] ?? 0);
+        else if (isComMayor) fact += fz * (factRevRatioCom[z] ?? 0);
+        else if (isPRC || isOtros) fact += fz * (factRevRatioOtros[z] ?? 0);
+      }
+    }
+
+    // ── SANITARIA (D1 líneas 6131-6170, 6228-6248) ──
+    let sanInv = 0, sanOp = 0, sanIng = 0, sanVenta = 0;
+    if (isComMenor) {
+      // com-menor: sin costos sanitarios
+    } else {
+      // Pesos acumulados para inversión/op (D1: IND_SAN_PCT fijo, resto por peso)
+      const cumVivY     = cumMap.viv[y] ?? 0;
+      const cumComHaY   = cumMap.comHa[y] ?? 0;
+      const cumOtrosHaY = cumMap.otrosHa[y] ?? 0;
+      const pesHab   = cumVivY;
+      const pesCom   = cumComHaY * 10;
+      const pesOtros = cumOtrosHaY * 5;
+      const pesNonInd = pesHab + pesCom + pesOtros;
+      const wInd   = IND_SAN_PCT;
+      const wHab   = pesNonInd > 0 ? (pesHab / pesNonInd) * (1 - IND_SAN_PCT) : (1 - IND_SAN_PCT);
+      const wCom   = pesNonInd > 0 ? (pesCom / pesNonInd) * (1 - IND_SAN_PCT) : 0;
+      const wOtros = pesNonInd > 0 ? (pesOtros / pesNonInd) * (1 - IND_SAN_PCT) : 0;
+
+      const sInv = r.sanitariaByYear?.[y] ?? 0;
+      const sOp  = r.sanitariaOpCostByYear?.[y] ?? 0;
+
+      if (isInd) {
+        const sh = wInd * indSurfRatio;
+        sanInv = sInv * sh;
+        sanOp  = sOp * sh;
+      } else if (isHab) {
+        // Hab: wHab × unitsByZone/totalUnits (distribución por zona)
+        // Usar unidades anuales; si son 0, fallback a acumuladas para no perder costos
+        let vBat = r.unitsByZone?.['AUDP Batuco']?.[y] ?? 0;
+        let vCol = r.unitsByZone?.['AUDP Colina']?.[y] ?? 0;
+        let vG   = r.unitsByZone?.['Distrito G']?.[y] ?? 0;
+        let v40  = r.unitsByZone?.['Distrito 4.0']?.[y] ?? 0;
+        let vTotAnn = vBat + vCol + vG + v40;
+        if (vTotAnn === 0) {
+          // Fallback: usar viviendas acumuladas por zona
+          vBat = cumVivByZone['AUDP Batuco']?.[y] ?? 0;
+          vCol = cumVivByZone['AUDP Colina']?.[y] ?? 0;
+          vG   = cumVivByZone['Distrito G']?.[y] ?? 0;
+          v40  = cumVivByZone['Distrito 4.0']?.[y] ?? 0;
+        }
+        const vTot = vBat + vCol + vG + v40 || 1;
+        let vZ = 0;
+        for (const z of cfg.zones) {
+          if      (z === 'AUDP Batuco')  vZ += vBat;
+          else if (z === 'AUDP Colina')  vZ += vCol;
+          else if (z === 'Distrito G')    vZ += vG;
+          else if (z === 'Distrito 4.0')  vZ += v40;
+        }
+        const sh = wHab * vZ / vTot;
+        sanInv = sInv * sh;
+        sanOp  = sOp * sh;
+      } else if (isComMayor) {
+        // Com Mayor: wCom × cumComHaZone/cumComHa
+        const cumZ = cfg.zones.reduce((s,z) => s + (cumComHaZone[z]?.[y] ?? 0), 0);
+        const sh = cumComHaY > 0 ? wCom * cumZ / cumComHaY : 0;
+        sanInv = sInv * sh;
+        sanOp  = sOp * sh;
+      } else if (isPRC) {
+        // PRC (otros AUDP): wOtros × cumOtrosHaZone/cumOtrosHa
+        const cumZ = cfg.zones.reduce((s,z) => s + (cumOtrosHaZone[z]?.[y] ?? 0), 0);
+        const sh = cumOtrosHaY > 0 ? wOtros * cumZ / cumOtrosHaY : 0;
+        sanInv = sInv * sh;
+        sanOp  = sOp * sh;
+      } else if (isOtros) {
+        // Otros PDUC (D4.0): wOtros × cumOtrosHa_40/cumOtrosHa
+        const cumZ = cumOtrosHaZone['Distrito 4.0']?.[y] ?? 0;
+        const sh = cumOtrosHaY > 0 ? wOtros * cumZ / cumOtrosHaY : 0;
+        sanInv = sInv * sh;
+        sanOp  = sOp * sh;
+      }
+
+      // Ingresos y Venta sanitaria
+      // El CF del proyecto (computeAnnualCF) usa 100% de sanIng/sanVta.
+      // D1 BU solo lo asigna a Hab+Ind, pero eso pierde la porción com+otros.
+      // Para que D2 sume al total del proyecto, distribuimos a TODOS los BU types
+      // usando los mismos pesos (pesH, pesI, pesC, pesO) del bloque sanIng D1.
+      const sIng = r.sanitariaIngByYear?.[y] ?? 0;
+      const sVta = r.sanitariaVentaByYear?.[y] ?? 0;
+      if ((sIng > 0 || sVta > 0) && !isComMenor) {
+        const pesHI = cumMap.viv[y] ?? 0;
+        const pesII = (cumMapIng.indHa[y] ?? 0) * 25;
+        const pesCI = (cumMapIng.comHa[y] ?? 0) * 10;
+        const pesOI = (cumMapIng.otrosHa[y] ?? 0) * 5;
+        const pesTI = pesHI + pesII + pesCI + pesOI;
+        const wHI = pesTI > 0 ? pesHI / pesTI : 1;
+        const wII = pesTI > 0 ? pesII / pesTI : 0;
+        const wCI = pesTI > 0 ? pesCI / pesTI : 0;
+        const wOI = pesTI > 0 ? pesOI / pesTI : 0;
+        if (isInd) {
+          sanIng   = sIng * wII * indSurfRatio;
+          sanVenta = sVta * wII * indSurfRatio;
+        } else if (isHab) {
+          // Split por zona: unitsByZone/totalUnits (fallback a acumuladas si anuales=0)
+          let vBat2 = r.unitsByZone?.['AUDP Batuco']?.[y] ?? 0;
+          let vCol2 = r.unitsByZone?.['AUDP Colina']?.[y] ?? 0;
+          let vG2   = r.unitsByZone?.['Distrito G']?.[y] ?? 0;
+          let v402  = r.unitsByZone?.['Distrito 4.0']?.[y] ?? 0;
+          if (vBat2 + vCol2 + vG2 + v402 === 0) {
+            vBat2 = cumVivByZone['AUDP Batuco']?.[y] ?? 0;
+            vCol2 = cumVivByZone['AUDP Colina']?.[y] ?? 0;
+            vG2   = cumVivByZone['Distrito G']?.[y] ?? 0;
+            v402  = cumVivByZone['Distrito 4.0']?.[y] ?? 0;
+          }
+          const vTot2 = vBat2 + vCol2 + vG2 + v402 || 1;
+          let vZ2 = 0;
+          for (const z of cfg.zones) {
+            if      (z === 'AUDP Batuco')  vZ2 += vBat2;
+            else if (z === 'AUDP Colina')  vZ2 += vCol2;
+            else if (z === 'Distrito G')    vZ2 += vG2;
+            else if (z === 'Distrito 4.0')  vZ2 += v402;
+          }
+          sanIng   = sIng * wHI * vZ2 / vTot2;
+          sanVenta = sVta * wHI * vZ2 / vTot2;
+        } else if (isComMayor) {
+          // Com Mayor recibe porción wCI, split por cumComHaZone
+          const cumComHaY = cumMap.comHa[y] ?? 0;
+          const cumZ = cfg.zones.reduce((s,z) => s + (cumComHaZone[z]?.[y] ?? 0), 0);
+          const sh = cumComHaY > 0 ? wCI * cumZ / cumComHaY : 0;
+          sanIng   = sIng * sh;
+          sanVenta = sVta * sh;
+        } else if (isPRC) {
+          // PRC recibe porción wOI, split por cumOtrosHaZone
+          const cumOtrosHaY = cumMap.otrosHa[y] ?? 0;
+          const cumZ = cfg.zones.reduce((s,z) => s + (cumOtrosHaZone[z]?.[y] ?? 0), 0);
+          const sh = cumOtrosHaY > 0 ? wOI * cumZ / cumOtrosHaY : 0;
+          sanIng   = sIng * sh;
+          sanVenta = sVta * sh;
+        } else if (isOtros) {
+          // Otros PDUC: porción wOI de D4.0
+          const cumOtrosHaY = cumMap.otrosHa[y] ?? 0;
+          const cumZ = cumOtrosHaZone['Distrito 4.0']?.[y] ?? 0;
+          const sh = cumOtrosHaY > 0 ? wOI * cumZ / cumOtrosHaY : 0;
+          sanIng   = sIng * sh;
+          sanVenta = sVta * sh;
+        }
+      }
     }
     const sanNet = sanInv + sanOp - sanIng - sanVenta;
 
-    // ── Comercialización ──
-    // D1 computa comercializacionByYear sobre (hab + ind + commercial) SIN incluir otrosRevByYear.
-    // Para mantener consistencia con D1, 'otros' no paga comercialización.
-    const comerc = buId === 'otros' ? 0 : revTotal * 0.02;
+    // ── COMERCIALIZACIÓN ──
+    // El raw comercializacionByYear del proyecto se calcula como 2% de (hab+ind+com+comMenor)
+    // pero NO incluye otrosRev ni prcRev. Para que D2 sume al total del proyecto,
+    // las barras PRC y otros no llevan comercialización.
+    const comerc = (isPRC || isOtros) ? 0 : revTotal * 0.02;
 
-    // ── Mantención (áreas verdes y seguridad) ──
-    // D1 incluye mantByYear en costByYear de forma global. Prorrateamos por revenue share del año,
-    // igual que las mitigaciones PDUC. Los BUs sin ingresos en un año reciben 0.
-    const mant = totalRevByYear[y] > 0
-      ? (r.mantByYear?.[y] ?? 0) * (revTotal / totalRevByYear[y])
-      : 0;
+    // ── MANTENCIÓN (D1 líneas 6206-6225): prorrateo por Ha vendida anual ──
+    let mant = 0;
+    if (isComMenor) {
+      mant = 0;
+    } else {
+      const habHaY = ALL_HAB_ZONES.reduce((s,z) => s + (r.landByZone?.[z]?.[y] ?? 0), 0);
+      const comHaY = ALL_HAB_ZONES.reduce((s,z) => {
+        return s + Math.max(0, (r.commercialHaByZone?.[z]?.[y] ?? 0) - (r.prcHaByZone?.[z]?.[y] ?? 0));
+      }, 0);
+      const indHaY = r.industrialHaByYear?.[y] ?? 0;
+      let otrosHaY = 0;
+      for (const z of ['AUDP Batuco','AUDP Colina']) otrosHaY += r.prcHaByZone?.[z]?.[y] ?? 0;
+      otrosHaY += r.otrosHaByYear?.[y] ?? 0;
+      const haTotal = habHaY + comHaY + indHaY + otrosHaY || 1;
+      const mantY = r.mantByYear?.[y] ?? 0;
+
+      if (isInd) {
+        mant = mantY * indHaY / haTotal * indSurfRatio;
+      } else if (isHab) {
+        const zHa = cfg.zones.reduce((s,z) => s + (r.landByZone?.[z]?.[y] ?? 0), 0);
+        mant = mantY * zHa / haTotal;
+      } else if (isComMayor) {
+        const zComHa = cfg.zones.reduce((s,z) => {
+          return s + Math.max(0, (r.commercialHaByZone?.[z]?.[y] ?? 0) - (r.prcHaByZone?.[z]?.[y] ?? 0));
+        }, 0);
+        mant = mantY * zComHa / haTotal;
+      } else if (isPRC) {
+        const zOtrosHa = cfg.zones.reduce((s,z) => s + (r.prcHaByZone?.[z]?.[y] ?? 0), 0);
+        mant = mantY * zOtrosHa / haTotal;
+      } else if (isOtros) {
+        const zOtrosHa = r.otrosHaByYear?.[y] ?? 0;
+        mant = mantY * zOtrosHa / haTotal;
+      }
+    }
 
     const costTotal = tierra + infra + mit + fact + sanNet + comerc + mant;
     const neto      = revTotal - costTotal;
@@ -9284,22 +11047,19 @@ function computeSegmentEERR(buId, segStart, segEnd, forceIsFirst = null) {
                 comerc, mant, costTotal, neto });
   }
 
-  const allRows   = [...preSimRows, ...earlyRows, ...rows];
-  const totalRev  = allRows.reduce((s, r) => s + r.revTotal,  0);
-  const totalCost = allRows.reduce((s, r) => s + r.costTotal, 0);
+  const totalRev  = rows.reduce((s, r) => s + r.revTotal,  0);
+  const totalCost = rows.reduce((s, r) => s + r.costTotal, 0);
   const totalNeto = totalRev - totalCost;
   const vanRate   = (parseFloat(document.getElementById('van-rate')?.value) || 8) / 100;
-  const van       = allRows.reduce((s, r) => s + r.neto / Math.pow(1 + vanRate, r.y - BASE_YEAR), 0);
-  // calcIRR (Newton-Raphson) es más robusto que computeIRR (bisección) para flujos no-convencionales
-  const tir       = calcIRR(allRows.map(r => r.neto));
-  return { rows: allRows, totalRev, totalCost, totalNeto, van, tir, vanRate, baseYear: BASE_YEAR };
+  const van       = rows.reduce((s, r) => s + r.neto / Math.pow(1 + vanRate, r.y - BASE_YEAR), 0);
+  const tir       = calcIRR(rows.map(r => r.neto));
+  return { rows, totalRev, totalCost, totalNeto, van, tir, vanRate, baseYear: BASE_YEAR };
 }
 
 // ── Agregar cashflows de múltiples segmentos ────────────────────────────────
 function computeAggregatedFin(selections) {
-  // Agrupa por BU. Cada segmento recibe su proporción de costos pre-sim
-  // (segShareOfBU = segRevenue / buLifetimeRev), de modo que al sumar todos
-  // los segmentos del BU se obtiene ~100% de los costos pre-simulación.
+  // Agrupa por BU. El primer segmento de cada BU extiende su rango hacia atrás
+  // para capturar costos pre-revenue. Los costos se colocan en su año exacto.
   const byBU = {};
   for (const s of selections) {
     if (!byBU[s.bu]) byBU[s.bu] = [];
