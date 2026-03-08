@@ -1135,12 +1135,20 @@
 
       /* ── Business Units stacked ── */
       .bu-tabs { padding: 0 8px; overflow-x: auto; -webkit-overflow-scrolling: touch; }
-      .bu-panel { padding: 10px 10px 16px; }
+      .bu-tab { padding: 8px 12px; font-size: 11px; }
+      .bu-panel { padding: 10px 8px 16px; }
       .bu-content {
         grid-template-columns: 1fr !important;
       }
+      .bu-charts-col { overflow: hidden; }
+      .bu-charts-col > div[style*="grid-template-columns"] {
+        grid-template-columns: 1fr 1fr !important; gap: 4px !important;
+      }
+      .bu-charts-col .chart-wrap { max-width: 100%; overflow: hidden; }
       .bu-eerr-col { max-height: none; overflow-x: auto; -webkit-overflow-scrolling: touch; }
-      .bu-eerr-table { min-width: 500px; }
+      .bu-eerr-table { min-width: 340px; width: 100%; }
+      .bu-eerr-table td:first-child { max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .bu-kpi-strip { flex-wrap: wrap; font-size: 10px; }
 
       /* ── Evolucion section ── */
       .evolucion-section { margin: 0 6px 20px; }
