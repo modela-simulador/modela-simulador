@@ -1043,6 +1043,144 @@
     .un-info-placeholder { margin-top:16px; padding:10px; background:#f8fafc;
       border-radius:6px; font-size:11px; color:#94a3b8; text-align:center;
       border:1px dashed #e2e8f0; }
+
+    /* ══════════════════════════════════════════════════════════
+       MOBILE RESPONSIVE (max-width: 768px)
+       ══════════════════════════════════════════════════════════ */
+    .mobile-hamburger {
+      display: none;
+      position: fixed; top: 10px; left: 10px; z-index: 8500;
+      width: 40px; height: 40px; border-radius: 8px;
+      background: #fff; border: 1px solid #e2e8f0;
+      align-items: center; justify-content: center;
+      cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      flex-direction: column; gap: 4px; padding: 0;
+    }
+    .mobile-hamburger span {
+      display: block; width: 18px; height: 2px;
+      background: #334155; border-radius: 2px;
+      transition: all 0.3s;
+    }
+    .sidebar-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(15,23,42,0.5); z-index: 7999;
+    }
+
+    @media (max-width: 768px) {
+      /* ── Hamburger visible ── */
+      .mobile-hamburger { display: flex; }
+      .mobile-hamburger.hide-for-drawer { opacity: 0; pointer-events: none; transition: opacity 0.2s; }
+
+      /* ── Sidebar drawer ── */
+      .sidebar {
+        position: fixed !important; left: -290px; top: 0; bottom: 0;
+        z-index: 8000; transition: left 0.3s ease;
+        box-shadow: none; overflow-y: auto;
+      }
+      .sidebar.open { left: 0; box-shadow: 4px 0 24px rgba(0,0,0,0.15); }
+      .sidebar-overlay.visible { display: block; }
+
+      /* ── Simulator app stacks vertically ── */
+      #simulator-app { flex-direction: column; height: auto; min-height: 100vh; overflow: visible; }
+      .main { overflow-y: visible; padding-top: 54px; }
+
+      /* ── KPI row 2x2 grid ── */
+      .kpi-row {
+        display: grid !important;
+        grid-template-columns: 1fr 1fr;
+        gap: 1px;
+      }
+      .kpi-card { padding: 10px 12px; }
+      .kpi-value { font-size: 16px; }
+      .kpi-label { font-size: 8.5px; letter-spacing: 0.5px; }
+      .kpi-sub { font-size: 8.5px; }
+
+      /* ── Policy bar wraps ── */
+      .policy-bar {
+        flex-wrap: wrap; gap: 4px; padding: 8px 12px;
+      }
+      .policy-chip { font-size: 11px; padding: 5px 10px; }
+
+      /* ── Charts 1 column ── */
+      .charts-area {
+        grid-template-columns: 1fr !important;
+        grid-template-rows: auto !important;
+        padding: 10px !important;
+        gap: 12px !important;
+      }
+      .chart-panel { min-height: 260px; }
+      .chart-panel--wide { grid-column: 1 !important; }
+
+      /* ── Cashflow section ── */
+      .cashflow-section { padding: 12px !important; }
+      .cashflow-section .chart-header { font-size: 12px; }
+
+      /* ── Financial tables scroll horizontal ── */
+      .fin-section-wrap { padding: 0 8px; }
+      .fin-scroll { max-height: none; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+      .fin-scroll table { min-width: 700px; }
+
+      /* ── Estado Resultados + VAN stacked ── */
+      .er-van-wrapper {
+        grid-template-columns: 1fr !important;
+      }
+      .er-section { border-right: none; border-bottom: 1px solid #e2e8f0; padding: 14px 12px 18px; }
+      .er-van-chart { padding: 14px 12px 18px; }
+
+      /* ── Business Units stacked ── */
+      .bu-tabs { padding: 0 10px; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+      .bu-panel { padding: 10px 12px 16px; }
+      .bu-content {
+        grid-template-columns: 1fr !important;
+      }
+      .bu-eerr-col { max-height: none; }
+      .bu-eerr-table { min-width: 500px; }
+
+      /* ── Evolucion section ── */
+      .evolucion-section { margin: 0 8px 20px; }
+      .evolucion-chart-container { height: 260px; padding: 12px 10px 10px; }
+      .evolucion-header { flex-wrap: wrap; gap: 8px; }
+
+      /* ── Modals full-screen ── */
+      .products-modal {
+        width: 100% !important; max-width: 100% !important;
+        max-height: 100vh !important; border-radius: 0 !important;
+        margin: 0 !important;
+      }
+      .prod-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+      .prod-table { min-width: 680px; }
+      .stock-zones-grid { grid-template-columns: 1fr !important; }
+
+      .surface-modal {
+        width: 100% !important; max-width: 100% !important;
+        max-height: 100vh !important; border-radius: 0 !important;
+      }
+
+      /* ── UN overlay responsive ── */
+      .un-body { flex-direction: column !important; }
+      .un-info-panel { width: 100% !important; max-height: 300px; overflow-y: auto; }
+      .un-chart-scroll { min-height: 300px; }
+
+      /* ── Landing page mobile ── */
+      .lp-hero { padding: 40px 16px; }
+      .lp-hero h1 { font-size: 32px; }
+      .lp-hero-tagline { font-size: 15px; margin-bottom: 28px; }
+      .lp-hero-logo-svg { width: 56px; height: 56px; margin-bottom: 20px; }
+      .lp-login-card { padding: 28px 20px; }
+
+      /* ── Sidebar internals compact ── */
+      .brand img { width: 50px; height: 50px; }
+      .legend-wrap { grid-template-columns: 1fr !important; gap: 4px !important; }
+    }
+
+    /* ── Tablet tweaks (769-1024) ── */
+    @media (min-width: 769px) and (max-width: 1024px) {
+      .charts-area { grid-template-columns: 1fr 1fr; }
+      .kpi-value { font-size: 18px; }
+      .kpi-card { padding: 12px 14px; }
+      .er-van-wrapper { grid-template-columns: 1fr 1fr; }
+      .bu-content { grid-template-columns: 1fr 1fr; }
+    }
   </style>
 </head>
 <body>
@@ -1087,6 +1225,12 @@
      SIMULATOR APP
      ═══════════════════════════════════════════════════════════ -->
 <div id="simulator-app" class="hidden">
+
+<!-- MOBILE HAMBURGER -->
+<button class="mobile-hamburger" onclick="toggleSidebar()" aria-label="Menu">
+  <span></span><span></span><span></span>
+</button>
+<div class="sidebar-overlay" onclick="closeSidebar()"></div>
 
 <!-- SIDEBAR -->
 <div class="sidebar">
@@ -1537,6 +1681,7 @@
     </div>
     <div class="products-modal-body">
       <div class="prod-tab-content active" id="tab-products">
+        <div class="prod-table-wrap">
         <table class="prod-table">
           <thead>
             <tr>
@@ -1553,6 +1698,7 @@
           </thead>
           <tbody id="prod-table-body"></tbody>
         </table>
+        </div>
         <div style="margin-top:10px">
           <button class="btn-add-product" onclick="addNewProduct()">+ Agregar Producto</button>
         </div>
@@ -2138,7 +2284,29 @@ function transitionToSimulator() {
   resetTimer();
 })();
 
-
+// ════════════════════════════════════════════════════════════
+// MOBILE SIDEBAR TOGGLE
+// ════════════════════════════════════════════════════════════
+function toggleSidebar() {
+  const sb = document.querySelector('.sidebar');
+  const ov = document.querySelector('.sidebar-overlay');
+  const hb = document.querySelector('.mobile-hamburger');
+  if (!sb) return;
+  const isOpen = sb.classList.contains('open');
+  if (isOpen) { closeSidebar(); } else {
+    sb.classList.add('open');
+    if (ov) ov.classList.add('visible');
+    if (hb) hb.classList.add('hide-for-drawer');
+  }
+}
+function closeSidebar() {
+  const sb = document.querySelector('.sidebar');
+  const ov = document.querySelector('.sidebar-overlay');
+  const hb = document.querySelector('.mobile-hamburger');
+  if (sb) sb.classList.remove('open');
+  if (ov) ov.classList.remove('visible');
+  if (hb) hb.classList.remove('hide-for-drawer');
+}
 
 // ════════════════════════════════════════════════════════════
 // DATA CONSTANTS
