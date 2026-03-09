@@ -1901,6 +1901,20 @@
       </div>
     </div>
 
+    <!-- Market share chart -->
+    <div class="chart-panel chart-panel--wide" style="min-height:299px">
+      <div class="chart-header">
+        <div>
+          <div class="chart-title">Participacion de Mercado RM</div>
+          <div class="chart-subtitle">Viviendas vendidas Batuco Terra vs. proyeccion Region Metropolitana</div>
+        </div>
+        <button class="reset-zoom-btn" onclick="resetZoom('marketShareChart')">↺</button>
+      </div>
+      <div class="chart-wrap">
+        <canvas id="marketShareChart"></canvas>
+      </div>
+    </div>
+
     <!-- Industrial chart -->
     <div class="chart-panel chart-panel--wide" style="min-height:299px">
       <div class="chart-header">
@@ -2665,6 +2679,16 @@ const SURFACE_DEFAULTS = Object.freeze({
 const PDUC_POOL = 323.72;
 const AUDP_POOL = 52.15;
 const HA_BRUTAS = 635;  // hectáreas brutas totales del proyecto
+
+// Proyeccion de venta de viviendas nuevas en Region Metropolitana (fuente: estudio de mercado)
+const RM_VENTAS_NUEVAS = {
+  2025:27699, 2026:35908, 2027:28087, 2028:36585, 2029:31231, 2030:40114,
+  2031:31389, 2032:40627, 2033:31410, 2034:43572, 2035:33922, 2036:33826,
+  2037:33710, 2038:33576, 2039:33422, 2040:33245, 2041:35062, 2042:34874,
+  2043:22895, 2044:34159, 2045:33858, 2046:33541, 2047:33197, 2048:19946,
+  2049:32166, 2050:31723, 2051:17751, 2052:16568, 2053:15387, 2054:14213,
+  2055:13054, 2056:11922, 2057:10824, 2058:9767, 2059:8757, 2060:7801,
+};
 
 let surfaceConfig = JSON.parse(JSON.stringify(SURFACE_DEFAULTS));
 
@@ -4687,6 +4711,7 @@ let landChart     = null;
 let landCapChart  = null;
 let opsChart      = null;
 let vivChart      = null;
+let marketShareChart = null;
 let lastResults   = null;
 let unCFChart     = null;
 let unSelList     = [];   // [{ el, bu, label, seg, start, end }, …]
@@ -5462,6 +5487,104 @@ function renderKPIs(results) {
     vanEl.style.color = van >= 0 ? '#0f172a' : '#dc2626';
   }
 
+}
+
+// ── Participacion de Mercado RM ──
+function renderMarketShareChart(results) {
+  const { years, unitsByZone } = results;
+  // Ventas anuales del proyecto
+  const projUnits = years.map(y => {
+    let s = 0;
+    for (const z of Object.keys(unitsByZone)) s += unitsByZone[z]?.[y] ?? 0;
+    return s;
+  });
+  // Ventas RM y market share
+  const rmUnits = years.map(y => RM_VENTAS_NUEVAS[y] ?? 0);
+  const sharePct = years.map((y, i) => rmUnits[i] > 0 ? (projUnits[i] / rmUnits[i]) * 100 : 0);
+
+  const ctx = document.getElementById('marketShareChart');
+  if (!ctx) return;
+  if (marketShareChart) marketShareChart.destroy();
+
+  marketShareChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: years,
+      datasets: [
+        {
+          label: 'Mercado RM (miles)',
+          data: rmUnits.map(v => v / 1000),
+          backgroundColor: 'rgba(148,163,184,0.35)',
+          borderColor: 'rgba(148,163,184,0.6)',
+          borderWidth: 1,
+          yAxisID: 'y',
+          order: 2,
+        },
+        {
+          label: 'Batuco Terra',
+          data: projUnits,
+          backgroundColor: 'rgba(59,130,246,0.7)',
+          borderColor: 'rgba(59,130,246,1)',
+          borderWidth: 1,
+          yAxisID: 'y2',
+          order: 1,
+        },
+        {
+          label: 'Participacion %',
+          data: sharePct,
+          type: 'line',
+          borderColor: '#f59e0b',
+          backgroundColor: 'rgba(245,158,11,0.1)',
+          borderWidth: 2.5,
+          pointRadius: 0,
+          pointHoverRadius: 4,
+          fill: false,
+          yAxisID: 'y3',
+          order: 0,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { position: 'bottom', labels: { usePointStyle: true, padding: 14, font: { size: 11 } } },
+        tooltip: {
+          callbacks: {
+            label: function(ctx) {
+              if (ctx.dataset.label === 'Mercado RM (miles)') return 'Mercado RM: ' + (ctx.raw * 1000).toLocaleString('es-CL') + ' viv.';
+              if (ctx.dataset.label === 'Batuco Terra') return 'Batuco Terra: ' + ctx.raw.toLocaleString('es-CL') + ' viv.';
+              if (ctx.dataset.label === 'Participacion %') return 'Participacion: ' + ctx.raw.toFixed(1) + '%';
+              return ctx.raw;
+            }
+          }
+        },
+      },
+      scales: {
+        x: { grid: { display: false }, ticks: { font: { size: 10 } } },
+        y: {
+          position: 'left',
+          title: { display: true, text: 'Mercado RM (miles viv.)', font: { size: 10 } },
+          ticks: { font: { size: 10 }, callback: v => v.toFixed(0) + 'k' },
+          grid: { color: 'rgba(0,0,0,0.05)' },
+        },
+        y2: {
+          position: 'right',
+          title: { display: true, text: 'Batuco Terra (viv.)', font: { size: 10 } },
+          ticks: { font: { size: 10 } },
+          grid: { display: false },
+        },
+        y3: {
+          position: 'right',
+          title: { display: true, text: 'Participacion %', font: { size: 10 }, color: '#f59e0b' },
+          ticks: { font: { size: 10 }, color: '#f59e0b', callback: v => v.toFixed(1) + '%' },
+          grid: { display: false },
+          offset: true,
+        },
+      },
+    },
+  });
 }
 
 let industrialChart = null;
@@ -9353,6 +9476,7 @@ function runAndRender() {
         renderLandCapChart(results);
         renderOpsChart(results);
         renderVivChart(results);
+        renderMarketShareChart(results);
         renderKPIs(results);
         renderIndustrialChart(results);
         renderCashFlowChart(results);
