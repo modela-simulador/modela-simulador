@@ -11237,11 +11237,11 @@ function computeAggregatedFin(selections) {
     segs.sort((a, b) => Number(a.start) - Number(b.start));
     for (let i = 0; i < segs.length; i++) {
       const s = segs[i];
-      // Venta sanitaria solo se computa en el último segmento real del BU
-      // (usando data-bu-end del SVG). Esto garantiza aditividad por subgrupos.
+      // Venta sanitaria se computa en el último segmento SELECCIONADO de cada BU.
+      // Así, agregar segmentos intermedios refleja la venta al corte de la selección.
       const buEnd = Number(s.buEnd || s.end);
-      const isActualLastSeg = Number(s.end) >= buEnd;
-      const fin = computeSegmentEERR(bu, Number(s.start), Number(s.end), null, isActualLastSeg);
+      const isLastInSelection = (i === segs.length - 1);
+      const fin = computeSegmentEERR(bu, Number(s.start), Number(s.end), null, isLastInSelection);
       if (fin) { fin._bu = bu; fin._buEnd = buEnd; fins.push(fin); }
     }
   }
