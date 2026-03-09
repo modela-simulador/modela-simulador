@@ -11242,13 +11242,86 @@ function computeAggregatedFin(selections) {
       const buEnd = Number(s.buEnd || s.end);
       const isActualLastSeg = Number(s.end) >= buEnd;
       const fin = computeSegmentEERR(bu, Number(s.start), Number(s.end), null, isActualLastSeg);
-      if (fin) fins.push(fin);
+      if (fin) { fin._bu = bu; fin._buEnd = buEnd; fins.push(fin); }
     }
   }
   if (!fins.length) return null;
 
+  // ── Corrección sanitaria huérfana (residual FIJO del proyecto) ──
+  // En años terminales, algunos BU types ya no tienen segmentos pero la sanitaria
+  // global continúa. La porción no capturada por ningún BU es un valor FIJO del
+  // proyecto (no depende de la selección), y se asigna al BU con mayor buEnd.
+  // Se precomputa una vez y se cachea para garantizar aditividad entre subgrupos.
+  const r = lastResults;
+  if (!computeAggregatedFin._cache || computeAggregatedFin._cacheRef !== r) {
+    const overlay = document.getElementById('un-overlay');
+    const allRects = overlay ? [...overlay.querySelectorAll('rect[data-bu]')] : [];
+    // Receptor global para cada año: BU con mayor buEnd que cubre ese año
+    const gRecip = {};
+    for (const rect of allRects) {
+      const d = rect.dataset;
+      const st = Number(d.start), en = Number(d.end), be = Number(d.buEnd || d.end);
+      for (let yy = st; yy <= en; yy++) {
+        const cur = gRecip[yy];
+        if (!cur || be > cur.buEnd || (be === cur.buEnd && d.bu > cur.bu))
+          gRecip[yy] = { bu: d.bu, buEnd: be };
+      }
+    }
+    // Computar TODOS los 50 fins para calcular el residual fijo
+    const allByBU = {};
+    for (const rect of allRects) {
+      const d = rect.dataset;
+      if (!allByBU[d.bu]) allByBU[d.bu] = [];
+      allByBU[d.bu].push(d);
+    }
+    const allFins = [];
+    for (const [bu, segs] of Object.entries(allByBU)) {
+      segs.sort((a, b) => Number(a.start) - Number(b.start));
+      for (const s of segs) {
+        const be = Number(s.buEnd || s.end);
+        const isLast = Number(s.end) >= be;
+        const f = computeSegmentEERR(bu, Number(s.start), Number(s.end), null, isLast);
+        if (f) { f._bu = bu; allFins.push(f); }
+      }
+    }
+    // Residual por año: global - suma de todos los BU (incluye venta)
+    const residual = {};
+    const ySet = new Set();
+    allFins.forEach(f => f.rows.forEach(rr => ySet.add(rr.y)));
+    for (const y of ySet) {
+      const gInv = r.sanitariaByYear?.[y] ?? 0;
+      const gOp  = r.sanitariaOpCostByYear?.[y] ?? 0;
+      const gIng = r.sanitariaIngByYear?.[y] ?? 0;
+      const gVta = r.sanitariaVentaByYear?.[y] ?? 0;
+      let sInv = 0, sOp = 0, sIng = 0, sVta = 0;
+      for (const f of allFins) {
+        const row = f.rows.find(rr => rr.y === y);
+        if (row) { sInv += row.sanInv; sOp += row.sanOp; sIng += row.sanIng; sVta += row.sanVenta ?? 0; }
+      }
+      const dI = gInv - sInv, dO = gOp - sOp, dG = gIng - sIng, dV = gVta - sVta;
+      if (Math.abs(dI) > 0.5 || Math.abs(dO) > 0.5 || Math.abs(dG) > 0.5 || Math.abs(dV) > 0.5)
+        residual[y] = { dInv: dI, dOp: dO, dIng: dG, dVta: dV };
+    }
+    computeAggregatedFin._cache = { gRecip, residual };
+    computeAggregatedFin._cacheRef = r;
+  }
+  const { gRecip, residual } = computeAggregatedFin._cache;
+  // Aplicar residuales fijos a los fins de la selección actual
+  for (const f of fins) {
+    for (const row of f.rows) {
+      const res = residual[row.y];
+      if (!res) continue;
+      const rec = gRecip[row.y];
+      if (!rec || f._bu !== rec.bu) continue;
+      row.sanInv += res.dInv; row.sanOp += res.dOp; row.sanIng += res.dIng;
+      row.sanVenta = (row.sanVenta ?? 0) + (res.dVta ?? 0);
+      const dNet = res.dInv + res.dOp - res.dIng - (res.dVta ?? 0);
+      row.sanNet += dNet; row.costTotal += dNet; row.neto -= dNet;
+    }
+  }
+
   const allYearSet = new Set();
-  fins.forEach(f => f.rows.forEach(r => allYearSet.add(r.y)));
+  fins.forEach(f => f.rows.forEach(rr => allYearSet.add(rr.y)));
   const allYears = [...allYearSet].sort((a, b) => a - b);
 
   const KEYS = ['revHab','revComm','revInd','revOtros','revTotal','tierra','infra','mit','fact',
@@ -11258,8 +11331,8 @@ function computeAggregatedFin(selections) {
     const row = { y };
     for (const k of KEYS) {
       row[k] = fins.reduce((acc, f) => {
-        const r = f.rows.find(rr => rr.y === y);
-        return acc + (r ? (r[k] ?? 0) : 0);
+        const rr = f.rows.find(rrr => rrr.y === y);
+        return acc + (rr ? (rr[k] ?? 0) : 0);
       }, 0);
     }
     return row;
