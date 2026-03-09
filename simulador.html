@@ -11238,9 +11238,8 @@ function computeAggregatedFin(selections) {
     for (let i = 0; i < segs.length; i++) {
       const s = segs[i];
       // Cada segmento se acota estrictamente a su rango real.
-      // Solo el último segmento por BU computa venta sanitaria (al último año del segmento).
-      const isLastForBU = i === segs.length - 1;
-      const fin = computeSegmentEERR(bu, Number(s.start), Number(s.end), null, isLastForBU);
+      // La venta sanitaria se computa globalmente al final, no por BU individual.
+      const fin = computeSegmentEERR(bu, Number(s.start), Number(s.end), null, false);
       if (fin) fins.push(fin);
     }
   }
@@ -11263,6 +11262,51 @@ function computeAggregatedFin(selections) {
     }
     return row;
   });
+
+  // ── Sanitaria global: la sanitaria es un item del proyecto, no de cada BU ──
+  // Reemplazar los valores per-BU con valores globales para exactitud.
+  // La venta se computa una sola vez en el último año con ingreso sanitario.
+  const r = lastResults;
+  let sanEndLocal = null;
+  for (const y of allYears) {
+    if ((r.sanitariaIngByYear?.[y] ?? 0) > 0) sanEndLocal = y;
+  }
+  // Reemplazar sanInv/sanOp/sanIng con valores globales en cada año
+  for (const row of rows) {
+    const gInv = r.sanitariaByYear?.[row.y] ?? 0;
+    const gOp  = r.sanitariaOpCostByYear?.[row.y] ?? 0;
+    const gIng = r.sanitariaIngByYear?.[row.y] ?? 0;
+    const oldSanNet = row.sanNet;
+    row.sanInv = gInv;
+    row.sanOp  = gOp;
+    row.sanIng = gIng;
+    row.sanVenta = 0; // se agrega abajo si aplica
+    row.sanNet = gInv + gOp - gIng;
+    const delta = row.sanNet - oldSanNet;
+    row.costTotal += delta;
+    row.neto     -= delta;
+  }
+  // Venta sanitaria global en el último año con ingreso sanitario
+  if (sanEndLocal !== null) {
+    const gIng = r.sanitariaIngByYear[sanEndLocal] ?? 0;
+    const gOp  = r.sanitariaOpCostByYear[sanEndLocal] ?? 0;
+    const gOpRes = gIng - gOp;
+    if (gOpRes > 0) {
+      let gCumInv = 0;
+      for (const yy of r.years) {
+        if (yy > sanEndLocal) break;
+        gCumInv += r.sanitariaByYear?.[yy] ?? 0;
+      }
+      const globalVenta = Math.max(0, gOpRes / 0.06 - 0.20 * gCumInv);
+      const row = rows.find(rr => rr.y === sanEndLocal);
+      if (row && globalVenta > 0) {
+        row.sanVenta   = globalVenta;
+        row.sanNet    -= globalVenta;
+        row.costTotal -= globalVenta;
+        row.neto      += globalVenta;
+      }
+    }
+  }
 
   const vanRate   = (parseFloat(document.getElementById('van-rate')?.value) || 8) / 100;
   const BASE_YEAR = 2023;
