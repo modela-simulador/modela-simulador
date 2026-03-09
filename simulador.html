@@ -2681,13 +2681,26 @@ function applySurfaceConfig() {
     const origHa = SURFACE_DEFAULTS.origHa[zName];
     const ratio  = origHa > 0 ? newHa / origHa : 0;
     ZONAS_DEF[zName].ha = newHa;
-    ZONAS_DEF[zName].maxViviendas = Math.round(SURFACE_DEFAULTS.origMaxViv[zName] * ratio);
-    const origFam = SURFACE_DEFAULTS.origFamilyMax[zName];
-    ZONE_FAMILY_MAX[zName] = {
-      unifam: Math.round(origFam.unifam * ratio),
-      ds19:   Math.round(origFam.ds19   * ratio),
-      depto:  Math.round(origFam.depto  * ratio),
-    };
+    const newMaxViv = Math.round(SURFACE_DEFAULTS.origMaxViv[zName] * ratio);
+    ZONAS_DEF[zName].maxViviendas = newMaxViv;
+    // Escalar ZONE_FAMILY_MAX proporcionalmente al cambio de superficie,
+    // preservando la distribución personalizada del usuario.
+    // Solo escalar si la superficie cambió (currentTotal != newMaxViv).
+    const fMax = ZONE_FAMILY_MAX[zName];
+    const currentTotal = fMax.unifam + fMax.ds19 + fMax.depto;
+    if (currentTotal > 0 && currentTotal !== newMaxViv) {
+      const scale = newMaxViv / currentTotal;
+      fMax.unifam = Math.round(fMax.unifam * scale);
+      fMax.ds19   = Math.round(fMax.ds19   * scale);
+      fMax.depto  = Math.round(fMax.depto  * scale);
+      // Ajustar redondeo en el segmento mayor
+      const adj = newMaxViv - (fMax.unifam + fMax.ds19 + fMax.depto);
+      if (adj !== 0) {
+        const largest = fMax.unifam >= fMax.ds19 && fMax.unifam >= fMax.depto ? 'unifam'
+                      : fMax.ds19 >= fMax.depto ? 'ds19' : 'depto';
+        fMax[largest] += adj;
+      }
+    }
   }
 
   // -- Comercial --
