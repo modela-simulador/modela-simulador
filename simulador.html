@@ -2664,6 +2664,7 @@ const SURFACE_DEFAULTS = Object.freeze({
 
 const PDUC_POOL = 323.72;
 const AUDP_POOL = 52.15;
+const HA_BRUTAS = 635;  // hectáreas brutas totales del proyecto
 
 let surfaceConfig = JSON.parse(JSON.stringify(SURFACE_DEFAULTS));
 
@@ -5358,7 +5359,8 @@ function renderKPIs(results) {
   }, 0);
 
   document.getElementById('kpi-ingreso').textContent     = fmtDisp(totalRevenue);
-  document.getElementById('kpi-ingreso-sub').textContent = 'Período ' + years[0] + '–' + years[years.length - 1];
+  const ufM2Bruto = totalRevenue / (HA_BRUTAS * 10000);
+  document.getElementById('kpi-ingreso-sub').textContent = ufM2Bruto.toFixed(2) + ' UF/m² bruto (635 Ha)';
 
   document.getElementById('kpi-ha').textContent     = totalHa.toFixed(1) + ' Ha';
   document.getElementById('kpi-ha-sub').textContent  = 'de ' + activeHaTotal.toFixed(1) + ' Ha totales';
