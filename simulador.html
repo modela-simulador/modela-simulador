@@ -10431,7 +10431,7 @@ function renderUNChart() {
       svg += `<rect id="seg_${sidx++}" x="${sx}" y="${bY}" width="${sw}" height="${bH}"
         fill="transparent" stroke="rgba(0,0,0,0.15)" stroke-width="0.5" rx="3" cursor="pointer"
         data-bu="${bu.id}" data-label="${bu.label.replace(/"/g,'&quot;')}"
-        data-seg="${i}" data-start="${ss}" data-end="${se}"
+        data-seg="${i}" data-start="${ss}" data-end="${se}" data-bu-end="${barE}"
         data-cv0="${cv0}" data-cv1="${cv1}"
         onmouseenter="unHov(this,1)" onmouseleave="unHov(this,0)"
         onclick="unSel(this,event)"/>`;
@@ -11233,18 +11233,14 @@ function computeAggregatedFin(selections) {
     byBU[s.bu].push(s);
   }
   const fins = [];
-  const simEnd = lastResults.years[lastResults.years.length - 1];
   for (const [bu, segs] of Object.entries(byBU)) {
     segs.sort((a, b) => Number(a.start) - Number(b.start));
     for (let i = 0; i < segs.length; i++) {
       const s = segs[i];
-      // Solo el último segmento por BU computa venta sanitaria local
-      // para mantener aditividad (evitar ventas duplicadas).
-      // Además, extiende su rango hasta el fin de la simulación para capturar
-      // costos sanitarios residuales (sanInv, sanOp, sanIng) post-revenue.
+      // Cada segmento se acota estrictamente a su rango real.
+      // Solo el último segmento por BU computa venta sanitaria (al último año del segmento).
       const isLastForBU = i === segs.length - 1;
-      const segEnd = isLastForBU ? simEnd : Number(s.end);
-      const fin = computeSegmentEERR(bu, Number(s.start), segEnd, null, isLastForBU);
+      const fin = computeSegmentEERR(bu, Number(s.start), Number(s.end), null, isLastForBU);
       if (fin) fins.push(fin);
     }
   }
