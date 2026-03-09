@@ -11233,14 +11233,18 @@ function computeAggregatedFin(selections) {
     byBU[s.bu].push(s);
   }
   const fins = [];
+  const simEnd = lastResults.years[lastResults.years.length - 1];
   for (const [bu, segs] of Object.entries(byBU)) {
     segs.sort((a, b) => Number(a.start) - Number(b.start));
     for (let i = 0; i < segs.length; i++) {
       const s = segs[i];
       // Solo el último segmento por BU computa venta sanitaria local
-      // para mantener aditividad (evitar ventas duplicadas)
+      // para mantener aditividad (evitar ventas duplicadas).
+      // Además, extiende su rango hasta el fin de la simulación para capturar
+      // costos sanitarios residuales (sanInv, sanOp, sanIng) post-revenue.
       const isLastForBU = i === segs.length - 1;
-      const fin = computeSegmentEERR(bu, Number(s.start), Number(s.end), null, isLastForBU);
+      const segEnd = isLastForBU ? simEnd : Number(s.end);
+      const fin = computeSegmentEERR(bu, Number(s.start), segEnd, null, isLastForBU);
       if (fin) fins.push(fin);
     }
   }
