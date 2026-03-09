@@ -10668,7 +10668,7 @@ function computeIRR(flows) {
   return (lo + hi) / 2;
 }
 
-function computeSegmentEERR(buId, segStart, segEnd, forceIsFirst = null) {
+function computeSegmentEERR(buId, segStart, segEnd, forceIsFirst = null, computeLocalSanVenta = true) {
   const r = lastResults;
   if (!r) return null;
   const RECEP_LAG  = 2;
@@ -10738,10 +10738,9 @@ function computeSegmentEERR(buId, segStart, segEnd, forceIsFirst = null) {
 
   // ── Determinar rango de años efectivo ──
   // Primer segmento: extiende hacia atrás hasta allYears[0] para capturar costos pre-revenue
-  // Último segmento: extiende hasta el final para capturar sanVenta / sanOp tardíos
+  // Cada segmento se limita estrictamente a su rango [segStart, segEnd]
   const isFirstSeg = forceIsFirst === true ||
     (forceIsFirst === null && !allYears.some(y => y < segStart && getBURevYear(buId, y) > 0));
-  const isLastSeg  = !allYears.some(y => y > segEnd && getBURevYear(buId, y) > 0);
   // ── Primer año con factibilización (puede ser pre-sim, ej: 2023) ──
   let firstFactYear = allYears[0];
   for (const [zKey, byY] of Object.entries(r.factByZone ?? {})) {
@@ -10752,7 +10751,7 @@ function computeSegmentEERR(buId, segStart, segEnd, forceIsFirst = null) {
   }
 
   const effectiveStart = isFirstSeg ? firstFactYear : segStart;
-  const effectiveEnd   = isLastSeg  ? allYears[allYears.length - 1] : segEnd;
+  const effectiveEnd   = segEnd;
   // Construir segYears: incluye años pre-sim de fact + años del rango de simulación
   const segYears = [];
   for (let y = effectiveStart; y <= effectiveEnd; y++) {
@@ -10856,6 +10855,15 @@ function computeSegmentEERR(buId, segStart, segEnd, forceIsFirst = null) {
     for (const y of allYears) {
       cum += r.unitsByZone?.[zn]?.[y - RECEP_LAG] ?? 0;
       cumVivZoneMap[zn][y] = cum;
+    }
+  }
+
+  // ── Pre-computar año de cierre sanitario local (último año ≤ segEnd con sanIng > 0) ──
+  let _sanEndLocal = null;
+  if (computeLocalSanVenta) {
+    for (const y of allYears) {
+      if (y > segEnd) break;
+      if ((r.sanitariaIngByYear?.[y] ?? 0) > 0) _sanEndLocal = y;
     }
   }
 
@@ -11063,7 +11071,22 @@ function computeSegmentEERR(buId, segStart, segEnd, forceIsFirst = null) {
       // Para que D2 sume al total del proyecto, distribuimos a TODOS los BU types
       // usando los mismos pesos (pesH, pesI, pesC, pesO) del bloque sanIng D1.
       const sIng = r.sanitariaIngByYear?.[y] ?? 0;
-      const sVta = r.sanitariaVentaByYear?.[y] ?? 0;
+      // Venta sanitaria: computar localmente en el año de cierre sanitario del segmento
+      // (_sanEndLocal = último año ≤ segEnd con sanIng > 0, análogo al sanitariaEndYear global)
+      let sVta = 0;
+      if (computeLocalSanVenta && _sanEndLocal !== null && y === _sanEndLocal) {
+        const gIngEnd = r.sanitariaIngByYear?.[_sanEndLocal] ?? 0;
+        const gOpEnd  = r.sanitariaOpCostByYear?.[_sanEndLocal] ?? 0;
+        const gOpRes  = gIngEnd - gOpEnd;
+        if (gOpRes > 0) {
+          let gCumInv = 0;
+          for (const yy of allYears) {
+            if (yy > _sanEndLocal) break;
+            gCumInv += r.sanitariaByYear?.[yy] ?? 0;
+          }
+          sVta = Math.max(0, gOpRes / 0.06 - 0.20 * gCumInv);
+        }
+      }
       if ((sIng > 0 || sVta > 0) && !isComMenor) {
         const pesHI = cumMap.viv[y] ?? 0;
         const pesII = (cumMapIng.indHa[y] ?? 0) * 25;
@@ -11099,6 +11122,23 @@ function computeSegmentEERR(buId, segStart, segEnd, forceIsFirst = null) {
           }
           sanIng   = sIng * wHI * vZ2 / vTot2;
           sanVenta = sVta * wHI * vZ2 / vTot2;
+          // Para venta local al cierre del segmento, usar pesos acumulados
+          // (la venta representa toda la contribución histórica, no solo la del año)
+          if (computeLocalSanVenta && _sanEndLocal !== null && y === _sanEndLocal && sVta > 0) {
+            const cvBat = cumVivByZone['AUDP Batuco']?.[y] ?? 0;
+            const cvCol = cumVivByZone['AUDP Colina']?.[y] ?? 0;
+            const cvG   = cumVivByZone['Distrito G']?.[y] ?? 0;
+            const cv40  = cumVivByZone['Distrito 4.0']?.[y] ?? 0;
+            const cvTot = cvBat + cvCol + cvG + cv40 || 1;
+            let cvZ = 0;
+            for (const z of cfg.zones) {
+              if      (z === 'AUDP Batuco')  cvZ += cvBat;
+              else if (z === 'AUDP Colina')  cvZ += cvCol;
+              else if (z === 'Distrito G')    cvZ += cvG;
+              else if (z === 'Distrito 4.0')  cvZ += cv40;
+            }
+            sanVenta = sVta * wHI * cvZ / cvTot;
+          }
         } else if (isComMayor) {
           // Com Mayor recibe porción wCI, split por cumComHaZone
           const cumComHaY = cumMap.comHa[y] ?? 0;
@@ -11197,7 +11237,10 @@ function computeAggregatedFin(selections) {
     segs.sort((a, b) => Number(a.start) - Number(b.start));
     for (let i = 0; i < segs.length; i++) {
       const s = segs[i];
-      const fin = computeSegmentEERR(bu, Number(s.start), Number(s.end), null);
+      // Solo el último segmento por BU computa venta sanitaria local
+      // para mantener aditividad (evitar ventas duplicadas)
+      const isLastForBU = i === segs.length - 1;
+      const fin = computeSegmentEERR(bu, Number(s.start), Number(s.end), null, isLastForBU);
       if (fin) fins.push(fin);
     }
   }
