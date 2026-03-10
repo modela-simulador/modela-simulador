@@ -379,7 +379,7 @@
       flex-shrink: 0;
       display: grid;
       grid-template-columns: 1fr 1fr;
-      grid-template-rows: 360px 360px auto;
+      grid-template-rows: 360px 360px 360px auto;
     }
 
     /* Cashflow chart section */
@@ -1204,6 +1204,134 @@
       .er-van-wrapper { grid-template-columns: 1fr 1fr; }
       .bu-content { grid-template-columns: 1fr 1fr; }
     }
+
+    /* ══════════════════════════════════════════════════════════
+       PDUC PLAN VIEWER
+       ══════════════════════════════════════════════════════════ */
+    .pduc-panel {
+      grid-row: span 2;
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .pduc-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 14px 8px;
+      border-bottom: 1px solid #f1f5f9;
+    }
+    .pduc-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: #1e293b;
+    }
+    .pduc-controls {
+      display: flex;
+      gap: 4px;
+      align-items: center;
+    }
+    .pduc-controls button {
+      width: 28px; height: 28px;
+      border: 1px solid #e2e8f0;
+      border-radius: 5px;
+      background: #fff;
+      cursor: pointer;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #475569;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .pduc-controls button:hover {
+      background: #f8fafc;
+      border-color: #cbd5e1;
+    }
+    .pduc-viewport {
+      position: relative;
+      flex: 1 1 0;
+      min-height: 200px;
+      overflow: hidden;
+      cursor: grab;
+      background: #f8fafc;
+    }
+    .pduc-viewport:active { cursor: grabbing; }
+    .pduc-canvas {
+      position: absolute;
+      top: 0; left: 0;
+      transform-origin: 0 0;
+    }
+    .pduc-canvas img {
+      display: block;
+      user-select: none;
+      -webkit-user-drag: none;
+      pointer-events: none;
+    }
+    .pduc-canvas svg {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+    }
+    .pduc-canvas svg polygon {
+      cursor: grab;
+      transition: fill-opacity 0.15s;
+      pointer-events: fill;
+    }
+    .pduc-canvas svg polygon:hover {
+      fill-opacity: 0.45 !important;
+      stroke-width: 3;
+    }
+    .pduc-zoom-label {
+      font-size: 10px;
+      color: #94a3b8;
+      font-weight: 500;
+      min-width: 36px;
+      text-align: center;
+    }
+    /* Zone tooltip */
+    .pduc-tooltip {
+      display: none;
+      position: absolute;
+      z-index: 100;
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+      padding: 16px 18px;
+      min-width: 240px;
+      pointer-events: none;
+      border: 1px solid #e2e8f0;
+    }
+    .pduc-tooltip.visible { display: block; }
+    .pduc-tt-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: #1e293b;
+      margin-bottom: 10px;
+      padding-bottom: 8px;
+      border-bottom: 2px solid #e2e8f0;
+    }
+    .pduc-tt-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      padding: 4px 0;
+    }
+    .pduc-tt-label {
+      font-size: 11px;
+      color: #64748b;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+    .pduc-tt-value {
+      font-size: 13px;
+      font-weight: 600;
+      color: #1e293b;
+    }
   </style>
 </head>
 <body>
@@ -1240,7 +1368,7 @@
         <button type="submit" class="lp-login-btn">Entrar</button>
       </form>
     </div>
-    <div class="lp-footer-text">v1.0.1 · 09 de marzo de 2026</div>
+    <div class="lp-footer-text">v1.0.2 · 10 de marzo de 2026</div>
   </section>
 </div>
 
@@ -1841,6 +1969,37 @@
       </div>
     </div>
 
+    <!-- PDUC Plan -->
+    <div class="pduc-panel" id="pduc-panel">
+      <div class="pduc-header">
+        <div class="pduc-title">Masterplan General</div>
+        <div class="pduc-controls">
+          <button onclick="pducZoom(-1)" title="Alejar">−</button>
+          <span class="pduc-zoom-label" id="pduc-zoom-label">100%</span>
+          <button onclick="pducZoom(1)" title="Acercar">+</button>
+          <button onclick="pducReset()" title="Restablecer">↺</button>
+        </div>
+      </div>
+      <div class="pduc-viewport" id="pduc-viewport">
+        <div class="pduc-canvas" id="pduc-canvas">
+          <img src="pduc_plan.jpg" id="pduc-img" alt="Plano PDUC" draggable="false">
+          <svg id="pduc-svg" viewBox="0 0 2523 1499" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+            <polygon data-zone="AUDP Batuco" points="826.6,382.3 843.6,330.2 968.7,313.3 890.5,213.0 927.5,199.7 1119.8,226.1 1134.2,252.1"
+                     fill="#a855f7" fill-opacity="0.25" stroke="#a855f7" stroke-width="2" stroke-opacity="0.7"/>
+            <polygon data-zone="Distrito 4.0" points="1144.1,272.3 1340.7,526.8 1230.9,595.1 1003.3,333.5"
+                     fill="#eab308" fill-opacity="0.25" stroke="#eab308" stroke-width="2" stroke-opacity="0.7"/>
+            <polygon data-zone="Distrito G" points="1003.3,339.1 1230.9,596.7 1202.2,604.6 1195.9,607.8 705.6,725.5 688.9,684.9 684.2,677.0 645.2,624.5 626.1,614.0 604.3,575.1 599.1,514.6 623.9,481.6 663.5,457.5 727.2,455.1 825.8,403.4"
+                     fill="#f97316" fill-opacity="0.25" stroke="#f97316" stroke-width="2" stroke-opacity="0.7"/>
+            <polygon data-zone="Industrial" points="1209.8,608.5 1659.7,1128.2 1799.8,1127.4 1340.7,525.9 1230.9,596.7"
+                     fill="#818cf8" fill-opacity="0.25" stroke="#818cf8" stroke-width="2" stroke-opacity="0.7"/>
+            <polygon data-zone="AUDP Colina" points="1811.0,1145.2 1657.3,1147.4 1688.8,1169.1 1733.8,1241.8 1781.0,1287.5 1787.7,1292.0 1965.4,1430.6 1990.1,1441.9 1999.9,1440.4 2023.9,1427.6"
+                     fill="#38bdf8" fill-opacity="0.25" stroke="#38bdf8" stroke-width="2" stroke-opacity="0.7"/>
+          </svg>
+        </div>
+        <div class="pduc-tooltip" id="pduc-tooltip"></div>
+      </div>
+    </div>
+
     <!-- Land chart -->
     <div class="chart-panel">
       <div class="chart-header">
@@ -2283,6 +2442,12 @@ function transitionToSimulator() {
       _simInitialized = true;
       if (typeof runAndRender === 'function') runAndRender();
     }
+    if (typeof pducInit === 'function') {
+      // Multiple attempts to ensure proper centering after layout stabilizes
+      setTimeout(pducInit, 200);
+      setTimeout(pducReset, 800);
+      setTimeout(pducReset, 1500);
+    }
 
     setTimeout(() => sim.classList.remove('sim-fade-in'), 550);
   }, 450);
@@ -2297,6 +2462,11 @@ function transitionToSimulator() {
     lp.classList.add('hidden');
     sim.classList.remove('hidden');
     _simInitialized = true;
+    // Defer to allow all script-level declarations to initialize
+    setTimeout(() => {
+      if (typeof runAndRender === 'function') runAndRender();
+      if (typeof pducInit === 'function') pducInit();
+    }, 0);
   }
 })();
 
@@ -2324,6 +2494,289 @@ function transitionToSimulator() {
 // ════════════════════════════════════════════════════════════
 // MOBILE SIDEBAR TOGGLE
 // ════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════
+// PDUC PLAN VIEWER – zoom / pan
+// ════════════════════════════════════════════════════════════
+var _pduc = { scale: 1, x: 0, y: 0, dragging: false, startX: 0, startY: 0, originX: 0, originY: 0 };
+var PDUC_MIN_SCALE = 0.3;
+var PDUC_MAX_SCALE = 5;
+
+function pducApply() {
+  const canvas = document.getElementById('pduc-canvas');
+  if (!canvas) return;
+  canvas.style.transform = `translate(${_pduc.x}px, ${_pduc.y}px) scale(${_pduc.scale})`;
+  const lbl = document.getElementById('pduc-zoom-label');
+  if (lbl) lbl.textContent = Math.round(_pduc.scale * 100) + '%';
+}
+
+function pducZoom(dir, cx, cy) {
+  const vp = document.getElementById('pduc-viewport');
+  if (!vp) return;
+  const rect = vp.getBoundingClientRect();
+  if (cx === undefined) { cx = rect.width / 2; cy = rect.height / 2; }
+  const factor = dir > 0 ? 1.25 : 0.8;
+  const newScale = Math.min(PDUC_MAX_SCALE, Math.max(PDUC_MIN_SCALE, _pduc.scale * factor));
+  const ratio = newScale / _pduc.scale;
+  _pduc.x = cx - ratio * (cx - _pduc.x);
+  _pduc.y = cy - ratio * (cy - _pduc.y);
+  _pduc.scale = newScale;
+  pducApply();
+}
+
+var _pducLastVpW = 0, _pducLastVpH = 0;
+
+function pducReset() {
+  const vp = document.getElementById('pduc-viewport');
+  const img = document.getElementById('pduc-img');
+  if (!vp || !img) return;
+  const vpW = vp.clientWidth, vpH = vp.clientHeight;
+  const imgW = img.naturalWidth, imgH = img.naturalHeight;
+  if (!imgW || !vpW || !vpH) return;
+  // Focus on polygon area
+  const focusX = 550, focusY = 150, focusW = 1550, focusH = 1350;
+  const s = Math.min(vpW / focusW, vpH / focusH);
+  _pduc.scale = s;
+  _pduc.x = (vpW - focusW * s) / 2 - focusX * s;
+  _pduc.y = (vpH - focusH * s) / 2 - focusY * s;
+  _pducLastVpW = vpW; _pducLastVpH = vpH;
+  pducApply();
+}
+
+function pducInit() {
+  const vp = document.getElementById('pduc-viewport');
+  const img = document.getElementById('pduc-img');
+  if (!vp || !img) return;
+
+  // Sync polygon visibility with active zones
+  if (typeof updatePolygonVisibility === 'function') updatePolygonVisibility();
+
+  // Robust: use ResizeObserver to detect when viewport gets final dimensions
+  let _initDone = false;
+  const ro = new ResizeObserver(() => {
+    const w = vp.clientWidth, h = vp.clientHeight;
+    if (w > 0 && h > 0 && img.naturalWidth > 0) {
+      // Re-center if dimensions changed significantly (layout shift during transition)
+      if (!_initDone || Math.abs(w - _pducLastVpW) > 5 || Math.abs(h - _pducLastVpH) > 5) {
+        _initDone = true;
+        pducReset();
+      }
+    }
+  });
+  ro.observe(vp);
+
+  // Also try immediately and after image load
+  function tryReset() {
+    if (vp.clientWidth > 0 && img.naturalWidth > 0) { pducReset(); return; }
+    requestAnimationFrame(tryReset);
+  }
+  if (img.complete) tryReset();
+  else img.onload = () => tryReset();
+
+  // wheel zoom
+  vp.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const rect = vp.getBoundingClientRect();
+    pducZoom(e.deltaY < 0 ? 1 : -1, e.clientX - rect.left, e.clientY - rect.top);
+  }, { passive: false });
+
+  // mouse drag (AutoCAD-style click-and-hold)
+  vp.addEventListener('mousedown', (e) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    _pduc.dragging = true;
+    _pduc.moved = false;
+    _pduc.startX = e.clientX; _pduc.startY = e.clientY;
+    _pduc.originX = _pduc.x;  _pduc.originY = _pduc.y;
+    vp.style.cursor = 'grabbing';
+  });
+  window.addEventListener('mousemove', (e) => {
+    if (!_pduc.dragging) return;
+    e.preventDefault();
+    _pduc.moved = true;
+    _pduc.x = _pduc.originX + (e.clientX - _pduc.startX);
+    _pduc.y = _pduc.originY + (e.clientY - _pduc.startY);
+    pducApply();
+  });
+  window.addEventListener('mouseup', () => {
+    if (_pduc.dragging) {
+      _pduc.dragging = false;
+      const vpEl = document.getElementById('pduc-viewport');
+      if (vpEl) vpEl.style.cursor = 'grab';
+    }
+  });
+
+  // touch drag + pinch
+  let lastDist = 0;
+  vp.addEventListener('touchstart', (e) => {
+    if (e.touches.length === 1) {
+      _pduc.dragging = true;
+      _pduc.startX = e.touches[0].clientX; _pduc.startY = e.touches[0].clientY;
+      _pduc.originX = _pduc.x; _pduc.originY = _pduc.y;
+    } else if (e.touches.length === 2) {
+      _pduc.dragging = false;
+      lastDist = Math.hypot(e.touches[1].clientX - e.touches[0].clientX, e.touches[1].clientY - e.touches[0].clientY);
+    }
+  }, { passive: false });
+  vp.addEventListener('touchmove', (e) => {
+    e.preventDefault();
+    if (e.touches.length === 1 && _pduc.dragging) {
+      _pduc.x = _pduc.originX + (e.touches[0].clientX - _pduc.startX);
+      _pduc.y = _pduc.originY + (e.touches[0].clientY - _pduc.startY);
+      pducApply();
+    } else if (e.touches.length === 2) {
+      const dist = Math.hypot(e.touches[1].clientX - e.touches[0].clientX, e.touches[1].clientY - e.touches[0].clientY);
+      if (lastDist > 0) {
+        const rect = vp.getBoundingClientRect();
+        const cx = ((e.touches[0].clientX + e.touches[1].clientX) / 2) - rect.left;
+        const cy = ((e.touches[0].clientY + e.touches[1].clientY) / 2) - rect.top;
+        const factor = dist / lastDist;
+        const newScale = Math.min(PDUC_MAX_SCALE, Math.max(PDUC_MIN_SCALE, _pduc.scale * factor));
+        const ratio = newScale / _pduc.scale;
+        _pduc.x = cx - ratio * (cx - _pduc.x);
+        _pduc.y = cy - ratio * (cy - _pduc.y);
+        _pduc.scale = newScale;
+        pducApply();
+      }
+      lastDist = dist;
+    }
+  }, { passive: false });
+  vp.addEventListener('touchend', () => { _pduc.dragging = false; lastDist = 0; });
+
+  // ── Zone polygon hover/click tooltip ──
+  const ZONE_DISPLAY_NAMES = {
+    'AUDP Batuco': 'Barrio Est. Batuco',
+    'AUDP Colina': 'Barrio Est. Colina',
+    'Distrito G': 'Distrito G',
+    'Distrito 4.0': 'Barrio 4.0',
+    'Industrial': 'Ciudad Logística'
+  };
+
+  const tooltip = document.getElementById('pduc-tooltip');
+  const polygons = vp.querySelectorAll('svg polygon');
+
+  function getZoneFinancials(zoneName) {
+    if (!lastResults) return null;
+    const r = lastResults;
+    const years = r.years;
+    const sumYears = (obj) => years.reduce((s, y) => s + ((obj && obj[y]) || 0), 0);
+
+    if (zoneName === 'Industrial') {
+      // Industrial zone: revenue from industrial land sales
+      const revInd = sumYears(r.industrialRevByYear);
+      const haInd = sumYears(r.industrialHaByYear);
+      const revMenor = sumYears(r.industrialMenorRevByYear);
+      const haMenor = sumYears(r.industrialMenorHaByYear);
+      const revMayor = sumYears(r.industrialMayorRevByYear);
+      const haMayor = sumYears(r.industrialMayorHaByYear);
+      const activeYrs = years.filter(y => (r.industrialHaByYear?.[y] || 0) > 0);
+      const devYears = activeYrs.length > 0 ? (activeYrs[activeYrs.length-1] - activeYrs[0] + 1) : 0;
+      return {
+        revHab: 0, revComm: 0, revOtros: 0, revInd,
+        revMenor, revMayor,
+        totalUnits: 0, totalLandUsed: haInd,
+        totalLandAvail: r.effectiveIndHaTotal || IND_HA_TOTAL,
+        haComm: 0, haOtros: 0, devYears,
+        isIndustrial: true
+      };
+    }
+
+    // Residential revenue
+    const revHab = sumYears(r.revenueByZone?.[zoneName]);
+    // Commercial Ha revenue
+    const revComm = sumYears(r.commercialRevByZone?.[zoneName]) +
+                    sumYears(r.prcRevByZone?.[zoneName]) +
+                    sumYears(r.comMenorRevByZone?.[zoneName]);
+    // Otros usos (only Distrito 4.0)
+    const revOtros = (zoneName === 'Distrito 4.0') ? sumYears(r.otrosRevByYear) : 0;
+
+    // Units
+    const totalUnits = sumYears(r.unitsByZone?.[zoneName]);
+    // Land consumed (residential)
+    const totalLandUsed = sumYears(r.landByZone?.[zoneName]);
+    const totalLandAvail = ZONAS_DEF[zoneName]?.ha || 0;
+
+    // Ha comerciales
+    const haComm = COMM_HA[zoneName] || 0;
+    // Ha otros usos (only Distrito 4.0)
+    const haOtros = OTROS_HA[zoneName] || 0;
+
+    // Years of development
+    const uByYear = r.unitsByZone?.[zoneName] || {};
+    const lByYear = r.landByZone?.[zoneName] || {};
+    const activeYears = years.filter(y => (uByYear[y]||0) > 0 || (lByYear[y]||0) > 0);
+    const devYears = activeYears.length > 0 ? (activeYears[activeYears.length-1] - activeYears[0] + 1) : 0;
+
+    return { revHab, revComm, revOtros, revInd: 0, totalUnits, totalLandUsed, totalLandAvail, haComm, haOtros, devYears, isIndustrial: false };
+  }
+
+  function showTooltip(zoneName, e) {
+    const data = getZoneFinancials(zoneName);
+    if (!data) return;
+    const displayName = ZONE_DISPLAY_NAMES[zoneName] || zoneName;
+    const fmt = (v) => {
+      if (Math.abs(v) >= 1e6) return (v/1e6).toFixed(2) + ' M';
+      if (Math.abs(v) >= 1e3) return (v/1e3).toFixed(0) + ' K';
+      return v.toFixed(0);
+    };
+    const strokeColor = getComputedStyle(e.target).stroke;
+    let rows = `<div class="pduc-tt-title" style="border-color:${strokeColor}">${displayName}</div>`;
+    rows += '<div style="font-size:10px;color:#64748b;margin:4px 0 2px;font-weight:600">INGRESOS (UF)</div>';
+    if (data.isIndustrial) {
+      rows += `<div class="pduc-tt-row"><span class="pduc-tt-label">Log. Menor</span><span class="pduc-tt-value">${fmt(data.revMenor)}</span></div>`;
+      rows += `<div class="pduc-tt-row"><span class="pduc-tt-label">Log. Mayor</span><span class="pduc-tt-value">${fmt(data.revMayor)}</span></div>`;
+      rows += `<div class="pduc-tt-row" style="font-weight:700;border-top:1px solid #cbd5e1;padding-top:3px;font-size:12px"><span class="pduc-tt-label">Total Industrial</span><span class="pduc-tt-value">${fmt(data.revInd)}</span></div>`;
+    } else {
+      if (data.revHab) rows += `<div class="pduc-tt-row"><span class="pduc-tt-label">Habitacional</span><span class="pduc-tt-value">${fmt(data.revHab)}</span></div>`;
+      if (data.revComm) rows += `<div class="pduc-tt-row"><span class="pduc-tt-label">Comercial</span><span class="pduc-tt-value">${fmt(data.revComm)}</span></div>`;
+      if (data.revOtros) rows += `<div class="pduc-tt-row"><span class="pduc-tt-label">Otros Usos</span><span class="pduc-tt-value">${fmt(data.revOtros)}</span></div>`;
+      const total = data.revHab + data.revComm + data.revOtros;
+      rows += `<div class="pduc-tt-row" style="font-weight:700;border-top:1px solid #cbd5e1;padding-top:3px;font-size:12px"><span class="pduc-tt-label">Total</span><span class="pduc-tt-value">${fmt(total)}</span></div>`;
+    }
+    rows += '<div style="font-size:10px;color:#64748b;margin:6px 0 2px;font-weight:600">SUPERFICIE</div>';
+    if (data.isIndustrial) {
+      rows += `<div class="pduc-tt-row"><span class="pduc-tt-label">Ha Industrial Total</span><span class="pduc-tt-value">${data.totalLandAvail.toFixed(1)}</span></div>`;
+      rows += `<div class="pduc-tt-row"><span class="pduc-tt-label">Ha Desarrolladas</span><span class="pduc-tt-value">${data.totalLandUsed.toFixed(1)}</span></div>`;
+    } else {
+      rows += `<div class="pduc-tt-row"><span class="pduc-tt-label">Ha Habitacional</span><span class="pduc-tt-value">${data.totalLandAvail.toFixed(1)}</span></div>`;
+      if (data.haComm > 0) rows += `<div class="pduc-tt-row"><span class="pduc-tt-label">Ha Comercial</span><span class="pduc-tt-value">${data.haComm.toFixed(1)}</span></div>`;
+      if (data.haOtros > 0) rows += `<div class="pduc-tt-row"><span class="pduc-tt-label">Ha Otros Usos</span><span class="pduc-tt-value">${data.haOtros.toFixed(1)}</span></div>`;
+      const haTotal = data.totalLandAvail + data.haComm + data.haOtros;
+      rows += `<div class="pduc-tt-row" style="font-weight:700;border-top:1px solid #cbd5e1;padding-top:3px;font-size:12px"><span class="pduc-tt-label">Ha Total</span><span class="pduc-tt-value">${haTotal.toFixed(1)}</span></div>`;
+      const haDesarrolladas = data.totalLandUsed + data.haComm + data.haOtros;
+      rows += `<div class="pduc-tt-row"><span class="pduc-tt-label">Ha Desarrolladas</span><span class="pduc-tt-value">${haDesarrolladas.toFixed(1)}</span></div>`;
+    }
+    rows += '<div style="font-size:10px;color:#64748b;margin:6px 0 2px;font-weight:600">DESARROLLO</div>';
+    rows += `<div class="pduc-tt-row"><span class="pduc-tt-label">Años Desarrollo</span><span class="pduc-tt-value">${data.devYears}</span></div>`;
+    if (!data.isIndustrial) rows += `<div class="pduc-tt-row"><span class="pduc-tt-label">Viviendas</span><span class="pduc-tt-value">${data.totalUnits.toLocaleString('es-CL')}</span></div>`;
+    tooltip.innerHTML = rows;
+    tooltip.classList.add('visible');
+    positionTooltip(e);
+  }
+
+  function positionTooltip(e) {
+    const vpRect = vp.getBoundingClientRect();
+    let x = e.clientX - vpRect.left + 16;
+    let y = e.clientY - vpRect.top - 10;
+    const tw = tooltip.offsetWidth || 240;
+    const th = tooltip.offsetHeight || 200;
+    if (x + tw > vpRect.width) x = e.clientX - vpRect.left - tw - 16;
+    if (y + th > vpRect.height) y = vpRect.height - th - 8;
+    if (y < 8) y = 8;
+    tooltip.style.left = x + 'px';
+    tooltip.style.top = y + 'px';
+  }
+
+  polygons.forEach(poly => {
+    const zone = poly.getAttribute('data-zone');
+    poly.addEventListener('mouseenter', (e) => { if (!_pduc.dragging) showTooltip(zone, e); });
+    poly.addEventListener('mousemove', (e) => {
+      if (_pduc.dragging) { tooltip.classList.remove('visible'); return; }
+      if (tooltip.classList.contains('visible')) positionTooltip(e);
+    });
+    poly.addEventListener('mouseleave', () => tooltip.classList.remove('visible'));
+  });
+}
+
 function toggleSidebar() {
   const sb = document.querySelector('.sidebar');
   const ov = document.querySelector('.sidebar-overlay');
@@ -5763,9 +6216,29 @@ function setVivMode(mode) {
   if (lastResults) renderVivChart(lastResults);
 }
 
+// Map checkbox IDs to SVG polygon data-zone values
+const ZONE_CHECKBOX_MAP = {
+  'batuco':     'AUDP Batuco',
+  'colina':     'AUDP Colina',
+  'distritog':  'Distrito G',
+  'distrito40': 'Distrito 4.0',
+  'industrial': 'Industrial'
+};
+
+function updatePolygonVisibility() {
+  Object.entries(ZONE_CHECKBOX_MAP).forEach(([cbKey, zoneName]) => {
+    const cb = document.getElementById('active-' + cbKey);
+    const poly = document.querySelector(`polygon[data-zone="${zoneName}"]`);
+    if (cb && poly) {
+      poly.style.display = cb.checked ? '' : 'none';
+    }
+  });
+}
+
 function toggleZone(zone, active) {
   const wrap = document.getElementById('wrap-' + zone);
   if (wrap) wrap.classList.toggle('disabled', !active);
+  updatePolygonVisibility();
 }
 
 function toggleIndustrial(active) {
@@ -5776,6 +6249,7 @@ function toggleIndustrial(active) {
     el.closest('.field').style.opacity       = active ? '1' : '0.35';
     el.closest('.field').style.pointerEvents = active ? '' : 'none';
   });
+  updatePolygonVisibility();
 }
 
 function toggleCommercial(active) {
