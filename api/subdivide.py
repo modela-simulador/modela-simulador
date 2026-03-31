@@ -2523,37 +2523,67 @@ def run_subdivision(fids: list[str], allocations: list[dict], max_viviendas: int
                 continue
             utm_coords = [wgs_to_utm.transform(c[0], c[1]) for c in coords]
 
-            # Snap endpoints to structural roads if within 50m
+            # Build snap targets: structural roads + green area boundaries
+            green_union = unary_union(all_green_areas) if all_green_areas else Polygon()
+            # list of (boundary_geom, snap_distance, is_road)
+            snap_targets = []
             if not vial_union.is_empty:
-                SNAP_DIST = 50.0
-                start = Point(utm_coords[0])
-                end = Point(utm_coords[-1])
-                # Snap start
-                nearest_start = vial_union.boundary.interpolate(
-                    vial_union.boundary.project(start)
-                )
-                if start.distance(nearest_start) < SNAP_DIST:
-                    utm_coords[0] = (nearest_start.x, nearest_start.y)
-                # Snap end
-                nearest_end = vial_union.boundary.interpolate(
-                    vial_union.boundary.project(end)
-                )
-                if end.distance(nearest_end) < SNAP_DIST:
-                    utm_coords[-1] = (nearest_end.x, nearest_end.y)
+                snap_targets.append((vial_union.boundary, 50.0, True))
+            if not green_union.is_empty:
+                snap_targets.append((green_union.boundary, 30.0, False))
+            # Macrolote boundary as last resort
+            snap_targets.append((macro_union.boundary, 30.0, False))
 
-            # Also extend endpoints to macrolote boundary if close
-            macro_boundary = macro_union.boundary
+            # Snap each endpoint to the nearest target
+            endpoint_snapped_to_road = {0: False, -1: False}
             for idx in [0, -1]:
                 pt = Point(utm_coords[idx])
-                nearest_on_boundary = macro_boundary.interpolate(
-                    macro_boundary.project(pt)
-                )
-                if pt.distance(nearest_on_boundary) < 30.0:
-                    utm_coords[idx] = (nearest_on_boundary.x, nearest_on_boundary.y)
+                best_snap = None
+                best_dist = float('inf')
+                snapped_to_road = False
+                for boundary, max_dist, is_road in snap_targets:
+                    try:
+                        nearest = boundary.interpolate(boundary.project(pt))
+                        d = pt.distance(nearest)
+                        if d < max_dist and d < best_dist:
+                            best_dist = d
+                            best_snap = (nearest.x, nearest.y)
+                            snapped_to_road = is_road
+                    except Exception:
+                        continue
+                if best_snap:
+                    utm_coords[idx] = best_snap
+                    endpoint_snapped_to_road[idx] = snapped_to_road
 
             line = LineString(utm_coords)
             width = cs.get("width_m", 12.0)
-            street_poly = line.buffer(width / 2.0, cap_style=2)
+
+            # Extend street line past non-road endpoints so the flat-cap buffer
+            # fully covers boundary edges (green areas, macrolote perimeter).
+            # Don't extend endpoints snapped to structural roads — those should
+            # connect flush.
+            coords_ext = list(line.coords)
+            extend_amount = width / 2.0 + 1.0  # 7m past endpoint
+            # First endpoint (index 0)
+            if not endpoint_snapped_to_road[0] and len(coords_ext) >= 2:
+                dx = coords_ext[1][0] - coords_ext[0][0]
+                dy = coords_ext[1][1] - coords_ext[0][1]
+                length = math.sqrt(dx**2 + dy**2)
+                if length > 0:
+                    nx, ny = dx / length, dy / length
+                    ox, oy = coords_ext[0]
+                    coords_ext[0] = (ox - nx * extend_amount, oy - ny * extend_amount)
+            # Last endpoint (index -1)
+            if not endpoint_snapped_to_road[-1] and len(coords_ext) >= 2:
+                dx = coords_ext[-1][0] - coords_ext[-2][0]
+                dy = coords_ext[-1][1] - coords_ext[-2][1]
+                length = math.sqrt(dx**2 + dy**2)
+                if length > 0:
+                    nx, ny = dx / length, dy / length
+                    ox, oy = coords_ext[-1]
+                    coords_ext[-1] = (ox + nx * extend_amount, oy + ny * extend_amount)
+            line_ext = LineString(coords_ext)
+            street_poly = line_ext.buffer(width / 2.0, cap_style=2)
             if street_poly.is_valid and not street_poly.is_empty:
                 custom_street_polys.append(street_poly)
 
@@ -3292,6 +3322,29 @@ def _build_response(assigned, all_streets, parks, green_union, macro_area, macro
         else:
             a["display_polygon"] = a["polygon"]
 
+    # Subtract streets from parks so green areas don't visually overlap street width
+    street_union = unary_union(all_streets) if all_streets else Polygon()
+    # Also subtract structural roads from parks
+    road_union = street_union
+    if not vial_union.is_empty:
+        road_union = unary_union([street_union, vial_union]) if not street_union.is_empty else vial_union
+    display_parks = []
+    for p in parks:
+        try:
+            clipped = p.difference(road_union) if not road_union.is_empty else p
+            if clipped.is_empty:
+                continue
+            # If multi-polygon results, keep all pieces (green can be split by streets)
+            if isinstance(clipped, MultiPolygon):
+                for geom in clipped.geoms:
+                    if geom.area > 50:  # skip tiny slivers
+                        display_parks.append(geom)
+            else:
+                if clipped.area > 50:
+                    display_parks.append(clipped)
+        except Exception:
+            display_parks.append(p)  # fallback: use original
+
     response = {
         "streets": [
             {
@@ -3321,7 +3374,7 @@ def _build_response(assigned, all_streets, parks, green_union, macro_area, macro
                 "geometry": polygon_to_geojson(to_wgs84(p)),
                 "area_m2": round(p.area, 1),
             }
-            for p in parks
+            for p in display_parks
         ],
         "metrics": {
             "total_lots": len(assigned),
