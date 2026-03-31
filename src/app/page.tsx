@@ -10,7 +10,9 @@ import BusinessReportPanel from "@/components/sidebar/BusinessReportPanel";
 import ExportPanel from "@/components/sidebar/ExportPanel";
 import InfraCostPanel from "@/components/sidebar/InfraCostPanel";
 import CabidaLoader from "@/components/ui/CabidaLoader";
+import StreetDrawPanel from "@/components/sidebar/StreetDrawPanel";
 import { PRODUCTS, getDistrictsForFids } from "@/lib/constants";
+import { createEmptyDrawState, nextStreetId, type DrawnStreet } from "@/lib/street-draw-state";
 import type { MacroloteFeature, ProductAllocation, SubdivisionResult, CabidaEntry, BusinessSelection } from "@/lib/types";
 
 const MasterplanMap = dynamic(() => import("@/components/map/MasterplanMap"), {
@@ -32,6 +34,7 @@ function makeCabidaId(fids: string[]): string {
 export default function Home() {
   const [selectedMacrolotes, setSelectedMacrolotes] = useState<MacroloteFeature[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [generateError, setGenerateError] = useState<string | null>(null);
 
   // Persistent cabida results — each iteration stored independently
   const [cabidaHistory, setCabidaHistory] = useState<CabidaEntry[]>([]);
@@ -45,6 +48,9 @@ export default function Home() {
     structuralStreetFids: [],
     greenAreaFids: [],
   });
+
+  // Street drawing state
+  const [drawState, setDrawState] = useState(createEmptyDrawState);
 
   // Pre-fetch infrastructure area data at app level so it's ready for all panels
   const [vialAreaMap, setVialAreaMap] = useState<Record<number, number>>({});
@@ -241,9 +247,99 @@ export default function Home() {
     );
   }, [activeCabidaId]);
 
+  // ── Street drawing handlers ──────────────────────────────────
+  const handleToggleDraw = useCallback(() => {
+    setDrawState((prev) => ({
+      ...prev,
+      isDrawing: !prev.isDrawing,
+      activeVertices: [], // reset active line when toggling
+    }));
+  }, []);
+
+  const handleDrawClick = useCallback((lngLat: [number, number]) => {
+    setDrawState((prev) => ({
+      ...prev,
+      activeVertices: [...prev.activeVertices, lngLat],
+    }));
+  }, []);
+
+  const handleFinishLine = useCallback(() => {
+    setDrawState((prev) => {
+      if (prev.activeVertices.length < 2) return prev;
+      const newStreet: DrawnStreet = {
+        id: nextStreetId(),
+        coordinates: prev.activeVertices,
+        widthM: 12,
+      };
+      return {
+        ...prev,
+        streets: [...prev.streets, newStreet],
+        activeVertices: [],
+        // Stay in drawing mode so user can draw more streets
+      };
+    });
+  }, []);
+
+  const handleDrawDoubleClick = useCallback(() => {
+    // Double-click adds a point AND finishes — we need to finish with current vertices
+    setDrawState((prev) => {
+      if (prev.activeVertices.length < 2) return prev;
+      const newStreet: DrawnStreet = {
+        id: nextStreetId(),
+        coordinates: prev.activeVertices,
+        widthM: 12,
+      };
+      return {
+        ...prev,
+        streets: [...prev.streets, newStreet],
+        activeVertices: [],
+      };
+    });
+  }, []);
+
+  const handleUndoVertex = useCallback(() => {
+    setDrawState((prev) => ({
+      ...prev,
+      activeVertices: prev.activeVertices.slice(0, -1),
+    }));
+  }, []);
+
+  const handleDeleteStreet = useCallback((id: string) => {
+    setDrawState((prev) => ({
+      ...prev,
+      streets: prev.streets.filter((s) => s.id !== id),
+    }));
+  }, []);
+
+  const handleClearAllStreets = useCallback(() => {
+    setDrawState((prev) => ({
+      ...prev,
+      streets: [],
+      activeVertices: [],
+    }));
+  }, []);
+
+  // Keyboard shortcuts for draw mode
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (!drawState.isDrawing) return;
+      if (e.key === "Enter") {
+        handleFinishLine();
+      } else if (e.key === "Escape") {
+        setDrawState((prev) => ({ ...prev, activeVertices: [], isDrawing: false }));
+      } else if ((e.key === "z" || e.key === "Z") && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        handleUndoVertex();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [drawState.isDrawing, handleFinishLine, handleUndoVertex]);
+
   const handleGenerate = useCallback(async (allocations: ProductAllocation[]) => {
     if (selectedMacrolotes.length === 0) return;
     setIsGenerating(true);
+    setGenerateError(null);
 
     try {
       const fids = selectedMacrolotes.map((m) => m.properties.fid);
@@ -253,6 +349,9 @@ export default function Home() {
       const maxViv = activeDistricts.length > 0
         ? activeDistricts.reduce((sum, d) => sum + d.maxViviendas, 0)
         : null;
+
+      console.log("[Cabida] Generating with", drawState.streets.length, "custom streets",
+        drawState.streets.map(s => ({ pts: s.coordinates.length, w: s.widthM })));
 
       const res = await fetch(`${API_URL}/subdivide`, {
         method: "POST",
@@ -266,12 +365,19 @@ export default function Home() {
             ...(a.lotSizeM2 ? { lot_size_m2: a.lotSizeM2 } : {}),
           })),
           ...(maxViv !== null ? { max_viviendas: maxViv } : {}),
+          ...(drawState.streets.length > 0 ? {
+            custom_streets: drawState.streets.map((s) => ({
+              coordinates: s.coordinates,
+              width_m: s.widthM,
+            })),
+          } : {}),
         }),
       });
 
       if (!res.ok) {
-        const err = await res.json();
+        const err = await res.json().catch(() => ({ detail: "Error desconocido del servidor" }));
         console.error("Subdivision error:", err);
+        setGenerateError(err.detail || "Error al generar cabida");
         return;
       }
 
@@ -324,12 +430,17 @@ export default function Home() {
       setSelectedLotIndex(null);
       // Keep structural infra selections — only clear lot indices
       setBusinessSelection((prev) => ({ ...prev, lotIndices: [] }));
+      // Clear drawn streets after generation — they're now part of the cabida result (gray)
+      if (drawState.streets.length > 0) {
+        setDrawState(createEmptyDrawState());
+      }
     } catch (err) {
       console.error("Failed to call subdivision API:", err);
+      setGenerateError("No se pudo conectar al servidor");
     } finally {
       setIsGenerating(false);
     }
-  }, [selectedMacrolotes]);
+  }, [selectedMacrolotes, drawState.streets, activeDistricts]);
 
   const handleRemoveCabida = useCallback((cabidaId: string) => {
     setCabidaHistory((prev) => prev.filter((e) => e.id !== cabidaId));
@@ -387,6 +498,18 @@ export default function Home() {
       {/* Map */}
       <div className="flex-1 relative">
         {isGenerating && <CabidaLoader />}
+        {generateError && (
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 bg-red-900/90 border border-red-500 text-red-100 px-4 py-3 rounded-lg shadow-lg max-w-md text-sm flex items-center gap-3">
+            <span className="text-red-400 text-lg">⚠</span>
+            <span className="flex-1">{generateError}</span>
+            <button
+              onClick={() => setGenerateError(null)}
+              className="text-red-400 hover:text-red-200 font-bold"
+            >
+              ✕
+            </button>
+          </div>
+        )}
         <MasterplanMap
           onMacroloteSelect={handleSelect}
           selectedMacrolotes={selectedMacrolotes}
@@ -397,6 +520,11 @@ export default function Home() {
           onGreenAreaClick={handleGreenAreaClick}
           selectedLotIndex={selectedLotIndex}
           businessSelection={businessSelection}
+          drawMode={drawState.isDrawing}
+          drawnStreets={drawState.streets}
+          activeVertices={drawState.activeVertices}
+          onDrawClick={handleDrawClick}
+          onDrawDoubleClick={handleDrawDoubleClick}
         />
         <div className="absolute top-4 left-4 z-10">
           <h1 className="text-xl font-bold text-white tracking-tight">
@@ -439,6 +567,18 @@ export default function Home() {
           <MacrolotePanel
             macrolotes={selectedMacrolotes}
             onClose={() => { setSelectedMacrolotes([]); setSelectedLotIndex(null); setBusinessSelection({ lotIndices: [], structuralStreetFids: [], greenAreaFids: [] }); }}
+          />
+
+          {/* Street drawing tool — always visible when macrolotes selected */}
+          <StreetDrawPanel
+            isDrawing={drawState.isDrawing}
+            streets={drawState.streets}
+            activeVertexCount={drawState.activeVertices.length}
+            onToggleDraw={handleToggleDraw}
+            onFinishLine={handleFinishLine}
+            onDeleteStreet={handleDeleteStreet}
+            onClearAll={handleClearAllStreets}
+            onUndo={handleUndoVertex}
           />
 
           {activeEntry ? (

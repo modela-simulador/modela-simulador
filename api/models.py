@@ -8,10 +8,15 @@ class ProductAllocation(BaseModel):
     percentage: float  # 0-100
     lot_size_m2: Optional[float] = None  # for comercio/equipamiento
 
+class CustomStreet(BaseModel):
+    coordinates: list[list[float]]  # [[lng, lat], ...] in WGS84
+    width_m: float = 12.0
+
 class SubdivisionRequest(BaseModel):
     macrolote_fids: list[str]  # support multiple macrolotes
     product_allocations: list[ProductAllocation]
     max_viviendas: Optional[int] = None  # district-level max housing cap
+    custom_streets: Optional[list[CustomStreet]] = None  # user-drawn streets
 
 class LotResult(BaseModel):
     geometry: dict

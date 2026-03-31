@@ -1,6 +1,6 @@
 """Core subdivision algorithm: recursive bisection with constraints."""
 import geopandas as gpd
-from shapely.geometry import Polygon, MultiPolygon, shape, mapping, Point
+from shapely.geometry import Polygon, MultiPolygon, LineString, shape, mapping, Point
 from shapely.ops import unary_union
 import os
 import math
@@ -684,6 +684,184 @@ def recursive_subdivide(polygon: Polygon, target_area_m2: float, angle_deg: floa
         # Phase B never adds streets
 
     return lots, streets_out
+
+
+def _subdivide_block_into_lots(block: Polygon, product_id: str) -> list[dict]:
+    """Subdivide a superblock into individual lots for a given product.
+
+    Uses shapely.ops.split with clean cut lines (no buffer gaps).
+    Enforces min_lot_area, min_side_m, and min_units with ±10% flex.
+    Returns list of lot dicts with polygon, product_id, area_m2, units.
+    """
+    from shapely.ops import split as shapely_split
+
+    product = PRODUCTS.get(product_id, {})
+    # ±10% flexibility on all parameters
+    max_area = _max_lot_area(product_id) * 1.10
+    min_area = _min_lot_area(product_id) * 0.90
+    min_side = product.get("min_side_m", 50) * 0.90
+    efficiency = product.get("efficiency", 0)
+    max_units = product.get("max_units", 9999)
+    min_units = product.get("min_units", 0)
+
+    def _make_lot(poly):
+        """Create a lot dict, maximizing units."""
+        units = round((poly.area / 10000) * efficiency) if efficiency > 0 else 0
+        units = min(units, max_units)
+        return {
+            "polygon": poly,
+            "product_id": product_id,
+            "area_m2": poly.area,
+            "units": units,
+            "_group_idx": 0,
+        }
+
+    def _is_valid_lot(poly):
+        """Check if a polygon meets minimum lot requirements."""
+        if poly.area < min_area:
+            return False
+        # Check minimum side length
+        mrr = poly.minimum_rotated_rectangle
+        mrr_c = list(mrr.exterior.coords)
+        s1 = math.sqrt((mrr_c[1][0]-mrr_c[0][0])**2 + (mrr_c[1][1]-mrr_c[0][1])**2)
+        s2 = math.sqrt((mrr_c[2][0]-mrr_c[1][0])**2 + (mrr_c[2][1]-mrr_c[1][1])**2)
+        if min(s1, s2) < min_side:
+            return False
+        # Check not a sliver (aspect ratio < 6:1)
+        if max(s1, s2) / min(s1, s2) > 6:
+            return False
+        return True
+
+    # If the block fits in one lot, return as-is
+    if block.area <= max_area:
+        return [_make_lot(block)]
+
+    # How many lots?
+    n_lots = max(2, math.ceil(block.area / max_area))
+    # Ensure each lot is at least min_area
+    while n_lots > 1 and block.area / n_lots < min_area:
+        n_lots -= 1
+
+    if n_lots <= 1:
+        return [_make_lot(block)]
+
+    # Determine cut direction from minimum rotated rectangle
+    mrr = block.minimum_rotated_rectangle
+    mrr_coords = list(mrr.exterior.coords)
+    edge1 = (mrr_coords[1][0] - mrr_coords[0][0], mrr_coords[1][1] - mrr_coords[0][1])
+    edge2 = (mrr_coords[2][0] - mrr_coords[1][0], mrr_coords[2][1] - mrr_coords[1][1])
+    len1 = math.sqrt(edge1[0]**2 + edge1[1]**2)
+    len2 = math.sqrt(edge2[0]**2 + edge2[1]**2)
+
+    # Cut perpendicular to the LONG axis
+    if len1 >= len2:
+        long_vec = (edge1[0] / len1, edge1[1] / len1)
+        origin = (mrr_coords[0][0], mrr_coords[0][1])
+        long_len = len1
+    else:
+        long_vec = (edge2[0] / len2, edge2[1] / len2)
+        origin = (mrr_coords[1][0], mrr_coords[1][1])
+        long_len = len2
+
+    perp = (-long_vec[1], long_vec[0])
+    cut_ext = max(long_len, 500) * 2
+
+    # Strategy: make ALL cuts at once on the original block, then collect pieces.
+    # This avoids the iterative problem where remaining polygon changes shape.
+
+    # Find the extent of block along the long axis
+    block_coords = list(block.exterior.coords)
+    projections = [(c[0] - origin[0]) * long_vec[0] + (c[1] - origin[1]) * long_vec[1]
+                   for c in block_coords]
+    proj_min = min(projections)
+    proj_max = max(projections)
+
+    # Build all cut lines at equal intervals
+    cut_lines = []
+    for i in range(1, n_lots):
+        t = i / n_lots
+        cut_proj = proj_min + (proj_max - proj_min) * t
+        cx = origin[0] + long_vec[0] * cut_proj
+        cy = origin[1] + long_vec[1] * cut_proj
+        cut_lines.append(LineString([
+            (cx - perp[0] * cut_ext, cy - perp[1] * cut_ext),
+            (cx + perp[0] * cut_ext, cy + perp[1] * cut_ext),
+        ]))
+
+    # Apply all cuts to the block
+    from shapely.ops import snap
+    lots = []
+    remaining = block
+    for cut_line in cut_lines:
+        pieces = []
+        try:
+            result = shapely_split(remaining, cut_line)
+            pieces = [g for g in result.geoms if isinstance(g, Polygon) and g.area > 200]
+        except Exception:
+            pass
+        if len(pieces) < 2:
+            try:
+                snapped = snap(cut_line, remaining, tolerance=1.0)
+                result = shapely_split(remaining, snapped)
+                pieces = [g for g in result.geoms if isinstance(g, Polygon) and g.area > 200]
+            except Exception:
+                pass
+        if len(pieces) < 2:
+            try:
+                diff = remaining.difference(cut_line.buffer(0.05))
+                if hasattr(diff, 'geoms'):
+                    pieces = [g for g in diff.geoms if isinstance(g, Polygon) and g.area > 200]
+            except Exception:
+                pass
+        if len(pieces) >= 2:
+            # Keep only the piece furthest from start as remaining
+            pieces.sort(key=lambda p: (p.centroid.x - origin[0]) * long_vec[0]
+                                     + (p.centroid.y - origin[1]) * long_vec[1])
+            # All pieces except last go to lots_pieces, last becomes remaining
+            for p in pieces[:-1]:
+                lots.append(_make_lot(p))
+            remaining = pieces[-1]
+
+    # Add remaining as last lot
+    if isinstance(remaining, Polygon) and remaining.area > 500:
+        lots.append(_make_lot(remaining))
+
+    # Post-process: only merge truly degenerate lots (tiny slivers < 30% of min_area)
+    if len(lots) > 1:
+        valid = []
+        to_merge = []
+        for lot in lots:
+            poly = lot["polygon"]
+            # Only merge if VERY small (sliver) — not just under min_area
+            if poly.area < min_area * 0.3:
+                to_merge.append(lot)
+            else:
+                valid.append(lot)
+
+        for bad in to_merge:
+            if not valid:
+                valid.append(bad)
+                continue
+            best_idx = 0
+            best_dist = float('inf')
+            for vi, v in enumerate(valid):
+                d = bad["polygon"].distance(v["polygon"])
+                if d < best_dist:
+                    best_dist = d
+                    best_idx = vi
+            merged_poly = unary_union([valid[best_idx]["polygon"], bad["polygon"]])
+            if isinstance(merged_poly, MultiPolygon):
+                merged_poly = max(merged_poly.geoms, key=lambda g: g.area)
+            if isinstance(merged_poly, Polygon):
+                valid[best_idx] = _make_lot(merged_poly)
+
+        lots = valid
+
+    # Fallback: return original block if subdivision failed
+    if not lots:
+        return [_make_lot(block)]
+
+    return lots
 
 
 def _max_lot_area(product_id: str) -> float:
@@ -2267,13 +2445,14 @@ def generate_mini_parks(lots: list[Polygon], streets: list[Polygon],
     return parks[:4]
 
 
-def run_subdivision(fids: list[str], allocations: list[dict], max_viviendas: int = None) -> dict:
+def run_subdivision(fids: list[str], allocations: list[dict], max_viviendas: int = None, custom_streets: list = None) -> dict:
     """Main entry: run full subdivision pipeline for one or more macrolotes.
 
     Args:
         fids: Macrolote feature IDs to subdivide.
         allocations: Product allocations with percentages.
         max_viviendas: Optional district-level max housing units cap.
+        custom_streets: Optional user-drawn street lines [{coordinates: [[lng,lat],...], width_m: float}].
     """
     lotes_gdf, av_gdf, vial_gdf = load_geodata()
 
@@ -2326,6 +2505,196 @@ def run_subdivision(fids: list[str], allocations: list[dict], max_viviendas: int
 
     # ── Plan-first subdivision ──
     green_for_streets_union = unary_union(all_green_for_streets) if all_green_for_streets else Polygon()
+
+    # ── Custom streets mode ──
+    # User-drawn streets define the ONLY internal streets.
+    # Each resulting block = one lot assigned to a product.
+    # No internal subdivision — the user controls the layout.
+    if custom_streets and len(custom_streets) > 0:
+        from pyproj import Transformer
+        wgs_to_utm = Transformer.from_crs("EPSG:4326", "EPSG:32719", always_xy=True)
+        macro_union = unary_union(macrolote_polys)
+
+        # ── Step 1: Convert street lines to UTM and snap endpoints to vialidad ──
+        custom_street_polys = []
+        for cs in custom_streets:
+            coords = cs["coordinates"]
+            if len(coords) < 2:
+                continue
+            utm_coords = [wgs_to_utm.transform(c[0], c[1]) for c in coords]
+
+            # Snap endpoints to structural roads if within 50m
+            if not vial_union.is_empty:
+                SNAP_DIST = 50.0
+                start = Point(utm_coords[0])
+                end = Point(utm_coords[-1])
+                # Snap start
+                nearest_start = vial_union.boundary.interpolate(
+                    vial_union.boundary.project(start)
+                )
+                if start.distance(nearest_start) < SNAP_DIST:
+                    utm_coords[0] = (nearest_start.x, nearest_start.y)
+                # Snap end
+                nearest_end = vial_union.boundary.interpolate(
+                    vial_union.boundary.project(end)
+                )
+                if end.distance(nearest_end) < SNAP_DIST:
+                    utm_coords[-1] = (nearest_end.x, nearest_end.y)
+
+            # Also extend endpoints to macrolote boundary if close
+            macro_boundary = macro_union.boundary
+            for idx in [0, -1]:
+                pt = Point(utm_coords[idx])
+                nearest_on_boundary = macro_boundary.interpolate(
+                    macro_boundary.project(pt)
+                )
+                if pt.distance(nearest_on_boundary) < 30.0:
+                    utm_coords[idx] = (nearest_on_boundary.x, nearest_on_boundary.y)
+
+            line = LineString(utm_coords)
+            width = cs.get("width_m", 12.0)
+            street_poly = line.buffer(width / 2.0, cap_style=2)
+            if street_poly.is_valid and not street_poly.is_empty:
+                custom_street_polys.append(street_poly)
+
+        if custom_street_polys:
+            custom_street_union = unary_union(custom_street_polys)
+            # Clip streets to macrolote boundary
+            custom_street_union = custom_street_union.intersection(macro_union)
+
+            # Get buildable area minus streets and greens
+            green_union = unary_union(all_green_areas) if all_green_areas else Polygon()
+            remaining = macro_union.difference(custom_street_union)
+            if not green_union.is_empty:
+                remaining = remaining.difference(green_union)
+
+            # Extract blocks — filter out slivers and ghost fragments
+            MIN_BLOCK_AREA = 500  # m² — blocks smaller than this are slivers
+            raw_blocks = []
+            if isinstance(remaining, MultiPolygon):
+                raw_blocks = [g for g in remaining.geoms if isinstance(g, Polygon)]
+            elif isinstance(remaining, Polygon):
+                raw_blocks = [remaining]
+            elif hasattr(remaining, 'geoms'):
+                raw_blocks = [g for g in remaining.geoms if isinstance(g, Polygon)]
+
+            # Separate real blocks from slivers
+            blocks = []
+            slivers = []
+            for b in raw_blocks:
+                if b.area < MIN_BLOCK_AREA:
+                    slivers.append(b)
+                    continue
+                # Check aspect ratio — reject very thin strips
+                mrr = b.minimum_rotated_rectangle
+                mc = list(mrr.exterior.coords)
+                s1 = math.sqrt((mc[1][0]-mc[0][0])**2 + (mc[1][1]-mc[0][1])**2)
+                s2 = math.sqrt((mc[2][0]-mc[1][0])**2 + (mc[2][1]-mc[1][1])**2)
+                short_side = min(s1, s2)
+                if short_side < 15:  # thinner than 15m = sliver
+                    slivers.append(b)
+                else:
+                    blocks.append(b)
+
+            # Merge slivers into nearest real block
+            for sliver in slivers:
+                if not blocks:
+                    break
+                best_idx = 0
+                best_dist = float('inf')
+                for bi, blk in enumerate(blocks):
+                    d = sliver.distance(blk)
+                    if d < best_dist:
+                        best_dist = d
+                        best_idx = bi
+                merged = unary_union([blocks[best_idx], sliver])
+                if isinstance(merged, Polygon):
+                    blocks[best_idx] = merged
+                elif isinstance(merged, MultiPolygon):
+                    blocks[best_idx] = max(merged.geoms, key=lambda g: g.area)
+
+            if not blocks:
+                raise ValueError("No buildable blocks after subtracting custom streets")
+
+            # ── Step 2: Assign products to blocks by proportion ──
+            blocks.sort(key=lambda b: b.area, reverse=True)
+            total_block_area = sum(b.area for b in blocks)
+
+            # Build product list with target areas, sorted by percentage desc
+            product_demands = []
+            for alloc in allocations:
+                pid = alloc["product_id"]
+                pct = alloc["percentage"]
+                if pct <= 0:
+                    continue
+                product_demands.append({
+                    "product_id": pid,
+                    "percentage": pct,
+                    "target_area": total_block_area * pct / 100.0,
+                    "assigned_area": 0.0,
+                })
+            product_demands.sort(key=lambda d: d["target_area"], reverse=True)
+
+            # Assign each block to the best-fit product considering:
+            # - Largest remaining deficit (target_area - assigned_area)
+            # - Don't assign huge blocks to low-% products (cap at 2x target)
+            # - If block exceeds max_lot_area, subdivide into multiple same-product lots
+            assigned = []
+            for block in blocks:
+                # Score each product: deficit, but penalize over-assignment
+                best = None
+                best_score = -float('inf')
+                for d in product_demands:
+                    deficit = d["target_area"] - d["assigned_area"]
+                    # Skip products already over-assigned by >20%
+                    if d["assigned_area"] > d["target_area"] * 1.2 and deficit < 0:
+                        score = deficit * 2  # strong penalty
+                    elif block.area > d["target_area"] * 2 and deficit < block.area * 0.5:
+                        # Block is way bigger than what this product needs total
+                        score = deficit - block.area
+                    else:
+                        score = deficit
+                    if score > best_score:
+                        best_score = score
+                        best = d
+
+                pid = best["product_id"]
+                best["assigned_area"] += block.area
+
+                max_area = _max_lot_area(pid) * 1.10  # +10% flex
+                if block.area > max_area:
+                    sub_lots = _subdivide_block_into_lots(block, pid)
+                    assigned.extend(sub_lots)
+                else:
+                    product = PRODUCTS.get(pid, {})
+                    efficiency = product.get("efficiency", 0)
+                    max_u = product.get("max_units", 9999)
+                    units = round((block.area / 10000) * efficiency) if efficiency > 0 else 0
+                    units = min(units, max_u)
+                    assigned.append({
+                        "polygon": block,
+                        "product_id": pid,
+                        "area_m2": block.area,
+                        "units": units,
+                        "_group_idx": 0,
+                    })
+
+            # ── Step 3: Build street polygons for response ──
+            all_streets = []
+            if isinstance(custom_street_union, MultiPolygon):
+                all_streets = list(custom_street_union.geoms)
+            elif isinstance(custom_street_union, Polygon) and not custom_street_union.is_empty:
+                all_streets = [custom_street_union]
+
+            parks = list(all_green_areas)
+            _custom_mode = True
+        else:
+            _custom_mode = False
+    else:
+        _custom_mode = False
+
+    if _custom_mode:
+        return _build_response(assigned, all_streets, parks, green_union, macro_area, macrolote_polys, vial_union, max_viviendas)
 
     # Identify connected macrolote groups by buffer-merging adjacent polygons.
     # Non-adjacent macrolotes get subdivided independently with proportional
@@ -2853,12 +3222,17 @@ def run_subdivision(fids: list[str], allocations: list[dict], max_viviendas: int
     # No internal parks — all space is assigned to products
     parks = []
 
-    # Final safety: remove any invalid polygons before response
+    return _build_response(assigned, all_streets, parks, green_union, macro_area, macrolote_polys, vial_union, max_viviendas)
+
+
+def _build_response(assigned, all_streets, parks, green_union, macro_area, macrolote_polys, vial_union, max_viviendas=None):
+    """Build the final API response from subdivision results."""
+    # Final safety: remove any invalid polygons
     assigned = [a for a in assigned
-                if a["polygon"] is not None
+                if a.get("polygon") is not None
                 and isinstance(a["polygon"], Polygon)
                 and not a["polygon"].is_empty
-                and a["area_m2"] > 50]
+                and a.get("area_m2", 0) > 50]
 
     # Calculate metrics
     total_street_area = sum(s.area for s in all_streets)
@@ -2872,9 +3246,7 @@ def run_subdivision(fids: list[str], allocations: list[dict], max_viviendas: int
         for a in assigned:
             a["units"] = max(1, round(a["units"] * scale)) if a["units"] > 0 else 0
         total_units = sum(a["units"] for a in assigned)
-        # Fine-tune to hit exact cap if rounding exceeded it
         while total_units > max_viviendas:
-            # Reduce the lot with most units by 1
             max_lot = max((a for a in assigned if a["units"] > 1), key=lambda a: a["units"], default=None)
             if max_lot is None:
                 break
@@ -2907,11 +3279,7 @@ def run_subdivision(fids: list[str], allocations: list[dict], max_viviendas: int
         from shapely.ops import transform
         return transform(transformer.transform, geom)
 
-    # Display polygons: DON'T clip against streets.
-    # Streets are rendered ON TOP of lots on the map, so lots can extend
-    # underneath streets without visual issues. Clipping against streets
-    # created micro-gaps (ghost blue areas) between lots and streets.
-    # Only clip against green areas (which are NOT rendered on top).
+    # Display polygons: clip against green areas only (streets render on top)
     for a in assigned:
         if not green_union.is_empty:
             display_poly = a["polygon"].difference(green_union)
@@ -2941,8 +3309,6 @@ def run_subdivision(fids: list[str], allocations: list[dict], max_viviendas: int
                 "frontage_m": round(calculate_frontage(a["polygon"], all_streets + ([vial_union] if not vial_union.is_empty else [])), 1),
                 "min_side_m": round(a.get("min_side_m", 0), 1),
                 "aspect_ratio": round(aspect_ratio(a["polygon"]), 2),
-                # Shape flags computed on UTM polygon (meter-based) to avoid
-                # WGS84 false positives from is_triangular using meter tolerances
                 "is_triangular_utm": is_triangular(a["polygon"]),
                 "fill_ratio_utm": round(
                     a["polygon"].area / a["polygon"].minimum_rotated_rectangle.area
@@ -2963,8 +3329,8 @@ def run_subdivision(fids: list[str], allocations: list[dict], max_viviendas: int
             "units_by_product": units_by_product,
             "street_area_m2": round(total_street_area, 1),
             "park_area_m2": round(total_park_area, 1),
-            "efficiency_pct": round(total_lot_area / macro_area * 100, 1),
-            "density_per_ha": round(total_units / (macro_area / 10000), 1),
+            "efficiency_pct": round(total_lot_area / macro_area * 100, 1) if macro_area > 0 else 0,
+            "density_per_ha": round(total_units / (macro_area / 10000), 1) if macro_area > 0 else 0,
             "total_value_uf": round(total_value_uf, 0),
             "value_by_product": {k: round(v, 0) for k, v in value_by_product.items()},
             "street_cost_uf": round(street_cost_uf, 0),

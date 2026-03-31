@@ -51,7 +51,8 @@ def health():
 @app.post("/subdivide")
 def subdivide(req: SubdivisionRequest):
     logger.info(f"Subdivision request: {len(req.macrolote_fids)} macrolotes, "
-                f"{len(req.product_allocations)} products")
+                f"{len(req.product_allocations)} products, "
+                f"custom_streets={len(req.custom_streets) if req.custom_streets else 0}")
     try:
         allocations = [
             {
@@ -61,7 +62,17 @@ def subdivide(req: SubdivisionRequest):
             }
             for a in req.product_allocations
         ]
-        result = run_subdivision(req.macrolote_fids, allocations, max_viviendas=req.max_viviendas)
+        custom_streets = None
+        if req.custom_streets:
+            custom_streets = [
+                {"coordinates": s.coordinates, "width_m": s.width_m}
+                for s in req.custom_streets
+            ]
+        result = run_subdivision(
+            req.macrolote_fids, allocations,
+            max_viviendas=req.max_viviendas,
+            custom_streets=custom_streets,
+        )
         logger.info(f"Subdivision complete: {result.get('metrics', {}).get('total_lots', '?')} lots")
 
         # Free memory after heavy computation

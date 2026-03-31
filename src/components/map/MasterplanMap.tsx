@@ -4,6 +4,12 @@ import { useEffect, useRef, useState, useMemo } from "react";
 import mapboxgl from "mapbox-gl";
 import { MAP_CENTER, MAP_ZOOM, LAYER_COLORS, PRODUCTS } from "@/lib/constants";
 import type { MacroloteFeature, CabidaEntry, BusinessSelection } from "@/lib/types";
+import type { DrawnStreet } from "@/lib/street-draw-state";
+import {
+  streetsToGeoJSON,
+  activeLineToGeoJSON,
+  verticesToGeoJSON,
+} from "@/lib/street-draw-state";
 
 interface MasterplanMapProps {
   onMacroloteSelect: (feature: MacroloteFeature | null, shiftKey?: boolean) => void;
@@ -15,6 +21,12 @@ interface MasterplanMapProps {
   onGreenAreaClick?: (fid: number, areaM2: number) => void;
   selectedLotIndex?: number | null;
   businessSelection?: BusinessSelection;
+  /** Street drawing mode */
+  drawMode?: boolean;
+  drawnStreets?: DrawnStreet[];
+  activeVertices?: [number, number][];
+  onDrawClick?: (lngLat: [number, number]) => void;
+  onDrawDoubleClick?: () => void;
 }
 
 // Build a color map for products
@@ -24,6 +36,7 @@ PRODUCTS.forEach((p) => { PRODUCT_COLOR_MAP[p.id] = p.color; });
 export default function MasterplanMap({
   onMacroloteSelect, selectedMacrolotes, cabidaHistory, activeCabidaId,
   onLotClick, onStructuralStreetClick, onGreenAreaClick, selectedLotIndex, businessSelection,
+  drawMode, drawnStreets, activeVertices, onDrawClick, onDrawDoubleClick,
 }: MasterplanMapProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
@@ -39,6 +52,15 @@ export default function MasterplanMap({
   // Keep cabidaHistory accessible inside map event closures
   const cabidaHistoryRef = useRef(cabidaHistory);
   cabidaHistoryRef.current = cabidaHistory;
+
+  // Draw mode refs
+  const drawModeRef = useRef(drawMode);
+  drawModeRef.current = drawMode;
+  const onDrawClickRef = useRef(onDrawClick);
+  onDrawClickRef.current = onDrawClick;
+  const onDrawDoubleClickRef = useRef(onDrawDoubleClick);
+  onDrawDoubleClickRef.current = onDrawDoubleClick;
+  const cursorPosRef = useRef<[number, number] | null>(null);
 
   // Track selected macrolote fids so click handler knows if a macrolote is already selected
   const selectedMacroloteFidsRef = useRef<Set<string>>(new Set());
@@ -323,6 +345,38 @@ export default function MasterplanMap({
         paint: { "line-color": "#60a5fa", "line-width": 8, "line-opacity": 0.35, "line-blur": 4 },
       });
 
+      // --- Street drawing layers ---
+      m.addSource("draw-streets", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+      m.addSource("draw-active-line", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+      m.addSource("draw-vertices", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+
+      // Finalized drawn streets (solid orange)
+      m.addLayer({
+        id: "draw-streets-line", type: "line", source: "draw-streets",
+        paint: { "line-color": "#f59e0b", "line-width": 4, "line-opacity": 0.9 },
+      });
+      m.addLayer({
+        id: "draw-streets-glow", type: "line", source: "draw-streets",
+        paint: { "line-color": "#f59e0b", "line-width": 12, "line-opacity": 0.15, "line-blur": 4 },
+      });
+
+      // Active line being drawn (dashed)
+      m.addLayer({
+        id: "draw-active-line", type: "line", source: "draw-active-line",
+        paint: { "line-color": "#fbbf24", "line-width": 3, "line-dasharray": [3, 2], "line-opacity": 0.8 },
+      });
+
+      // Vertices (dots)
+      m.addLayer({
+        id: "draw-vertices-circle", type: "circle", source: "draw-vertices",
+        paint: {
+          "circle-radius": 5,
+          "circle-color": "#fbbf24",
+          "circle-stroke-color": "#000",
+          "circle-stroke-width": 2,
+        },
+      });
+
       // --- Interactions ---
 
       const hoverLayers = ["cabida-lots-fill", "cabida-parks-fill", "cabida-streets-fill", "lotes-fill", "av-fill", "vial-fill"];
@@ -458,8 +512,30 @@ export default function MasterplanMap({
         }
       });
 
+      // Track cursor for draw mode preview line
+      m.on("mousemove", "lotes-fill", (e) => {
+        if (drawModeRef.current && e.lngLat) {
+          cursorPosRef.current = [e.lngLat.lng, e.lngLat.lat];
+        }
+      });
+
+      // Double-click finishes a street line
+      m.on("dblclick", (e) => {
+        if (drawModeRef.current && onDrawDoubleClickRef.current) {
+          e.preventDefault();
+          onDrawDoubleClickRef.current();
+          return;
+        }
+      });
+
       // Unified click handler — query ALL rendered features at click point
       m.on("click", (e) => {
+        // In draw mode, clicks add vertices
+        if (drawModeRef.current && onDrawClickRef.current) {
+          onDrawClickRef.current([e.lngLat.lng, e.lngLat.lat]);
+          return;
+        }
+
         const allHits = m.queryRenderedFeatures(e.point);
         const shiftKey = e.originalEvent?.shiftKey ?? false;
 
@@ -622,6 +698,68 @@ export default function MasterplanMap({
       }
     }
   }, [businessSelection, loaded]);
+
+  // Update draw layers when streets or active vertices change
+  useEffect(() => {
+    if (!map.current || !loaded) return;
+    const m = map.current;
+
+    // Finalized streets
+    const streetsSrc = m.getSource("draw-streets") as mapboxgl.GeoJSONSource;
+    if (streetsSrc) {
+      streetsSrc.setData(streetsToGeoJSON(drawnStreets || []));
+    }
+
+    // Active line (with cursor preview)
+    const activeSrc = m.getSource("draw-active-line") as mapboxgl.GeoJSONSource;
+    if (activeSrc) {
+      const verts = activeVertices || [];
+      activeSrc.setData(
+        activeLineToGeoJSON(verts, cursorPosRef.current || undefined)
+      );
+    }
+
+    // Vertices (dots)
+    const vertsSrc = m.getSource("draw-vertices") as mapboxgl.GeoJSONSource;
+    if (vertsSrc) {
+      const allVerts: [number, number][] = [
+        ...(drawnStreets || []).flatMap((s) => s.coordinates),
+        ...(activeVertices || []),
+      ];
+      vertsSrc.setData(verticesToGeoJSON(allVerts));
+    }
+  }, [drawnStreets, activeVertices, loaded]);
+
+  // Change cursor in draw mode
+  useEffect(() => {
+    if (!map.current || !loaded) return;
+    const canvas = map.current.getCanvas();
+    if (drawMode) {
+      canvas.style.cursor = "crosshair";
+    } else {
+      canvas.style.cursor = "";
+    }
+  }, [drawMode, loaded]);
+
+  // Animate active line with cursor position (requestAnimationFrame loop)
+  useEffect(() => {
+    if (!map.current || !loaded || !drawMode) return;
+    const m = map.current;
+    let rafId: number;
+
+    const animate = () => {
+      const activeSrc = m.getSource("draw-active-line") as mapboxgl.GeoJSONSource;
+      if (activeSrc && activeVertices && activeVertices.length > 0) {
+        activeSrc.setData(
+          activeLineToGeoJSON(activeVertices, cursorPosRef.current || undefined)
+        );
+      }
+      rafId = requestAnimationFrame(animate);
+    };
+    rafId = requestAnimationFrame(animate);
+
+    return () => cancelAnimationFrame(rafId);
+  }, [drawMode, activeVertices, loaded]);
 
   return (
     <div ref={mapContainer} className="w-full h-full" />
