@@ -11440,7 +11440,7 @@ function _renderPE() {
   // Build chart — solo barras, sin linea acumulada
   if (peChart) { peChart.destroy(); peChart = null; }
   const fcrUF = flujoCR.map(v => Math.round(v));
-  const barColors = fcrUF.map(v => v >= 0 ? 'rgba(22,163,74,0.75)' : 'rgba(220,38,38,0.65)');
+  const barColors = fcrUF.map((v,i) => W[i] === paybackFCR ? 'rgba(245,158,11,0.95)' : v >= 0 ? 'rgba(22,163,74,0.75)' : 'rgba(220,38,38,0.65)');
 
   peChart = new Chart(chartCvs.getContext('2d'), {
     type:'bar',
