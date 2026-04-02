@@ -1088,6 +1088,8 @@
     .pe-ctrl-group label{font-size:11px;font-weight:700;color:#e2e8f0;text-transform:uppercase;letter-spacing:0.4px;white-space:nowrap}
     .pe-ctrl-group select{padding:6px 12px;font-size:12px;font-family:inherit;border:1px solid #475569;border-radius:6px;background:#1e293b;color:#f8fafc;cursor:pointer;font-weight:500}
     .pe-ctrl-group select:focus{outline:none;border-color:#7c3aed;box-shadow:0 0 0 2px rgba(124,58,237,0.1)}
+    #pe-san-venta-toggle:checked+span{background:#16a34a}
+    #pe-san-venta-toggle:checked~#pe-san-slider{transform:translateX(16px)}
 
     /* ══════════════════════════════════════════════════════════
        MOBILE RESPONSIVE (max-width: 768px)
@@ -1824,6 +1826,19 @@
               <option value="optimista">Optimista</option>
             </select>
           </div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <label style="font-size:11px;font-weight:700;color:#e2e8f0;text-transform:uppercase;letter-spacing:0.4px;white-space:nowrap">Venta Sanitaria</label>
+            <label style="position:relative;display:inline-block;width:36px;height:20px;cursor:pointer">
+              <input type="checkbox" id="pe-san-venta-toggle" style="opacity:0;width:0;height:0" onchange="peSanVentaOn=this.checked;renderPrimerasEtapas()">
+              <span style="position:absolute;inset:0;background:#475569;border-radius:10px;transition:background .2s"></span>
+              <span style="position:absolute;top:2px;left:2px;width:16px;height:16px;background:#fff;border-radius:50%;transition:transform .2s" id="pe-san-slider"></span>
+            </label>
+          </div>
+          <div style="flex:1"></div>
+          <button id="pe-btn-xlsx" onclick="downloadPEXlsx()" style="padding:6px 14px;font-size:11px;font-weight:600;font-family:inherit;border:1px solid #475569;border-radius:6px;background:#1e293b;color:#f8fafc;cursor:pointer;display:flex;align-items:center;gap:4px">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Excel
+          </button>
         </div>
         <div id="pe-dashboard-container">
           <div style="text-align:center;padding:60px;color:#94a3b8;font-size:14px">
@@ -10833,6 +10848,7 @@ function closeUnidadesNegocio() {
 let peMode = 'audp';
 let peExpanded = {};
 let peChart = null;
+let peSanVentaOn = false; // toggle venta sanitaria — off by default
 
 // Snapshot of params at initial simulation — PE uses this as base
 let peBaseParams = null;
@@ -11033,7 +11049,6 @@ function _renderPE() {
   // Sanitario
   const sanIng = W.map(y => Math.max(0, gv(sanitariaIngByYear, y)));
   const sanCost = W.map(y => gv(sanitariaOpCostByYear, y));
-  const sanVenta = W.map(y => gv(sanitariaVentaByYear, y));
   let sanInv;
   if (isFull) {
     sanInv = W.map(y => gv(sanitariaByYear, y));
@@ -11048,6 +11063,23 @@ function _renderPE() {
       }
       return inv;
     });
+  }
+  // Venta sanitaria: solo si toggle está activo, se calcula en el último año de la ventana
+  const sanVenta = W.map(() => 0);
+  let sanVentaVal = 0;
+  if (peSanVentaOn) {
+    // Buscar último año con recepciones en la ventana
+    let sanEndIdx = -1;
+    for (let i = W.length - 1; i >= 0; i--) { if (recTotal[i] > 0) { sanEndIdx = i; break; } }
+    if (sanEndIdx >= 0) {
+      const opResult = sanIng[sanEndIdx] - sanCost[sanEndIdx];
+      if (opResult > 0) {
+        let cumInvSan = 0;
+        for (let i = 0; i <= sanEndIdx; i++) cumInvSan += sanInv[i];
+        sanVentaVal = opResult / 0.06 - 0.20 * cumInvSan;
+        if (sanVentaVal > 0) sanVenta[sanEndIdx] = sanVentaVal;
+      }
+    }
   }
   const subtotalSan = W.map((_,i) => sanIng[i] - sanCost[i] - sanInv[i] + sanVenta[i]);
   const subtotalSanAcum = cumul(subtotalSan);
@@ -11215,38 +11247,225 @@ function _renderPE() {
   r4.push(mkR('Flujo de Caja Real Acumulado',flujoCRAcum,'pe-acum'));
   s4.appendChild(mkT(r4)); C.appendChild(s4);
 
-  // 5: Resultado
+  // 5: Resultado + Venta Sanitaria
   const s5 = mkS('5','pe-badge-red','Factibilizacion Gastada + Tierra \u2192 Resultado Negocio');
   let r5 = [];
   r5.push(mkP('pe-fg','Factibilizacion Gastada (pre-2026)',neg(factGastada)));
   r5.push(mkCh('pe-fg',factDetG,-1));
   r5.push(mkP('pe-ti','Costo de la Tierra',neg(totalTierra)));
   r5.push(mkCh('pe-ti',tierraZ,-1));
+  if (peSanVentaOn && sanVentaVal > 0) {
+    r5.push(mkR('Venta Negocio Sanitario (capitalizacion)', sanVenta, ''));
+  }
   r5.push(mkR('RESULTADO NEGOCIO',resultNeg,'pe-total'));
   r5.push(mkR('Resultado Negocio Acumulado',resultNegAcum,'pe-acum'));
   s5.appendChild(mkT(r5)); C.appendChild(s5);
 
-  // Chart
-  const cw = document.createElement('div'); cw.className = 'pe-chart-wrap';
-  const h4el = document.createElement('h4'); h4el.textContent = 'Ingresos vs Costos y Resultado Acumulado \u2014 Miles UF';
-  cw.appendChild(h4el);
-  const cdv = document.createElement('div'); cdv.style.cssText = 'position:relative;height:240px';
-  const cvs = document.createElement('canvas');
-  cdv.appendChild(cvs); cw.appendChild(cdv); C.appendChild(cw);
+  // ── VAN / TIR / Capital de Trabajo ──
+  const vanRate = 0.08;
+  // NPV calculation
+  let npv = 0;
+  for (let i = 0; i < W.length; i++) npv += resultNeg[i] / Math.pow(1 + vanRate, i);
+  // IRR calculation (Newton-Raphson)
+  let irr = 0.10;
+  for (let iter = 0; iter < 200; iter++) {
+    let fv = 0, dfv = 0;
+    for (let i = 0; i < W.length; i++) {
+      const d = Math.pow(1 + irr, i);
+      fv += resultNeg[i] / d;
+      dfv -= i * resultNeg[i] / Math.pow(1 + irr, i + 1);
+    }
+    if (Math.abs(dfv) < 1e-12) break;
+    const nxt = irr - fv / dfv;
+    if (Math.abs(nxt - irr) < 1e-8) { irr = nxt; break; }
+    irr = nxt;
+  }
+  // Payback
+  let pbYear = null;
+  { let cum = 0; for (let i = 0; i < W.length; i++) { cum += resultNeg[i]; if (cum > 0 && !pbYear) { pbYear = W[i]; break; } } }
+  // Capital de Trabajo (sin tierra)
+  let capMax = 0, cumCap = 0, cum2025 = 0;
+  const netSinTierra = W.map((_,i) => flujoCR[i] - factGastada[i]);
+  for (let i = 0; i < W.length; i++) {
+    cumCap += netSinTierra[i];
+    if (W[i] <= 2025) cum2025 = cumCap;
+    if (cumCap < capMax) capMax = cumCap;
+  }
+  const capTrabajo = Math.round(Math.abs(capMax));
+  const capPorGastar = Math.round(cum2025 - capMax);
 
-  if (peChart) { peChart.destroy(); peChart = null; }
-  peChart = new Chart(cvs.getContext('2d'), {
-    type:'bar',
-    data:{labels:W, datasets:[
-      {label:'Ingresos',data:chartIng.map(v=>v/1000),backgroundColor:'rgba(22,163,74,0.55)',borderRadius:2,order:2},
-      {label:'Costos',data:chartCos.map(v=>v/1000),backgroundColor:'rgba(220,38,38,0.4)',borderRadius:2,order:2},
-      {label:'Resultado Acumulado',data:resultNegAcum.map(v=>v/1000),type:'line',borderColor:'rgba(124,58,237,0.9)',backgroundColor:'transparent',borderWidth:2,pointRadius:2,pointBackgroundColor:'rgba(124,58,237,0.9)',tension:0.3,order:1},
-    ]},
-    options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
-      plugins:{legend:{labels:{color:'#64748b',font:{size:10}}},tooltip:{backgroundColor:'#fff',titleColor:'#111',bodyColor:'#333',borderColor:'#e5e7eb',borderWidth:1,titleFont:{size:11},bodyFont:{size:10},callbacks:{label:function(c){return c.dataset.label+': '+c.parsed.y.toLocaleString('es-CL',{maximumFractionDigits:1})+' MUF'}}}},
-      scales:{x:{ticks:{color:'#94a3b8',font:{size:9}},grid:{color:'#f1f5f9'}},y:{ticks:{color:'#94a3b8',font:{size:9},callback:v=>v.toLocaleString('es-CL')},grid:{color:'#f1f5f9'},title:{display:true,text:'Miles UF',color:'#94a3b8',font:{size:9}}}},
-    },
+  const sKpi = mkS('\u2261','pe-badge-gray','Indicadores Financieros');
+  const kpiDiv = document.createElement('div');
+  kpiDiv.style.cssText = 'display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-top:6px';
+  const kpis = [
+    { label:'VAN (8%)', value: Math.round(npv).toLocaleString('es-CL') + ' UF', color: npv >= 0 ? '#16a34a' : '#dc2626' },
+    { label:'TIR', value: isFinite(irr) ? (irr * 100).toFixed(1) + '%' : '\u2014', color: irr > vanRate ? '#16a34a' : '#dc2626' },
+    { label:'Payback', value: pbYear || '\u2014', color: '#d97706' },
+    { label:'Capital de Trabajo', value: capTrabajo.toLocaleString('es-CL') + ' UF', color: '#dc2626' },
+    { label:'KdT por Gastar', value: capPorGastar.toLocaleString('es-CL') + ' UF', color: '#d97706' },
+  ];
+  kpis.forEach(function(k) {
+    const card = document.createElement('div');
+    card.style.cssText = 'background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px 14px';
+    const lbl = document.createElement('div');
+    lbl.style.cssText = 'font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:#94a3b8;margin-bottom:4px';
+    lbl.textContent = k.label;
+    const val = document.createElement('div');
+    val.style.cssText = 'font-size:18px;font-weight:700;font-variant-numeric:tabular-nums;color:' + k.color;
+    val.textContent = k.value;
+    card.appendChild(lbl);
+    card.appendChild(val);
+    kpiDiv.appendChild(card);
   });
+  sKpi.appendChild(kpiDiv);
+  C.appendChild(sKpi);
+}
+
+// ── Excel Download ──
+async function downloadPEXlsx() {
+  const r = peResults || lastResults;
+  if (!r) { alert('Ejecute la simulacion primero.'); return; }
+
+  if (typeof ExcelJS === 'undefined') {
+    await new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = 'https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js';
+      s.onload = resolve;
+      s.onerror = () => reject(new Error('No se pudo cargar ExcelJS'));
+      document.head.appendChild(s);
+    });
+  }
+
+  // Re-run the same computation as _renderPE to get all series
+  const { years, revenueByZone, commercialRevByZone, comMenorRevByZone,
+    landByZone, unitsByZone, infraByZone, mitByGroup,
+    factByZone, tierraByZone, comercializacionByYear, mantByYear,
+    sanitariaByYear, sanitariaIngByYear, sanitariaOpCostByYear, sanitariaVentaByYear } = r;
+
+  const AUDP = ['AUDP Batuco', 'AUDP Colina'];
+  const PDUC_FACT = ['Distrito G', 'Distrito 4.0', 'Industrial'];
+  const ALL_HAB = [...AUDP, 'Distrito G', 'Distrito 4.0'];
+  const LAG = 2;
+  const isFull = peMode === 'full';
+  const incPDUC = peMode === 'pduc' || isFull;
+  const activeIngZones = isFull ? ALL_HAB : AUDP;
+  const activeFactZones = incPDUC ? [...AUDP, ...PDUC_FACT] : [...AUDP];
+
+  let lastRecY = years[0];
+  const recZones = isFull ? ALL_HAB : AUDP;
+  for (const y of years) { let rc = 0; for (const z of recZones) rc += (unitsByZone[z]?.[y-LAG]??0); if (rc > 0) lastRecY = y; }
+  const endY = isFull ? years[years.length-1] : lastRecY;
+  const W = []; for (let y = 2023; y <= endY; y++) W.push(y);
+  const gv = (o,y) => o?.[y] ?? 0;
+  const sumZ = (o,zs,y) => zs.reduce((s,z) => s + gv(o[z],y), 0);
+
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet('Primeras Etapas');
+
+  // Header row
+  const hdr = ['Concepto', ...W.map(String)];
+  const hdrRow = ws.addRow(hdr);
+  hdrRow.font = { bold: true, size: 10 };
+  hdrRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F172A' } };
+  hdrRow.font = { bold: true, size: 10, color: { argb: 'FFF8FAFC' } };
+  ws.getColumn(1).width = 30;
+  for (let i = 2; i <= W.length + 1; i++) ws.getColumn(i).width = 12;
+
+  function addRow(label, data, opts) {
+    const row = ws.addRow([label, ...data.map(v => Math.round(v))]);
+    row.getCell(1).font = { size: 10, bold: opts?.bold, italic: opts?.italic };
+    if (opts?.bold) {
+      row.font = { size: 10, bold: true };
+      if (opts?.fill) row.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: opts.fill } };
+    }
+    // Number format
+    for (let i = 2; i <= W.length + 1; i++) {
+      row.getCell(i).numFmt = '#,##0';
+      row.getCell(i).font = { size: 10, bold: opts?.bold, italic: opts?.italic };
+    }
+    return row;
+  }
+
+  // Build all series (simplified)
+  const ingByZ = {};
+  for (const z of activeIngZones) ingByZ[z] = W.map(y => gv(revenueByZone[z],y)+gv(commercialRevByZone?.[z],y)+gv(comMenorRevByZone?.[z],y));
+  if (isFull) { ingByZ['Industrial'] = W.map(y => gv(r.industrialRevByYear,y)); ingByZ['Otros Usos'] = W.map(y => gv(r.otrosRevByYear,y)); }
+  const tIng = W.map((_,i) => Object.values(ingByZ).reduce((s,a) => s+a[i], 0));
+  const tInfra = W.map((_,i) => (isFull ? [...AUDP,'Distrito G','Distrito 4.0','Ciudad Industrial'] : AUDP).reduce((s,z) => s+gv(infraByZone[z],W[i]), 0));
+  const tMitig = W.map((_,i) => (isFull ? ['AUDP Batuco','AUDP Colina','PDUC'] : AUDP).reduce((s,z) => s+gv(mitByGroup[z],W[i]), 0));
+  const tComerc = isFull ? W.map(y => gv(comercializacionByYear,y)) : tIng.map(v => Math.round(v*0.02));
+  const tMant = W.map(y => gv(mantByYear,y));
+  const subVT = W.map((_,i) => tIng[i]-tInfra[i]-tMitig[i]-tComerc[i]-tMant[i]);
+  const sIng = W.map(y => Math.max(0,gv(sanitariaIngByYear,y)));
+  const sCost = W.map(y => gv(sanitariaOpCostByYear,y));
+  const sInv = W.map(y => gv(sanitariaByYear,y));
+  const sVta = W.map(() => 0); // venta sanitaria respects toggle — handled via resultNeg
+  const subSan = W.map((_,i) => sIng[i]-sCost[i]-sInv[i]);
+  const negC = W.map((_,i) => subVT[i]+subSan[i]);
+  const fTot = W.map(y => sumZ(factByZone, activeFactZones, y));
+  const fPG = fTot.map((v,i) => W[i]>=2026?v:0);
+  const fG = fTot.map((v,i) => W[i]<2026?v:0);
+  const fcr = W.map((_,i) => negC[i]-fPG[i]);
+  const tTierra = W.map((_,i) => AUDP.reduce((s,z) => s+gv(tierraByZone[z],W[i]), 0));
+  const resN = W.map((_,i) => fcr[i]-fG[i]-tTierra[i]);
+
+  // Write rows
+  ws.addRow([]); addRow('INGRESOS VENTA TIERRA', tIng, {bold:true});
+  Object.entries(ingByZ).forEach(([z,d]) => addRow('  '+z, d));
+  addRow('COSTOS INFRAESTRUCTURA', tInfra.map(v=>-v), {bold:true});
+  addRow('COSTOS MITIGACIONES', tMitig.map(v=>-v), {bold:true});
+  addRow('COMERCIALIZACION (2%)', tComerc.map(v=>-v));
+  addRow('MANTENCION', tMant.map(v=>-v));
+  addRow('SUBTOTAL NEGOCIO VENTA TIERRA', subVT, {bold:true, fill:'FFF0FDF4'});
+  ws.addRow([]);
+  addRow('INGRESOS OPERACIONALES', sIng);
+  addRow('COSTOS OPERACIONALES', sCost.map(v=>-v));
+  addRow('INVERSIONES SANITARIAS', sInv.map(v=>-v));
+  addRow('RESULTADO SANITARIO', subSan, {bold:true, fill:'FFEFF6FF'});
+  ws.addRow([]);
+  addRow('NEGOCIO COMBINADO', negC, {bold:true, fill:'FFF5F3FF'});
+  ws.addRow([]);
+  addRow('FACTIBILIZACION POR GASTAR', fPG.map(v=>-v));
+  addRow('FLUJO DE CAJA REAL', fcr, {bold:true, fill:'FFFFFBEB'});
+  ws.addRow([]);
+  addRow('FACTIBILIZACION GASTADA', fG.map(v=>-v));
+  addRow('COSTO DE LA TIERRA', tTierra.map(v=>-v));
+
+  // Flujo neto row for VAN/TIR formulas
+  const flujoRow = addRow('RESULTADO NEGOCIO', resN, {bold:true, fill:'FFFEF2F2'});
+  const flujoRowNum = flujoRow.number;
+  // Acumulado con fórmula
+  const acumRow = ws.addRow(['Resultado Acumulado']);
+  acumRow.font = { size: 10, italic: true };
+  for (let i = 0; i < W.length; i++) {
+    const col = String.fromCharCode(66 + (i < 26 ? i : -1)); // B, C, D...
+    const colStr = i < 25 ? String.fromCharCode(66+i) : 'A' + String.fromCharCode(65+i-25);
+    if (i === 0) acumRow.getCell(i+2).value = { formula: colStr + flujoRowNum };
+    else { const prevCol = i < 26 ? String.fromCharCode(65+i) : 'A'+String.fromCharCode(64+i-25);
+      acumRow.getCell(i+2).value = { formula: prevCol + acumRow.number + '+' + colStr + flujoRowNum }; }
+    acumRow.getCell(i+2).numFmt = '#,##0';
+  }
+
+  // VAN/TIR
+  ws.addRow([]);
+  const vanRow = ws.addRow(['VAN (8%)']);
+  const firstCol = 'B', lastCol = W.length < 26 ? String.fromCharCode(65+W.length) : 'A'+String.fromCharCode(64+W.length-25);
+  vanRow.getCell(2).value = { formula: firstCol+flujoRowNum+'+NPV(0.08,C'+flujoRowNum+':'+lastCol+flujoRowNum+')' };
+  vanRow.getCell(2).numFmt = '#,##0';
+  vanRow.font = { size: 11, bold: true };
+
+  const tirRow = ws.addRow(['TIR']);
+  tirRow.getCell(2).value = { formula: 'IRR('+firstCol+flujoRowNum+':'+lastCol+flujoRowNum+')' };
+  tirRow.getCell(2).numFmt = '0.0%';
+  tirRow.font = { size: 11, bold: true };
+
+  const buf = await wb.xlsx.writeBuffer();
+  const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'primeras_etapas_' + peMode + '_' + new Date().toISOString().slice(0,10) + '.xlsx';
+  a.click();
+  URL.revokeObjectURL(a.href);
 }
 
 function renderUNChart() {
