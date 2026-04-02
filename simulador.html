@@ -10834,31 +10834,87 @@ let peMode = 'audp';
 let peExpanded = {};
 let peChart = null;
 
+// Snapshot of params at initial simulation — PE uses this as base
+let peBaseParams = null;
+
+function peGetBaseParams() {
+  // Read all sidebar values once (same as runAndRender but no applySurfaceConfig)
+  const esc = document.getElementById('escenario').value;
+  return {
+    yearBatuco:    parseInt(document.getElementById('year-batuco').value),
+    yearColina:    parseInt(document.getElementById('year-colina').value),
+    yearDistritoG: parseInt(document.getElementById('year-distritog').value),
+    yearDistrito40:parseInt(document.getElementById('year-distrito40').value),
+    plusBase:     parseFloat(document.getElementById('plusvalia-base').value),
+    plusPeak:     parseFloat(document.getElementById('plusvalia-peak').value),
+    hitoYear:     parseInt(document.getElementById('hito-year').value),
+    activeHito:   document.getElementById('active-hito').checked,
+    hitoTrenYear:  parseInt(document.getElementById('hito-tren-year').value),
+    plusPeakTren:  parseFloat(document.getElementById('plusvalia-tren-peak').value),
+    activeHitoTren: document.getElementById('active-hito-tren').checked,
+    activeBatuco:     document.getElementById('active-batuco').checked,
+    activeColina:     document.getElementById('active-colina').checked,
+    activeDistritoG:  document.getElementById('active-distritog').checked,
+    activeDistrito40: document.getElementById('active-distrito40').checked,
+    yearIndustrial:   parseInt(document.getElementById('year-industrial').value) || 2033,
+    velMult:      VEL_MULT[esc] ?? 1.0,
+    indPlusBase:      parseFloat(document.getElementById('plusvalia-industrial').value) || 2.0,
+    indMenorPriceUFM2: parseFloat(document.getElementById('precio-ind-menor').value) || 3.0,
+    indMayorPriceUFM2: parseFloat(document.getElementById('precio-ind-mayor').value) || 4.5,
+    indEscenario:     document.getElementById('escenario-industrial').value,
+    activeIndustrial: document.getElementById('active-industrial').checked,
+    opsEscenario:     document.getElementById('escenario-ops').value,
+    commPlusBase:     parseFloat(document.getElementById('plusvalia-comercial').value) || 2.0,
+    commPriceUFM2:    parseFloat(document.getElementById('precio-comercial').value) || 3.2,
+    comMenorPriceUFM2: parseFloat(document.getElementById('precio-com-menor').value) || 15,
+    otrosPriceUFM2:   parseFloat(document.getElementById('precio-otros-usos').value) || 10.0,
+    activeCommercial: document.getElementById('active-commercial').checked,
+    activePRC:           policyState.prc,
+    activeMasVivienda:   policyState.masVivienda,
+    activeMasIndustria:  policyState.masIndustria,
+    activeMaxEficiencia: policyState.maxEficiencia,
+    activeCrisis:        policyState.crisis,
+    crisisCycleYears:    parseInt(document.getElementById('crisis-cycle').value) || 7,
+    mitUFPerViv:         parseFloat(document.getElementById('input-mit-uf')?.value) || 100,
+  };
+}
+
+let peResults = null; // PE-specific simulation results
+
+function peResimulate() {
+  if (!peBaseParams) return;
+  const peEsc = document.getElementById('pe-sel-escenario').value;
+  const peOps = document.getElementById('pe-sel-ops').value;
+  // Clone base params and override only velocity + operators
+  const p = Object.assign({}, peBaseParams);
+  p.velMult = VEL_MULT[peEsc] ?? 1.0;
+  p.opsEscenario = peOps;
+  peResults = simulate(p);
+}
+
 function openPrimerasEtapas() {
   document.getElementById('pe-overlay').style.display = 'flex';
-  // Sync static controls with sidebar values
+  // Capture base params from current sidebar state (once per open)
+  peBaseParams = peGetBaseParams();
+  // Sync PE controls with sidebar
   const peEsc = document.getElementById('pe-sel-escenario');
   const peOps = document.getElementById('pe-sel-ops');
   if (peEsc) peEsc.value = document.getElementById('escenario').value;
   if (peOps) peOps.value = document.getElementById('escenario-ops').value;
-  // Wire up change handlers (only once)
+  // Use lastResults as initial PE results (no re-simulation needed)
+  peResults = lastResults;
+  // Wire handlers once
   if (!peEsc._wired) {
     peEsc._wired = true;
     peEsc.addEventListener('change', function() {
-      const s = document.getElementById('escenario');
-      s.value = peEsc.value;
-      s.className = 'escenario-select ' + peEsc.value;
-      runAndRender();
+      peResimulate();
       renderPrimerasEtapas();
     });
   }
   if (!peOps._wired) {
     peOps._wired = true;
     peOps.addEventListener('change', function() {
-      const s = document.getElementById('escenario-ops');
-      s.value = peOps.value;
-      s.className = 'escenario-select ' + peOps.value;
-      runAndRender();
+      peResimulate();
       renderPrimerasEtapas();
     });
   }
@@ -10877,7 +10933,7 @@ function renderPrimerasEtapas() {
   }
 }
 function _renderPE() {
-  const r = lastResults;
+  const r = peResults || lastResults;
   if (!r) return;
   const C = document.getElementById('pe-dashboard-container');
   C.textContent = '';
