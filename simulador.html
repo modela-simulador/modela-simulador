@@ -11473,6 +11473,50 @@ async function downloadPEXlsx() {
   kdtPGRow.getCell(2).numFmt = NFmt;
   kdtPGRow.font = { size:11, bold:true };
 
+  // ── Pestaña 2: Planta Sanitaria ──
+  const ws2 = wb.addWorksheet('Planta Sanitaria');
+  ws2.getColumn(1).width = 8;
+  ws2.getColumn(2).width = 22;
+  ws2.getColumn(3).width = 18;
+  ws2.getColumn(4).width = 18;
+  ws2.getColumn(5).width = 16;
+
+  // Header
+  const hdr2 = ws2.addRow(['Etapa', 'Umbral Viviendas Acum.', 'Inversion (UF)', 'Inversion Acum. (UF)', 'Gatillada']);
+  hdr2.font = { bold:true, size:10, color:{argb:'FFF8FAFC'} };
+  hdr2.fill = { type:'pattern', pattern:'solid', fgColor:{argb:'FF0F172A'} };
+
+  let cumInvSan = 0;
+  PLANTA_SANITARIA.forEach(function(p, idx) {
+    cumInvSan += p.monto;
+    // Check if this plant was triggered in the PE flow
+    let triggered = false;
+    const recAcum = d.recTotalAcum;
+    for (let i = 0; i < recAcum.length; i++) {
+      if (recAcum[i] >= p.viv && recAcum[i] > 0) { triggered = true; break; }
+    }
+    const row = ws2.addRow([idx + 1, p.viv, p.monto, cumInvSan, triggered ? 'Si' : 'No']);
+    row.getCell(1).font = { size:10, bold:true };
+    row.getCell(2).numFmt = NFmt;
+    row.getCell(3).numFmt = NFmt;
+    row.getCell(4).numFmt = NFmt;
+    row.getCell(5).font = { size:10, bold:true, color:{ argb: triggered ? 'FF16A34A' : 'FF94A3B8' } };
+    if (triggered) row.fill = { type:'pattern', pattern:'solid', fgColor:{argb:'FFF0FDF4'} };
+  });
+
+  // Total row
+  const totSanRow = ws2.addRow(['', 'TOTAL', PLANTA_SANITARIA.reduce((s,p) => s+p.monto, 0), '', '']);
+  totSanRow.font = { size:10, bold:true };
+  totSanRow.getCell(3).numFmt = NFmt;
+  totSanRow.fill = { type:'pattern', pattern:'solid', fgColor:{argb:'FFF1F5F9'} };
+
+  // Notes
+  ws2.addRow([]);
+  ws2.addRow(['', 'Nota: Las inversiones se gatillan cuando las viviendas']);
+  ws2.addRow(['', 'recepcionadas acumuladas alcanzan el umbral indicado.']);
+  ws2.addRow(['', 'Viv. recepcionadas = vendidas + 2 anos de lag.']);
+  ws2.addRow(['', 'Venta sanitaria = (ing_op - cost_op) / 6% - 20% x inv_acum']);
+
   const buf = await wb.xlsx.writeBuffer();
   const blob = new Blob([buf], { type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
   const a = document.createElement('a');
