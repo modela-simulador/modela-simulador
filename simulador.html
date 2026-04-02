@@ -1840,6 +1840,15 @@
               <option value="0" selected>Hasta Termino</option>
             </select>
           </div>
+          <div style="display:flex;align-items:center;gap:4px">
+            <button id="pe-curr-uf" onclick="peCurrency='UF';document.getElementById('pe-curr-uf').classList.add('active');document.getElementById('pe-curr-usd').classList.remove('active');document.getElementById('pe-usd-params').style.display='none';renderPrimerasEtapas()" style="padding:5px 10px;font-size:11px;font-weight:700;font-family:inherit;border:1px solid #475569;border-radius:5px 0 0 5px;background:#16a34a;color:#fff;cursor:pointer" class="active">UF</button>
+            <button id="pe-curr-usd" onclick="peCurrency='USD';document.getElementById('pe-curr-usd').classList.add('active');document.getElementById('pe-curr-uf').classList.remove('active');document.getElementById('pe-usd-params').style.display='flex';renderPrimerasEtapas()" style="padding:5px 10px;font-size:11px;font-weight:700;font-family:inherit;border:1px solid #475569;border-radius:0 5px 5px 0;background:#1e293b;color:#94a3b8;cursor:pointer">USD</button>
+            <div id="pe-usd-params" style="display:none;align-items:center;gap:4px;margin-left:6px">
+              <span style="font-size:10px;color:#94a3b8">1 USD =</span>
+              <input id="pe-usd-rate" type="number" value="900" min="100" max="5000" step="10" style="width:60px;padding:4px 6px;font-size:11px;border:1px solid #475569;border-radius:4px;background:#1e293b;color:#f8fafc;font-family:inherit;text-align:right" onchange="renderPrimerasEtapas()">
+              <span style="font-size:10px;color:#94a3b8">CLP</span>
+            </div>
+          </div>
           <div style="flex:1"></div>
           <button id="pe-btn-xlsx" onclick="downloadPEXlsx()" style="padding:6px 14px;font-size:11px;font-weight:600;font-family:inherit;border:1px solid #475569;border-radius:6px;background:#1e293b;color:#f8fafc;cursor:pointer;display:flex;align-items:center;gap:4px">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
@@ -10856,6 +10865,7 @@ let peExpanded = {};
 let peChart = null;
 let peSanVentaOn = false; // toggle venta sanitaria — off by default
 let peCutoffYear = 0; // 0 = hasta termino, else specific year
+let peCurrency = 'UF'; // 'UF' or 'USD'
 
 // Snapshot of params at initial simulation — PE uses this as base
 let peBaseParams = null;
@@ -11038,7 +11048,15 @@ function _renderPE() {
 
   const gv = (obj, y) => obj?.[y] ?? 0;
   const sumZ = (obj, zones, y) => zones.reduce((s, z) => s + gv(obj[z], y), 0);
-  function fmtUF(v) { return v === 0 ? '\u2014' : Math.round(v).toLocaleString('es-CL'); }
+  // Currency conversion
+  const peUsdRate = parseFloat(document.getElementById('pe-usd-rate')?.value) || 900;
+  const peFactor = peCurrency === 'USD' ? 40000 / peUsdRate : 1;
+  const peUnit = peCurrency === 'USD' ? ' USD' : ' UF';
+  function cv(v) { return v * peFactor; } // convert UF to display currency
+  function fmtUF(v) {
+    const d = cv(v);
+    return d === 0 ? '\u2014' : Math.round(d).toLocaleString('es-CL');
+  }
   function fmtPh(v, dec) { return v === 0 ? '\u2014' : (dec ? v.toLocaleString('es-CL',{minimumFractionDigits:dec,maximumFractionDigits:dec}) : Math.round(v).toLocaleString('es-CL')); }
   function cumul(a) { const r=[]; a.forEach((v,i) => r.push((r[i-1]||0)+v)); return r; }
 
@@ -11339,11 +11357,11 @@ function _renderPE() {
   const kpiDiv = document.createElement('div');
   kpiDiv.style.cssText = 'display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-top:6px';
   const kpis = [
-    { label:'VAN (8%)', value: Math.round(npv).toLocaleString('es-CL') + ' UF', color: npv >= 0 ? '#16a34a' : '#dc2626' },
+    { label:'VAN (8%)', value: Math.round(cv(npv)).toLocaleString('es-CL') + peUnit, color: npv >= 0 ? '#16a34a' : '#dc2626' },
     { label:'TIR', value: isFinite(irr) ? (irr * 100).toFixed(1) + '%' : '\u2014', color: irr > vanRate ? '#16a34a' : '#dc2626' },
     { label:'Payback', value: pbYear || '\u2014', color: '#d97706' },
-    { label:'Capital de Trabajo', value: capTrabajo.toLocaleString('es-CL') + ' UF', color: '#dc2626' },
-    { label:'KdT por Gastar', value: capPorGastar.toLocaleString('es-CL') + ' UF', color: '#d97706' },
+    { label:'Capital de Trabajo', value: Math.round(cv(capTrabajo)).toLocaleString('es-CL') + peUnit, color: '#dc2626' },
+    { label:'KdT por Gastar', value: Math.round(cv(capPorGastar)).toLocaleString('es-CL') + peUnit, color: '#d97706' },
   ];
   kpis.forEach(function(k) {
     const card = document.createElement('div');
@@ -11409,14 +11427,14 @@ function _renderPE() {
   const msgs = [
     { icon:'\uD83D\uDCC9', label:'\u00DAltimo a\u00F1o de inversi\u00F3n neta', value: lastNegYear || '\u2014',
       sub:'Despu\u00E9s de este a\u00F1o, solo se recibe caja' },
-    { icon:'\uD83D\uDCB0', label:'Mayor desembolso anual', value: Math.round(Math.abs(maxNegVal)).toLocaleString('es-CL')+' UF',
+    { icon:'\u2705', label:'Flujos positivos permanentes', value: alwaysPosYear || '\u2014',
+      sub: alwaysPosYear ? 'Desde el '+alwaysPosYear+' en adelante, siempre se recibe caja' : 'No se alcanza en la ventana' },
+    { icon:'\uD83D\uDCB0', label:'Mayor desembolso anual', value: Math.round(cv(Math.abs(maxNegVal))).toLocaleString('es-CL')+peUnit,
       sub: maxNegYear ? 'A\u00F1o '+maxNegYear+' \u2014 el a\u00F1o que m\u00E1s caja requiere' : '' },
-    { icon:'\u26A0\uFE0F', label:'Capital de trabajo por gastar', value: capPorGastar.toLocaleString('es-CL')+' UF',
+    { icon:'\u26A0\uFE0F', label:'Capital de trabajo por gastar', value: Math.round(cv(capPorGastar)).toLocaleString('es-CL')+peUnit,
       sub: 'Monto pendiente de invertir desde 2026' },
     { icon:'\uD83D\uDCC8', label:'Payback (recuperaci\u00F3n)', value: paybackFCR || 'Post '+W[W.length-1],
       sub:'A\u00F1o en que el flujo acumulado se hace positivo' },
-    { icon:'\u2705', label:'Flujos positivos permanentes', value: alwaysPosYear || '\u2014',
-      sub: alwaysPosYear ? 'Desde el '+alwaysPosYear+' en adelante, siempre se recibe caja' : 'No se alcanza en la ventana' },
   ];
   msgs.forEach(function(m) {
     const card = document.createElement('div');
@@ -11445,7 +11463,7 @@ function _renderPE() {
 
   // Build chart — solo barras, sin linea acumulada
   if (peChart) { peChart.destroy(); peChart = null; }
-  const fcrUF = flujoCR.map(v => Math.round(v));
+  const fcrUF = flujoCR.map(v => Math.round(cv(v)));
   const barColors = fcrUF.map((v,i) => W[i] === paybackFCR ? 'rgba(245,158,11,0.95)' : v >= 0 ? 'rgba(22,163,74,0.75)' : 'rgba(220,38,38,0.65)');
 
   peChart = new Chart(chartCvs.getContext('2d'), {
@@ -11453,7 +11471,7 @@ function _renderPE() {
     data:{
       labels: W,
       datasets:[
-        { label:'Flujo Caja Real (UF)', data:fcrUF, backgroundColor:barColors, borderRadius:3 },
+        { label:'Flujo Caja Real ('+peCurrency+')', data:fcrUF, backgroundColor:barColors, borderRadius:3 },
       ],
     },
     options:{
@@ -11463,14 +11481,14 @@ function _renderPE() {
         legend:{display:false},
         tooltip:{backgroundColor:'#1e293b',titleColor:'#f8fafc',bodyColor:'#e2e8f0',borderColor:'#475569',borderWidth:1,
           titleFont:{size:11},bodyFont:{size:10},
-          callbacks:{label:function(c){return 'Flujo: '+c.parsed.y.toLocaleString('es-CL')+' UF'}}
+          callbacks:{label:function(c){return 'Flujo: '+c.parsed.y.toLocaleString('es-CL')+peUnit}}
         },
       },
       scales:{
         x:{ticks:{color:'#94a3b8',font:{size:10,weight:'bold'}},grid:{color:'rgba(255,255,255,0.05)'}},
         y:{ticks:{color:'#64748b',font:{size:9},callback:function(v){return v.toLocaleString('es-CL')}},
           grid:{color:'rgba(255,255,255,0.06)'},
-          title:{display:true,text:'UF',color:'#64748b',font:{size:9}}},
+          title:{display:true,text:peCurrency,color:'#64748b',font:{size:9}}},
       },
     },
   });
