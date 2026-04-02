@@ -11074,6 +11074,7 @@ function _renderPE() {
   const peUnit = peIsUSD ? ' MUSD' : ' UF';
   const peDivisor = peIsUSD ? 1000000 : 1; // USD en millones
   function cv(v) { return v * peFactor / peDivisor; }
+  function fmtCV(v) { const d = cv(v); return peIsUSD ? d.toLocaleString('es-CL',{minimumFractionDigits:2,maximumFractionDigits:2}) : Math.round(d).toLocaleString('es-CL'); }
   function fmtUF(v) {
     const d = cv(v);
     if (d === 0) return '\u2014';
@@ -11380,11 +11381,11 @@ function _renderPE() {
   const kpiDiv = document.createElement('div');
   kpiDiv.style.cssText = 'display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-top:6px';
   const kpis = [
-    { label:'VAN (8%)', value: Math.round(cv(npv)).toLocaleString('es-CL') + peUnit, color: npv >= 0 ? '#16a34a' : '#dc2626' },
+    { label:'VAN (8%)', value: fmtCV(npv) + peUnit, color: npv >= 0 ? '#16a34a' : '#dc2626' },
     { label:'TIR', value: isFinite(irr) ? (irr * 100).toFixed(1) + '%' : '\u2014', color: irr > vanRate ? '#16a34a' : '#dc2626' },
     { label:'Payback', value: pbYear || '\u2014', color: '#d97706' },
-    { label:'Capital de Trabajo', value: Math.round(cv(capTrabajo)).toLocaleString('es-CL') + peUnit, color: '#dc2626' },
-    { label:'KdT por Gastar', value: Math.round(cv(capPorGastar)).toLocaleString('es-CL') + peUnit, color: '#d97706' },
+    { label:'Capital de Trabajo', value: fmtCV(capTrabajo) + peUnit, color: '#dc2626' },
+    { label:'KdT por Gastar', value: fmtCV(capPorGastar) + peUnit, color: '#d97706' },
   ];
   kpis.forEach(function(k) {
     const card = document.createElement('div');
@@ -11452,7 +11453,7 @@ function _renderPE() {
       sub:'Despu\u00E9s de este a\u00F1o, solo se recibe caja' },
     { icon:'\u2705', label:'Flujos positivos permanentes', value: alwaysPosYear || '\u2014',
       sub: alwaysPosYear ? 'Desde el '+alwaysPosYear+' en adelante, siempre se recibe caja' : 'No se alcanza en la ventana' },
-    { icon:'\uD83D\uDCB0', label:'Mayor desembolso anual', value: Math.round(cv(Math.abs(maxNegVal))).toLocaleString('es-CL')+peUnit,
+    { icon:'\uD83D\uDCB0', label:'Mayor desembolso anual', value: fmtCV(Math.abs(maxNegVal))+peUnit,
       sub: maxNegYear ? 'A\u00F1o '+maxNegYear+' \u2014 el a\u00F1o que m\u00E1s caja requiere' : '' },
     { icon:'\u26A0\uFE0F', label:'Capital de trabajo por gastar', value: Math.round(cv(capPorGastar)).toLocaleString('es-CL')+peUnit,
       sub: 'Monto pendiente de invertir desde 2026' },
@@ -11486,7 +11487,7 @@ function _renderPE() {
 
   // Build chart — solo barras, sin linea acumulada
   if (peChart) { peChart.destroy(); peChart = null; }
-  const fcrUF = flujoCR.map(v => Math.round(cv(v)));
+  const fcrUF = flujoCR.map(v => peIsUSD ? Math.round(cv(v)*100)/100 : Math.round(cv(v)));
   const barColors = fcrUF.map((v,i) => W[i] === paybackFCR ? 'rgba(245,158,11,0.95)' : v >= 0 ? 'rgba(22,163,74,0.75)' : 'rgba(220,38,38,0.65)');
 
   peChart = new Chart(chartCvs.getContext('2d'), {
@@ -11504,7 +11505,7 @@ function _renderPE() {
         legend:{display:false},
         tooltip:{backgroundColor:'#1e293b',titleColor:'#f8fafc',bodyColor:'#e2e8f0',borderColor:'#475569',borderWidth:1,
           titleFont:{size:11},bodyFont:{size:10},
-          callbacks:{label:function(c){return 'Flujo: '+c.parsed.y.toLocaleString('es-CL')+peUnit}}
+          callbacks:{label:function(c){var v=c.parsed.y; return 'Flujo: '+(peIsUSD?v.toLocaleString('es-CL',{minimumFractionDigits:2,maximumFractionDigits:2}):v.toLocaleString('es-CL'))+peUnit}}
         },
       },
       scales:{
