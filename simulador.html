@@ -11371,12 +11371,11 @@ function _renderPE() {
     if (flujoCR[i] > maxPosVal) { maxPosVal = flujoCR[i]; maxPosYear = W[i]; }
   }
   // Payback: primer a\u00f1o donde acumulado >= 0 y el anterior era negativo
+  // Payback: basado en Resultado Negocio (incluye factib gastada + tierra)
   let paybackFCR = null;
   for (let i = 1; i < W.length; i++) {
-    if (flujoCRAcum[i] >= 0 && flujoCRAcum[i-1] < 0) { paybackFCR = W[i]; break; }
+    if (resultNegAcum[i] >= 0 && resultNegAcum[i-1] < 0) { paybackFCR = W[i]; break; }
   }
-  // Si nunca fue negativo pero arranca positivo, no hay payback (siempre fue positivo)
-  if (!paybackFCR && flujoCRAcum[0] >= 0) paybackFCR = W[0];
   // Capital de trabajo (piso del acumulado)
   let minAcumVal = 0, minAcumYear = null;
   for (let i = 0; i < W.length; i++) {
