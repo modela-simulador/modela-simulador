@@ -11390,8 +11390,16 @@ function _renderPE() {
   chartSec.appendChild(chartSub);
 
   // Key messages row
+  // Primer a\u00f1o desde el cual todos los flujos son positivos hasta el final
+  let alwaysPosYear = null;
+  for (let i = 0; i < W.length; i++) {
+    let allPos = true;
+    for (let j = i; j < W.length; j++) { if (flujoCR[j] < 0) { allPos = false; break; } }
+    if (allPos && flujoCR[i] > 0) { alwaysPosYear = W[i]; break; }
+  }
+
   const msgRow = document.createElement('div');
-  msgRow.style.cssText = 'display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px';
+  msgRow.style.cssText = 'display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:16px';
   const msgs = [
     { icon:'\uD83D\uDCC9', label:'\u00DAltimo a\u00F1o de inversi\u00F3n neta', value: lastNegYear || '\u2014',
       sub:'Despu\u00E9s de este a\u00F1o, solo se recibe caja' },
@@ -11401,6 +11409,8 @@ function _renderPE() {
       sub: minAcumYear ? 'A\u00F1o '+minAcumYear+' \u2014 piso del acumulado' : '' },
     { icon:'\uD83D\uDCC8', label:'Payback (recuperaci\u00F3n)', value: paybackFCR || 'Post '+W[W.length-1],
       sub:'A\u00F1o en que el flujo acumulado se hace positivo' },
+    { icon:'\u2705', label:'Flujos positivos permanentes', value: alwaysPosYear || '\u2014',
+      sub: alwaysPosYear ? 'Desde el '+alwaysPosYear+' en adelante, siempre se recibe caja' : 'No se alcanza en la ventana' },
   ];
   msgs.forEach(function(m) {
     const card = document.createElement('div');
