@@ -1834,6 +1834,12 @@
               <span style="position:absolute;top:2px;left:2px;width:16px;height:16px;background:#fff;border-radius:50%;transition:transform .2s" id="pe-san-slider"></span>
             </label>
           </div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <label style="font-size:11px;font-weight:700;color:#e2e8f0;text-transform:uppercase;letter-spacing:0.4px;white-space:nowrap">Ano de Corte</label>
+            <select id="pe-sel-corte" style="padding:6px 12px;font-size:12px;border:1px solid #475569;border-radius:6px;background:#1e293b;color:#f8fafc;font-weight:500;font-family:inherit;cursor:pointer">
+              <option value="0" selected>Hasta Termino</option>
+            </select>
+          </div>
           <div style="flex:1"></div>
           <button id="pe-btn-xlsx" onclick="downloadPEXlsx()" style="padding:6px 14px;font-size:11px;font-weight:600;font-family:inherit;border:1px solid #475569;border-radius:6px;background:#1e293b;color:#f8fafc;cursor:pointer;display:flex;align-items:center;gap:4px">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
@@ -10849,6 +10855,7 @@ let peMode = 'audp';
 let peExpanded = {};
 let peChart = null;
 let peSanVentaOn = false; // toggle venta sanitaria — off by default
+let peCutoffYear = 0; // 0 = hasta termino, else specific year
 
 // Snapshot of params at initial simulation — PE uses this as base
 let peBaseParams = null;
@@ -10934,6 +10941,30 @@ function openPrimerasEtapas() {
       renderPrimerasEtapas();
     });
   }
+  // Cutoff year selector — populate options dynamically
+  const peCorte = document.getElementById('pe-sel-corte');
+  if (peCorte && !peCorte._wired) {
+    peCorte._wired = true;
+    peCorte.addEventListener('change', function() {
+      peCutoffYear = parseInt(peCorte.value) || 0;
+      renderPrimerasEtapas();
+    });
+  }
+  // Populate cutoff options from simulation years
+  if (peCorte) {
+    const curVal = peCutoffYear;
+    peCorte.textContent = '';
+    const opt0 = document.createElement('option');
+    opt0.value = '0'; opt0.textContent = 'Hasta Termino';
+    peCorte.appendChild(opt0);
+    const simYears = peResults?.years || [];
+    for (let y = 2030; y <= simYears[simYears.length-1]; y++) {
+      const o = document.createElement('option');
+      o.value = String(y); o.textContent = String(y);
+      peCorte.appendChild(o);
+    }
+    peCorte.value = String(curVal);
+  }
   renderPrimerasEtapas();
 }
 function closePrimerasEtapas() {
@@ -11000,7 +11031,8 @@ function _renderPE() {
     if (rec > 0) lastRecY = y;
   }
   // Full mode: extend to end of simulation
-  const endY = isFull ? years[years.length - 1] : lastRecY;
+  let endY = isFull ? years[years.length - 1] : lastRecY;
+  if (peCutoffYear > 0 && peCutoffYear < endY) endY = peCutoffYear;
   const W = [];
   for (let y = 2023; y <= endY; y++) W.push(y);
 
