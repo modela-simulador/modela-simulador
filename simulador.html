@@ -11356,19 +11356,21 @@ function _renderPE() {
 
   // ══ EXECUTIVE CHART: Flujo de Caja Real — lámina de directorio ══
   // Key metrics for annotations
-  let lastNegYear = null, maxNegYear = null, maxNegVal = 0, breakEvenYear = null;
+  let lastNegYear = null, maxNegYear = null, maxNegVal = 0;
   let maxPosYear = null, maxPosVal = 0;
-  { let cum = 0;
-    for (let i = 0; i < W.length; i++) {
-      if (flujoCR[i] < 0) lastNegYear = W[i];
-      if (flujoCR[i] < maxNegVal) { maxNegVal = flujoCR[i]; maxNegYear = W[i]; }
-      if (flujoCR[i] > maxPosVal) { maxPosVal = flujoCR[i]; maxPosYear = W[i]; }
-    }
-    for (let i = 0; i < W.length; i++) {
-      if (flujoCRAcum[i] >= 0 && (i === 0 || flujoCRAcum[i-1] < 0)) { breakEvenYear = W[i]; break; }
-    }
+  for (let i = 0; i < W.length; i++) {
+    if (flujoCR[i] < 0) lastNegYear = W[i];
+    if (flujoCR[i] < maxNegVal) { maxNegVal = flujoCR[i]; maxNegYear = W[i]; }
+    if (flujoCR[i] > maxPosVal) { maxPosVal = flujoCR[i]; maxPosYear = W[i]; }
   }
-  // Min acumulado
+  // Payback: primer a\u00f1o donde acumulado >= 0 y el anterior era negativo
+  let paybackFCR = null;
+  for (let i = 1; i < W.length; i++) {
+    if (flujoCRAcum[i] >= 0 && flujoCRAcum[i-1] < 0) { paybackFCR = W[i]; break; }
+  }
+  // Si nunca fue negativo pero arranca positivo, no hay payback (siempre fue positivo)
+  if (!paybackFCR && flujoCRAcum[0] >= 0) paybackFCR = W[0];
+  // Capital de trabajo (piso del acumulado)
   let minAcumVal = 0, minAcumYear = null;
   for (let i = 0; i < W.length; i++) {
     if (flujoCRAcum[i] < minAcumVal) { minAcumVal = flujoCRAcum[i]; minAcumYear = W[i]; }
@@ -11377,7 +11379,6 @@ function _renderPE() {
   const chartSec = document.createElement('div');
   chartSec.style.cssText = 'margin-top:20px;background:#0f172a;border-radius:12px;padding:20px 24px;color:#f8fafc';
 
-  // Title
   const chartTitle = document.createElement('div');
   chartTitle.style.cssText = 'font-size:16px;font-weight:700;margin-bottom:4px';
   chartTitle.textContent = 'Flujo de Caja Real \u2014 Resumen Ejecutivo';
@@ -11392,10 +11393,14 @@ function _renderPE() {
   const msgRow = document.createElement('div');
   msgRow.style.cssText = 'display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px';
   const msgs = [
-    { icon:'\uD83D\uDCC9', label:'Ultimo ano de inversion neta', value: lastNegYear || '\u2014', sub:'Despues de este ano, solo se recibe caja' },
-    { icon:'\uD83D\uDCC8', label:'Recuperacion acumulado', value: breakEvenYear || 'Post '+W[W.length-1], sub:'Ano en que el acumulado se hace positivo' },
-    { icon:'\u26A0\uFE0F', label:'Maximo requerimiento caja', value: Math.round(Math.abs(minAcumVal)).toLocaleString('es-CL')+' MUF', sub: minAcumYear ? 'Ano '+minAcumYear+' \u2014 piso del acumulado' : '' },
-    { icon:'\u2705', label:'Flujo final acumulado', value: Math.round(flujoCRAcum[W.length-1]).toLocaleString('es-CL')+' MUF', sub:'Al '+W[W.length-1]+' \u2014 retorno total generado' },
+    { icon:'\uD83D\uDCC9', label:'\u00DAltimo a\u00F1o de inversi\u00F3n neta', value: lastNegYear || '\u2014',
+      sub:'Despu\u00E9s de este a\u00F1o, solo se recibe caja' },
+    { icon:'\uD83D\uDCB0', label:'Mayor desembolso anual', value: Math.round(Math.abs(maxNegVal)).toLocaleString('es-CL')+' UF',
+      sub: maxNegYear ? 'A\u00F1o '+maxNegYear+' \u2014 el a\u00F1o que m\u00E1s caja requiere' : '' },
+    { icon:'\u26A0\uFE0F', label:'Capital de trabajo requerido', value: Math.round(Math.abs(minAcumVal)).toLocaleString('es-CL')+' UF',
+      sub: minAcumYear ? 'A\u00F1o '+minAcumYear+' \u2014 piso del acumulado' : '' },
+    { icon:'\uD83D\uDCC8', label:'Payback (recuperaci\u00F3n)', value: paybackFCR || 'Post '+W[W.length-1],
+      sub:'A\u00F1o en que el flujo acumulado se hace positivo' },
   ];
   msgs.forEach(function(m) {
     const card = document.createElement('div');
@@ -11422,39 +11427,34 @@ function _renderPE() {
   chartSec.appendChild(chartWrap);
   C.appendChild(chartSec);
 
-  // Build chart
+  // Build chart — solo barras, sin linea acumulada
   if (peChart) { peChart.destroy(); peChart = null; }
-  const fcrMUF = flujoCR.map(v => Math.round(v/1000));
-  const fcrAcumMUF = flujoCRAcum.map(v => Math.round(v/1000));
-
-  // Color bars: green if positive, red if negative
-  const barColors = fcrMUF.map(v => v >= 0 ? 'rgba(22,163,74,0.7)' : 'rgba(220,38,38,0.6)');
+  const fcrUF = flujoCR.map(v => Math.round(v));
+  const barColors = fcrUF.map(v => v >= 0 ? 'rgba(22,163,74,0.75)' : 'rgba(220,38,38,0.65)');
 
   peChart = new Chart(chartCvs.getContext('2d'), {
     type:'bar',
     data:{
       labels: W,
       datasets:[
-        { label:'Flujo Caja Real', data:fcrMUF, backgroundColor:barColors, borderRadius:3, order:2 },
-        { label:'Acumulado', data:fcrAcumMUF, type:'line', borderColor:'#f59e0b', backgroundColor:'transparent',
-          borderWidth:3, pointRadius:3, pointBackgroundColor:'#f59e0b', tension:0.3, order:1 },
+        { label:'Flujo Caja Real (UF)', data:fcrUF, backgroundColor:barColors, borderRadius:3 },
       ],
     },
     options:{
       responsive:true, maintainAspectRatio:false,
       interaction:{mode:'index',intersect:false},
       plugins:{
-        legend:{labels:{color:'#94a3b8',font:{size:10}}},
+        legend:{display:false},
         tooltip:{backgroundColor:'#1e293b',titleColor:'#f8fafc',bodyColor:'#e2e8f0',borderColor:'#475569',borderWidth:1,
           titleFont:{size:11},bodyFont:{size:10},
-          callbacks:{label:function(c){return c.dataset.label+': '+c.parsed.y.toLocaleString('es-CL')+' MUF'}}
+          callbacks:{label:function(c){return 'Flujo: '+c.parsed.y.toLocaleString('es-CL')+' UF'}}
         },
       },
       scales:{
-        x:{ticks:{color:'#64748b',font:{size:9}},grid:{color:'rgba(255,255,255,0.05)'}},
+        x:{ticks:{color:'#94a3b8',font:{size:10,weight:'bold'}},grid:{color:'rgba(255,255,255,0.05)'}},
         y:{ticks:{color:'#64748b',font:{size:9},callback:function(v){return v.toLocaleString('es-CL')}},
           grid:{color:'rgba(255,255,255,0.06)'},
-          title:{display:true,text:'Miles UF',color:'#64748b',font:{size:9}}},
+          title:{display:true,text:'UF',color:'#64748b',font:{size:9}}},
       },
     },
   });
