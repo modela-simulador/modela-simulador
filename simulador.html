@@ -1809,7 +1809,7 @@
     </div>
     <div class="un-body">
       <div class="un-chart-scroll" style="padding:20px 24px">
-        <div id="pe-static-controls" style="display:flex;gap:20px;align-items:center;margin-bottom:14px;padding:12px 16px;background:#0f172a;border:2px solid #7c3aed;border-radius:8px">
+        <div id="pe-static-controls" style="display:flex;flex-wrap:wrap;gap:12px 20px;align-items:center;margin-bottom:14px;padding:12px 16px;background:#0f172a;border:2px solid #7c3aed;border-radius:8px">
           <div style="display:flex;align-items:center;gap:6px">
             <label style="font-size:11px;font-weight:700;color:#e2e8f0;text-transform:uppercase;letter-spacing:0.4px;white-space:nowrap">Escenario Ventas</label>
             <select id="pe-sel-escenario" style="padding:6px 12px;font-size:12px;border:1px solid #475569;border-radius:6px;background:#1e293b;color:#f8fafc;font-weight:500;font-family:inherit;cursor:pointer">
@@ -1826,6 +1826,7 @@
               <option value="optimista">Optimista</option>
             </select>
           </div>
+          <div style="width:1px;height:20px;background:#475569"></div>
           <div style="display:flex;align-items:center;gap:6px">
             <label style="font-size:11px;font-weight:700;color:#e2e8f0;text-transform:uppercase;letter-spacing:0.4px;white-space:nowrap">Venta Sanitaria</label>
             <label style="position:relative;display:inline-block;width:36px;height:20px;cursor:pointer">
@@ -1840,6 +1841,7 @@
               <option value="0" selected>Hasta Termino</option>
             </select>
           </div>
+          <div style="width:1px;height:20px;background:#475569"></div>
           <div style="display:flex;align-items:center;gap:4px">
             <button id="pe-curr-uf" onclick="peCurrency='UF';document.getElementById('pe-curr-uf').classList.add('active');document.getElementById('pe-curr-usd').classList.remove('active');document.getElementById('pe-usd-params').style.display='none';renderPrimerasEtapas()" style="padding:5px 10px;font-size:11px;font-weight:700;font-family:inherit;border:1px solid #475569;border-radius:5px 0 0 5px;background:#16a34a;color:#fff;cursor:pointer" class="active">UF</button>
             <button id="pe-curr-usd" onclick="peCurrency='USD';document.getElementById('pe-curr-usd').classList.add('active');document.getElementById('pe-curr-uf').classList.remove('active');document.getElementById('pe-usd-params').style.display='flex';renderPrimerasEtapas()" style="padding:5px 10px;font-size:11px;font-weight:700;font-family:inherit;border:1px solid #475569;border-radius:0 5px 5px 0;background:#1e293b;color:#94a3b8;cursor:pointer">USD</button>
