@@ -3,6 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; frame-ancestors 'none';">
   <meta http-equiv="X-Frame-Options" content="DENY">
   <meta http-equiv="X-Content-Type-Options" content="nosniff">
@@ -1044,6 +1047,48 @@
       border-radius:6px; font-size:11px; color:#94a3b8; text-align:center;
       border:1px dashed #e2e8f0; }
 
+    /* ── Primeras Etapas Dashboard ── */
+    .pe-toggle{display:flex;gap:4px;margin-bottom:16px}
+    .pe-toggle button{padding:6px 16px;border-radius:6px;border:1px solid #cbd5e1;background:#fff;color:#64748b;font-size:11px;font-weight:600;font-family:inherit;cursor:pointer;transition:all .15s}
+    .pe-toggle button.active{background:#0f172a;color:#f8fafc;border-color:#0f172a}
+    .pe-section{margin-bottom:20px}
+    .pe-section-hdr{display:flex;align-items:center;gap:8px;margin-bottom:6px;padding-bottom:5px;border-bottom:1px solid #e2e8f0}
+    .pe-badge{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;padding:2px 7px;border-radius:4px}
+    .pe-badge-green{background:#f0fdf4;color:#16a34a}.pe-badge-blue{background:#eff6ff;color:#2563eb}
+    .pe-badge-purple{background:#f5f3ff;color:#7c3aed}.pe-badge-amber{background:#fffbeb;color:#d97706}
+    .pe-badge-red{background:#fef2f2;color:#dc2626}.pe-badge-gray{background:#f1f5f9;color:#475569}
+    .pe-section-hdr h3{font-size:13px;font-weight:600;margin:0}
+    .pe-tbl{width:100%;border-collapse:collapse;font-size:11px;table-layout:fixed}
+    .pe-tbl th{text-align:right;padding:5px 7px;font-weight:600;color:#64748b;font-size:10px;white-space:nowrap;background:#f8fafc;border-bottom:2px solid #e2e8f0;width:68px}
+    .pe-tbl th:first-child{text-align:left;width:210px}
+    .pe-tbl td{text-align:right;padding:4px 7px;font-variant-numeric:tabular-nums;white-space:nowrap;border-bottom:1px solid #f1f5f9;width:68px;overflow:hidden}
+    .pe-tbl td:first-child{text-align:left;color:#64748b;width:210px}
+    .pe-tbl tr.pe-parent td:first-child{cursor:pointer;user-select:none}
+    .pe-tbl tr.pe-parent td:first-child:hover{color:#1e293b}
+    .pe-tbl tr.pe-child{display:none}
+    .pe-tbl tr.pe-child.visible{display:table-row}
+    .pe-tbl tr.pe-child td:first-child{padding-left:24px;font-size:10px;color:#94a3b8}
+    .pe-tbl tr.pe-sub td{font-weight:700;border-top:2px solid #d1d5db;border-bottom:2px solid #d1d5db;padding:6px 7px}
+    .pe-tbl tr.pe-sub td:first-child{color:#1e293b}
+    .pe-tbl tr.pe-acum td{font-weight:600;font-style:italic;border-bottom:1px dashed #d1d5db;padding:4px 7px}
+    .pe-tbl tr.pe-acum td:first-child{color:#7c3aed}
+    .pe-tbl tr.pe-acum td.pe-pos{color:#16a34a}
+    .pe-tbl tr.pe-acum td.pe-neg{color:#dc2626}
+    .pe-tbl tr.pe-acum td.pe-zero{color:#cbd5e1}
+    .pe-tbl tr.pe-total td{font-weight:800;font-size:12px;border-top:3px double #d1d5db;border-bottom:3px double #d1d5db;padding:7px}
+    .pe-tbl tr.pe-total td:first-child{color:#1e293b}
+    .pe-pos{color:#16a34a}.pe-neg{color:#dc2626}.pe-zero{color:#cbd5e1}
+    .pe-chev{display:inline-block;width:12px;font-size:8px;color:#94a3b8;transition:transform .15s}
+    .pe-chev.open{transform:rotate(90deg)}
+    .pe-phys{color:#334155}
+    .pe-chart-wrap{margin-top:20px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px 16px}
+    .pe-chart-wrap h4{font-size:12px;font-weight:600;color:#334155;margin-bottom:8px}
+    .pe-controls{display:flex!important;gap:20px;align-items:center;margin-bottom:14px;padding:12px 16px;background:#0f172a!important;border:2px solid #7c3aed;border-radius:8px;flex-wrap:wrap;min-height:48px}
+    .pe-ctrl-group{display:flex;align-items:center;gap:6px}
+    .pe-ctrl-group label{font-size:11px;font-weight:700;color:#e2e8f0;text-transform:uppercase;letter-spacing:0.4px;white-space:nowrap}
+    .pe-ctrl-group select{padding:6px 12px;font-size:12px;font-family:inherit;border:1px solid #475569;border-radius:6px;background:#1e293b;color:#f8fafc;cursor:pointer;font-weight:500}
+    .pe-ctrl-group select:focus{outline:none;border-color:#7c3aed;box-shadow:0 0 0 2px rgba(124,58,237,0.1)}
+
     /* ══════════════════════════════════════════════════════════
        MOBILE RESPONSIVE (max-width: 768px)
        ══════════════════════════════════════════════════════════ */
@@ -1368,7 +1413,7 @@
         <button type="submit" class="lp-login-btn">Entrar</button>
       </form>
     </div>
-    <div class="lp-footer-text">v1.0.2 · 10 de marzo de 2026</div>
+    <div class="lp-footer-text">v1.0.3 · 02 de abril de 2026</div>
   </section>
 </div>
 
@@ -1717,6 +1762,12 @@
     </svg>
     Unidades de Negocio
   </button>
+  <button class="btn-un" id="btn-primeras-etapas" onclick="openPrimerasEtapas()" disabled>
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M3 3h18v18H3z"/><path d="M3 9h18"/><path d="M9 3v18"/>
+    </svg>
+    Primeras Etapas
+  </button>
 </div>
 
 <!-- ── Unidades de Negocio overlay ── -->
@@ -1739,6 +1790,46 @@
       </div>
       <div class="un-info-panel" id="un-info-panel">
         <div class="un-info-panel-empty">Selecciona un segmento<br>para ver sus datos</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Primeras Etapas overlay ── -->
+<div id="pe-overlay" class="un-overlay" style="display:none;height:100vh;width:100vw">
+  <div class="un-window">
+    <div class="un-topbar">
+      <div class="un-topbar-left">
+        <h2>Primeras Etapas — Dashboard Financiero</h2>
+        <span class="un-topbar-hint">AUDP Batuco y Colina</span>
+      </div>
+      <button class="un-close" onclick="closePrimerasEtapas()">&#10005;</button>
+    </div>
+    <div class="un-body">
+      <div class="un-chart-scroll" style="padding:20px 24px">
+        <div id="pe-static-controls" style="display:flex;gap:20px;align-items:center;margin-bottom:14px;padding:12px 16px;background:#0f172a;border:2px solid #7c3aed;border-radius:8px">
+          <div style="display:flex;align-items:center;gap:6px">
+            <label style="font-size:11px;font-weight:700;color:#e2e8f0;text-transform:uppercase;letter-spacing:0.4px;white-space:nowrap">Escenario Ventas</label>
+            <select id="pe-sel-escenario" style="padding:6px 12px;font-size:12px;border:1px solid #475569;border-radius:6px;background:#1e293b;color:#f8fafc;font-weight:500;font-family:inherit;cursor:pointer">
+              <option value="pesimista">Pesimista</option>
+              <option value="esperada" selected>Esperada</option>
+              <option value="optimista">Optimista</option>
+            </select>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <label style="font-size:11px;font-weight:700;color:#e2e8f0;text-transform:uppercase;letter-spacing:0.4px;white-space:nowrap">Curva Operadores</label>
+            <select id="pe-sel-ops" style="padding:6px 12px;font-size:12px;border:1px solid #475569;border-radius:6px;background:#1e293b;color:#f8fafc;font-weight:500;font-family:inherit;cursor:pointer">
+              <option value="pesimista">Pesimista</option>
+              <option value="esperada" selected>Esperada</option>
+              <option value="optimista">Optimista</option>
+            </select>
+          </div>
+        </div>
+        <div id="pe-dashboard-container">
+          <div style="text-align:center;padding:60px;color:#94a3b8;font-size:14px">
+            Ejecuta la simulacion para ver el dashboard
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -2315,8 +2406,9 @@
 // ════════════════════════════════════════════════════════════
 
 const AUTH_USERS = {
-  'admin': { hash: 'be937117364594bbf4992371581edf109977e273694bc5fe07a1cfc6a11d99d1', name: 'Administrador' },
-  'demo':  { hash: '2a97516c354b68848cdbd8f54a226a0a55b21ed138e207ad6c5cbb9c00aa5aea', name: 'Demo' },
+  'admin':  { hash: 'be937117364594bbf4992371581edf109977e273694bc5fe07a1cfc6a11d99d1', name: 'Administrador' },
+  'demo':   { hash: '2a97516c354b68848cdbd8f54a226a0a55b21ed138e207ad6c5cbb9c00aa5aea', name: 'Demo' },
+  'modela': { hash: '1b7f61f34a609d26b1f7d60301ea2ff55dce19c69ef4c170744df54439ed1f3f', name: 'Modela' },
 };
 
 // ── SHA-256 helper ──
@@ -9974,6 +10066,8 @@ function runAndRender() {
         if (csvBtn) csvBtn.disabled = false;
         const unBtn = document.getElementById('btn-un');
         if (unBtn) unBtn.disabled = false;
+        const peBtn = document.getElementById('btn-primeras-etapas');
+        if (peBtn) peBtn.disabled = false;
       } catch (e) {
         console.error(e);
       }
@@ -10734,6 +10828,369 @@ function openUnidadesNegocio() {
 }
 function closeUnidadesNegocio() {
   document.getElementById('un-overlay').style.display = 'none';
+}
+
+let peMode = 'audp';
+let peExpanded = {};
+let peChart = null;
+
+function openPrimerasEtapas() {
+  document.getElementById('pe-overlay').style.display = 'flex';
+  // Sync static controls with sidebar values
+  const peEsc = document.getElementById('pe-sel-escenario');
+  const peOps = document.getElementById('pe-sel-ops');
+  if (peEsc) peEsc.value = document.getElementById('escenario').value;
+  if (peOps) peOps.value = document.getElementById('escenario-ops').value;
+  // Wire up change handlers (only once)
+  if (!peEsc._wired) {
+    peEsc._wired = true;
+    peEsc.addEventListener('change', function() {
+      const s = document.getElementById('escenario');
+      s.value = peEsc.value;
+      s.className = 'escenario-select ' + peEsc.value;
+      runAndRender();
+      renderPrimerasEtapas();
+    });
+  }
+  if (!peOps._wired) {
+    peOps._wired = true;
+    peOps.addEventListener('change', function() {
+      const s = document.getElementById('escenario-ops');
+      s.value = peOps.value;
+      s.className = 'escenario-select ' + peOps.value;
+      runAndRender();
+      renderPrimerasEtapas();
+    });
+  }
+  renderPrimerasEtapas();
+}
+function closePrimerasEtapas() {
+  document.getElementById('pe-overlay').style.display = 'none';
+  if (peChart) { peChart.destroy(); peChart = null; }
+}
+
+function renderPrimerasEtapas() {
+  try { _renderPE(); } catch(e) {
+    console.error('PE Error:', e);
+    const c = document.getElementById('pe-dashboard-container');
+    if (c) { c.textContent = 'Error: ' + e.message; }
+  }
+}
+function _renderPE() {
+  const r = lastResults;
+  if (!r) return;
+  const C = document.getElementById('pe-dashboard-container');
+  C.textContent = '';
+
+  const years = r.years;
+  const revenueByZone = r.revenueByZone || {};
+  const commercialRevByZone = r.commercialRevByZone || {};
+  const comMenorRevByZone = r.comMenorRevByZone || {};
+  const landByZone = r.landByZone || {};
+  const unitsByZone = r.unitsByZone || {};
+  const infraByZone = r.infraByZone || {};
+  const mitByGroup = r.mitByGroup || {};
+  const factByZone = r.factByZone || {};
+  const tierraByZone = r.tierraByZone || {};
+  const comercializacionByYear = r.comercializacionByYear || {};
+  const mantByYear = r.mantByYear || {};
+  const sanitariaByYear = r.sanitariaByYear || {};
+  const sanitariaIngByYear = r.sanitariaIngByYear || {};
+  const sanitariaOpCostByYear = r.sanitariaOpCostByYear || {};
+  const sanitariaVentaByYear = r.sanitariaVentaByYear || {};
+  const industrialRevByYear = r.industrialRevByYear || {};
+  const industrialHaByYear = r.industrialHaByYear || {};
+  const otrosRevByYear = r.otrosRevByYear || {};
+  const otrosHaByYear = r.otrosHaByYear || {};
+  const cumVivByYear = r.cumVivByYear || {};
+
+  const AUDP = ['AUDP Batuco', 'AUDP Colina'];
+  const PDUC_HAB = ['Distrito G', 'Distrito 4.0'];
+  const PDUC_FACT = ['Distrito G', 'Distrito 4.0', 'Industrial'];
+  const ALL_HAB = [...AUDP, ...PDUC_HAB];
+  const LAG = 2;
+  const isFull = peMode === 'full';
+  const incPDUC = peMode === 'pduc' || isFull;
+
+  // Active zones for ingresos/costos
+  const activeIngZones = isFull ? ALL_HAB : AUDP;
+  const activeMitGroups = isFull ? ['AUDP Batuco', 'AUDP Colina', 'PDUC'] : AUDP;
+  const activeInfraZones = isFull ? [...AUDP, ...PDUC_HAB, 'Ciudad Industrial'] : AUDP;
+  const activeTierraZones = isFull ? ALL_HAB : AUDP;
+  const activeFactZones = incPDUC ? [...AUDP, ...PDUC_FACT] : [...AUDP];
+
+  // Window: from 2023 to last reception year (AUDP or all zones depending on mode)
+  const recZones = isFull ? ALL_HAB : AUDP;
+  let lastRecY = years[0];
+  for (const y of years) {
+    let rec = 0;
+    for (const z of recZones) rec += (unitsByZone[z]?.[y - LAG] ?? 0);
+    if (rec > 0) lastRecY = y;
+  }
+  // Full mode: extend to end of simulation
+  const endY = isFull ? years[years.length - 1] : lastRecY;
+  const W = [];
+  for (let y = 2023; y <= endY; y++) W.push(y);
+
+  const gv = (obj, y) => obj?.[y] ?? 0;
+  const sumZ = (obj, zones, y) => zones.reduce((s, z) => s + gv(obj[z], y), 0);
+  function fmtUF(v) { return v === 0 ? '\u2014' : Math.round(v).toLocaleString('es-CL'); }
+  function fmtPh(v, dec) { return v === 0 ? '\u2014' : (dec ? v.toLocaleString('es-CL',{minimumFractionDigits:dec,maximumFractionDigits:dec}) : Math.round(v).toLocaleString('es-CL')); }
+  function cumul(a) { const r=[]; a.forEach((v,i) => r.push((r[i-1]||0)+v)); return r; }
+
+  // ── Compute ──
+  // Ingresos por zona (hab + com mayor + com menor)
+  const ingByZ = {};
+  for (const z of activeIngZones) ingByZ[z] = W.map(y => gv(revenueByZone[z],y) + gv(commercialRevByZone?.[z],y) + gv(comMenorRevByZone?.[z],y));
+  // Full mode: add industrial + otros as pseudo-zones in ingresos
+  if (isFull) {
+    ingByZ['Industrial'] = W.map(y => gv(industrialRevByYear, y));
+    ingByZ['Otros Usos D4.0'] = W.map(y => gv(otrosRevByYear, y));
+  }
+  const allIngKeys = Object.keys(ingByZ);
+  const totalIng = W.map((_,i) => allIngKeys.reduce((s,z) => s + ingByZ[z][i], 0));
+
+  // Infraestructura
+  const infraZ = {};
+  for (const z of activeInfraZones) infraZ[z] = W.map(y => gv(infraByZone[z],y));
+  const totalInfra = W.map((_,i) => Object.values(infraZ).reduce((s,a) => s + a[i], 0));
+
+  // Mitigaciones
+  const mitigZ = {};
+  for (const z of activeMitGroups) mitigZ[z] = W.map(y => gv(mitByGroup[z],y));
+  const totalMitig = W.map((_,i) => Object.values(mitigZ).reduce((s,a) => s + a[i], 0));
+
+  // Comercializacion y Mantencion
+  const totalComerc = isFull ? W.map(y => gv(comercializacionByYear, y)) : totalIng.map(v => Math.round(v * 0.02));
+  const totalMant_a = W.map(y => gv(mantByYear, y));
+
+  const subtotalVT = W.map((_,i) => totalIng[i] - totalInfra[i] - totalMitig[i] - totalComerc[i] - totalMant_a[i]);
+  const subtotalVTAcum = cumul(subtotalVT);
+
+  // Viviendas recepcionadas
+  const vivZones = isFull ? ALL_HAB : AUDP;
+  const recByZ = {};
+  for (const z of vivZones) recByZ[z] = W.map(y => (unitsByZone[z]?.[y - LAG] ?? 0));
+  const recTotal = W.map((_,i) => Object.values(recByZ).reduce((s,a) => s + a[i], 0));
+  const recTotalAcum = cumul(recTotal);
+
+  // Sanitario
+  const sanIng = W.map(y => Math.max(0, gv(sanitariaIngByYear, y)));
+  const sanCost = W.map(y => gv(sanitariaOpCostByYear, y));
+  const sanVenta = W.map(y => gv(sanitariaVentaByYear, y));
+  let sanInv;
+  if (isFull) {
+    sanInv = W.map(y => gv(sanitariaByYear, y));
+  } else {
+    const peTriggered = new Array(PLANTA_SANITARIA.length).fill(false);
+    sanInv = W.map((_,i) => {
+      if (recTotalAcum[i] === 0) return 0;
+      let inv = 0;
+      for (let j = 0; j < PLANTA_SANITARIA.length; j++) {
+        if (peTriggered[j]) continue;
+        if (recTotalAcum[i] >= PLANTA_SANITARIA[j].viv) { peTriggered[j] = true; inv += PLANTA_SANITARIA[j].monto; }
+      }
+      return inv;
+    });
+  }
+  const subtotalSan = W.map((_,i) => sanIng[i] - sanCost[i] - sanInv[i] + sanVenta[i]);
+  const subtotalSanAcum = cumul(subtotalSan);
+
+  const negComb = W.map((_,i) => subtotalVT[i] + subtotalSan[i]);
+  const negCombAcum = cumul(negComb);
+
+  // Factibilizacion
+  const factTotal = W.map(y => sumZ(factByZone, activeFactZones, y));
+  const factPorGastar = factTotal.map((v,i) => W[i] >= 2026 ? v : 0);
+  const factGastada = factTotal.map((v,i) => W[i] < 2026 ? v : 0);
+  const factDetPG = {}; const factDetG = {};
+  for (const z of activeFactZones) {
+    factDetPG[z] = W.map((y,i) => W[i] >= 2026 ? gv(factByZone[z], y) : 0);
+    factDetG[z] = W.map((y,i) => W[i] < 2026 ? gv(factByZone[z], y) : 0);
+  }
+
+  const flujoCR = W.map((_,i) => negComb[i] - factPorGastar[i]);
+  const flujoCRAcum = cumul(flujoCR);
+
+  // Tierra
+  const tierraZ = {};
+  for (const z of activeTierraZones) tierraZ[z] = W.map(y => gv(tierraByZone[z], y));
+  if (isFull && tierraByZone['Industrial']) tierraZ['Industrial'] = W.map(y => gv(tierraByZone['Industrial'], y));
+  const totalTierra = W.map((_,i) => Object.values(tierraZ).reduce((s,a) => s + a[i], 0));
+
+  const resultNeg = W.map((_,i) => flujoCR[i] - factGastada[i] - totalTierra[i]);
+  const resultNegAcum = cumul(resultNeg);
+
+  // Hectareas
+  const haByZ = {};
+  for (const z of (isFull ? ALL_HAB : AUDP)) haByZ[z] = W.map(y => gv(landByZone[z], y));
+  if (isFull) {
+    haByZ['Industrial'] = W.map(y => gv(industrialHaByYear, y));
+    haByZ['Otros Usos D4.0'] = W.map(y => gv(otrosHaByYear, y));
+  }
+  const haTotal = W.map((_,i) => Object.values(haByZ).reduce((s,a) => s + a[i], 0));
+  const haTotalAcum = cumul(haTotal);
+
+  const chartIng = W.map((_,i) => totalIng[i] + sanIng[i] + sanVenta[i]);
+  const chartCos = W.map((_,i) => -(totalInfra[i]+totalMitig[i]+totalComerc[i]+totalMant_a[i]+sanCost[i]+sanInv[i]+factTotal[i]+totalTierra[i]));
+
+  // DOM builders
+  const tgl = document.createElement('div'); tgl.className = 'pe-toggle';
+  [['audp','Solo AUDP'],['pduc','AUDP + Factibilizacion PDUC'],['full','PDUC Completa']].forEach(([m,lbl]) => {
+    const b = document.createElement('button');
+    b.textContent = lbl;
+    if (m === peMode) b.classList.add('active');
+    b.addEventListener('click', () => { peMode = m; renderPrimerasEtapas(); });
+    tgl.appendChild(b);
+  });
+  C.appendChild(tgl);
+
+  const ml = isFull ? 'Proyecto Completo' : incPDUC ? 'AUDP + PDUC' : 'Solo AUDP';
+  const modeTitle = isFull ? 'Proyecto Completo' : 'AUDP';
+
+  function mkTh() {
+    const thead = document.createElement('thead'); const tr = document.createElement('tr');
+    const th0 = document.createElement('th'); th0.textContent = 'Concepto'; tr.appendChild(th0);
+    W.forEach(y => { const th = document.createElement('th'); th.textContent = y; tr.appendChild(th); });
+    thead.appendChild(tr); return thead;
+  }
+  function mkR(label, data, cls, fn) {
+    const fmt = fn || fmtUF;
+    const tr = document.createElement('tr'); if (cls) tr.className = cls;
+    const td0 = document.createElement('td'); td0.textContent = label; tr.appendChild(td0);
+    data.forEach(v => {
+      const td = document.createElement('td'); td.textContent = fmt(v);
+      td.className = v > 0 ? (fmt === fmtUF ? 'pe-pos' : 'pe-phys') : v < 0 ? 'pe-neg' : 'pe-zero';
+      tr.appendChild(td);
+    });
+    return tr;
+  }
+  function mkP(id, label, data) {
+    const tr = document.createElement('tr'); tr.className = 'pe-parent'; tr.dataset.group = id;
+    const td0 = document.createElement('td');
+    const ch = document.createElement('span'); ch.className = 'pe-chev'; ch.textContent = '\u25B6';
+    td0.appendChild(ch); td0.appendChild(document.createTextNode(' ' + label)); tr.appendChild(td0);
+    data.forEach(v => { const td = document.createElement('td'); td.textContent = fmtUF(v); td.className = v > 0 ? 'pe-pos' : v < 0 ? 'pe-neg' : 'pe-zero'; tr.appendChild(td); });
+    tr.addEventListener('click', () => {
+      peExpanded[id] = !peExpanded[id]; ch.classList.toggle('open', !!peExpanded[id]);
+      document.querySelectorAll('tr[data-pep="'+id+'"]').forEach(r => r.classList.toggle('visible', !!peExpanded[id]));
+    });
+    return tr;
+  }
+  function mkCh(pid, det, sign) {
+    const f = document.createDocumentFragment();
+    Object.entries(det).forEach(([k, arr]) => {
+      const d = sign < 0 ? arr.map(v => -v) : arr;
+      if (d.every(v => v === 0)) return;
+      const tr = document.createElement('tr'); tr.className = 'pe-child'; tr.dataset.pep = pid;
+      if (peExpanded[pid]) tr.classList.add('visible');
+      const td0 = document.createElement('td'); td0.textContent = k; tr.appendChild(td0);
+      d.forEach(v => { const td = document.createElement('td'); td.textContent = fmtUF(v); td.className = v > 0 ? 'pe-pos' : v < 0 ? 'pe-neg' : 'pe-zero'; tr.appendChild(td); });
+      f.appendChild(tr);
+    });
+    return f;
+  }
+  function mkS(badge, bc, title) {
+    const s = document.createElement('div'); s.className = 'pe-section';
+    const h = document.createElement('div'); h.className = 'pe-section-hdr';
+    const b = document.createElement('span'); b.className = 'pe-badge ' + bc; b.textContent = badge;
+    const h3 = document.createElement('h3'); h3.textContent = title;
+    h.appendChild(b); h.appendChild(h3); s.appendChild(h); return s;
+  }
+  function mkT(rows) {
+    const w = document.createElement('div'); w.style.overflowX = 'auto';
+    const t = document.createElement('table'); t.className = 'pe-tbl'; t.appendChild(mkTh());
+    const tb = document.createElement('tbody'); rows.forEach(r => tb.appendChild(r)); t.appendChild(tb);
+    w.appendChild(t); return w;
+  }
+  const neg = a => a.map(v => -v);
+
+  // 0: Fisico
+  const s0 = mkS('\u2302','pe-badge-gray','Indicadores Fisicos \u2014 ' + modeTitle);
+  let r0 = [];
+  r0.push(mkR('Ha Vendidas (lotes)',haTotal,'',v=>fmtPh(v,2)));
+  Object.keys(haByZ).forEach(z => r0.push(mkR('  '+z,haByZ[z],'',v=>fmtPh(v,2))));
+  r0.push(mkR('Ha Vendidas Acumuladas',haTotalAcum,'pe-acum',v=>fmtPh(v,2)));
+  r0.push(mkR('Viviendas Recepcionadas',recTotal,'',v=>fmtPh(v,0)));
+  Object.keys(recByZ).forEach(z => r0.push(mkR('  '+z,recByZ[z],'',v=>fmtPh(v,0))));
+  r0.push(mkR('Viviendas Acumuladas',recTotalAcum,'pe-acum',v=>fmtPh(v,0)));
+  s0.appendChild(mkT(r0)); C.appendChild(s0);
+
+  // 1: VT
+  const s1 = mkS('1','pe-badge-green','Negocio Venta de Tierra \u2014 ' + modeTitle);
+  let r1 = [];
+  r1.push(mkP('pe-ing','Ingresos Venta de Tierra',totalIng));
+  r1.push(mkCh('pe-ing',ingByZ,1));
+  r1.push(mkP('pe-inf','Costos Infraestructura',neg(totalInfra)));
+  r1.push(mkCh('pe-inf',infraZ,-1));
+  r1.push(mkP('pe-mit','Costos Mitigaciones',neg(totalMitig)));
+  r1.push(mkCh('pe-mit',mitigZ,-1));
+  r1.push(mkR('Costos Comercializacion (2%)',neg(totalComerc),''));
+  r1.push(mkR('Costos Mantencion',neg(totalMant_a),''));
+  r1.push(mkR('SUBTOTAL NEGOCIO VENTA TIERRA',subtotalVT,'pe-sub'));
+  r1.push(mkR('Venta Tierra Acumulado',subtotalVTAcum,'pe-acum'));
+  s1.appendChild(mkT(r1)); C.appendChild(s1);
+
+  // 2: Sanitario
+  const s2 = mkS('2','pe-badge-blue','Resultado Sanitario');
+  let r2 = [];
+  r2.push(mkR('Ingresos Operacionales',sanIng,''));
+  r2.push(mkR('Costos Operacionales',neg(sanCost),''));
+  r2.push(mkR('Inversiones Sanitarias',neg(sanInv),''));
+  r2.push(mkR('Venta Negocio Sanitario',sanVenta,''));
+  r2.push(mkR('RESULTADO SANITARIO',subtotalSan,'pe-sub'));
+  r2.push(mkR('Resultado Sanitario Acumulado',subtotalSanAcum,'pe-acum'));
+  s2.appendChild(mkT(r2)); C.appendChild(s2);
+
+  // 3: Combinado
+  const s3 = mkS('3','pe-badge-purple','Negocio Combinado');
+  let r3 = [];
+  r3.push(mkR('NEGOCIO COMBINADO',negComb,'pe-total'));
+  r3.push(mkR('Negocio Combinado Acumulado',negCombAcum,'pe-acum'));
+  s3.appendChild(mkT(r3)); C.appendChild(s3);
+
+  // 4: Factib
+  // ml y modeTitle ya definidos arriba
+  const s4 = mkS('4','pe-badge-amber','Factibilizacion por Gastar (2026+) \u2192 Flujo Caja Real \u2014 '+ml);
+  let r4 = [];
+  r4.push(mkP('pe-fpg','Factibilizacion por Gastar',neg(factPorGastar)));
+  r4.push(mkCh('pe-fpg',factDetPG,-1));
+  r4.push(mkR('FLUJO DE CAJA REAL',flujoCR,'pe-sub'));
+  r4.push(mkR('Flujo de Caja Real Acumulado',flujoCRAcum,'pe-acum'));
+  s4.appendChild(mkT(r4)); C.appendChild(s4);
+
+  // 5: Resultado
+  const s5 = mkS('5','pe-badge-red','Factibilizacion Gastada + Tierra \u2192 Resultado Negocio');
+  let r5 = [];
+  r5.push(mkP('pe-fg','Factibilizacion Gastada (pre-2026)',neg(factGastada)));
+  r5.push(mkCh('pe-fg',factDetG,-1));
+  r5.push(mkP('pe-ti','Costo de la Tierra',neg(totalTierra)));
+  r5.push(mkCh('pe-ti',tierraZ,-1));
+  r5.push(mkR('RESULTADO NEGOCIO',resultNeg,'pe-total'));
+  r5.push(mkR('Resultado Negocio Acumulado',resultNegAcum,'pe-acum'));
+  s5.appendChild(mkT(r5)); C.appendChild(s5);
+
+  // Chart
+  const cw = document.createElement('div'); cw.className = 'pe-chart-wrap';
+  const h4el = document.createElement('h4'); h4el.textContent = 'Ingresos vs Costos y Resultado Acumulado \u2014 Miles UF';
+  cw.appendChild(h4el);
+  const cdv = document.createElement('div'); cdv.style.cssText = 'position:relative;height:240px';
+  const cvs = document.createElement('canvas');
+  cdv.appendChild(cvs); cw.appendChild(cdv); C.appendChild(cw);
+
+  if (peChart) { peChart.destroy(); peChart = null; }
+  peChart = new Chart(cvs.getContext('2d'), {
+    type:'bar',
+    data:{labels:W, datasets:[
+      {label:'Ingresos',data:chartIng.map(v=>v/1000),backgroundColor:'rgba(22,163,74,0.55)',borderRadius:2,order:2},
+      {label:'Costos',data:chartCos.map(v=>v/1000),backgroundColor:'rgba(220,38,38,0.4)',borderRadius:2,order:2},
+      {label:'Resultado Acumulado',data:resultNegAcum.map(v=>v/1000),type:'line',borderColor:'rgba(124,58,237,0.9)',backgroundColor:'transparent',borderWidth:2,pointRadius:2,pointBackgroundColor:'rgba(124,58,237,0.9)',tension:0.3,order:1},
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+      plugins:{legend:{labels:{color:'#64748b',font:{size:10}}},tooltip:{backgroundColor:'#fff',titleColor:'#111',bodyColor:'#333',borderColor:'#e5e7eb',borderWidth:1,titleFont:{size:11},bodyFont:{size:10},callbacks:{label:function(c){return c.dataset.label+': '+c.parsed.y.toLocaleString('es-CL',{maximumFractionDigits:1})+' MUF'}}}},
+      scales:{x:{ticks:{color:'#94a3b8',font:{size:9}},grid:{color:'#f1f5f9'}},y:{ticks:{color:'#94a3b8',font:{size:9},callback:v=>v.toLocaleString('es-CL')},grid:{color:'#f1f5f9'},title:{display:true,text:'Miles UF',color:'#94a3b8',font:{size:9}}}},
+    },
+  });
 }
 
 function renderUNChart() {
