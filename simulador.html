@@ -11385,7 +11385,7 @@ function _renderPE() {
 
   const chartSub = document.createElement('div');
   chartSub.style.cssText = 'font-size:11px;color:#94a3b8;margin-bottom:16px';
-  chartSub.textContent = d.ml + ' \u00B7 ' + W[0] + '\u2013' + W[W.length-1];
+  chartSub.textContent = ml + ' \u00B7 ' + W[0] + '\u2013' + W[W.length-1];
   chartSec.appendChild(chartSub);
 
   // Key messages row
@@ -11493,7 +11493,7 @@ async function downloadPEXlsx() {
   const neg = a => a.map(v => -v);
 
   const wb = new ExcelJS.Workbook();
-  const ws = wb.addWorksheet('Primeras Etapas — ' + d.ml);
+  const ws = wb.addWorksheet('Primeras Etapas — ' + (d.ml||''));
 
   // Helpers
   function colLetter(idx) { return idx < 26 ? String.fromCharCode(66+idx) : 'A'+String.fromCharCode(65+idx-26); }
@@ -11567,7 +11567,7 @@ async function downloadPEXlsx() {
 
   // ── Factibilizacion por Gastar ──
   ws.addRow([]);
-  addR('FACTIBILIZACION POR GASTAR — '+d.ml, [], {bold:true, fill:'FFFFFBEB'});
+  addR('FACTIBILIZACION POR GASTAR — '+(d.ml||''), [], {bold:true, fill:'FFFFFBEB'});
   addR('Factibilizacion por Gastar', neg(d.factPorGastar));
   Object.entries(d.factDetPG).forEach(([z,v]) => addR('  '+z, neg(v)));
   addR('FLUJO DE CAJA REAL', d.flujoCR, {bold:true, fill:'FFFFFBEB'});
