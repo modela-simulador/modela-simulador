@@ -11120,24 +11120,19 @@ function _renderPE() {
   const recTotal = W.map((_,i) => Object.values(recByZ).reduce((s,a) => s + a[i], 0));
   const recTotalAcum = cumul(recTotal);
 
-  // Sanitario
+  // Sanitario — siempre recalcular inversiones con viviendas recepcionadas acumuladas
   const sanIng = W.map(y => Math.max(0, gv(sanitariaIngByYear, y)));
   const sanCost = W.map(y => gv(sanitariaOpCostByYear, y));
-  let sanInv;
-  if (isFull) {
-    sanInv = W.map(y => gv(sanitariaByYear, y));
-  } else {
-    const peTriggered = new Array(PLANTA_SANITARIA.length).fill(false);
-    sanInv = W.map((_,i) => {
-      if (recTotalAcum[i] === 0) return 0;
-      let inv = 0;
-      for (let j = 0; j < PLANTA_SANITARIA.length; j++) {
-        if (peTriggered[j]) continue;
-        if (recTotalAcum[i] >= PLANTA_SANITARIA[j].viv) { peTriggered[j] = true; inv += PLANTA_SANITARIA[j].monto; }
-      }
-      return inv;
-    });
-  }
+  const peTriggered = new Array(PLANTA_SANITARIA.length).fill(false);
+  const sanInv = W.map((_,i) => {
+    if (recTotalAcum[i] === 0) return 0;
+    let inv = 0;
+    for (let j = 0; j < PLANTA_SANITARIA.length; j++) {
+      if (peTriggered[j]) continue;
+      if (recTotalAcum[i] >= PLANTA_SANITARIA[j].viv) { peTriggered[j] = true; inv += PLANTA_SANITARIA[j].monto; }
+    }
+    return inv;
+  });
   // Venta sanitaria: solo si toggle está activo, se calcula en el último año de la ventana
   const sanVenta = W.map(() => 0);
   let sanVentaVal = 0;
