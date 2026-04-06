@@ -11219,19 +11219,7 @@ function _renderPE() {
     factDetG[z] = W.map((y,i) => W[i] < 2026 ? gv(factByZone[z], y) : 0);
   }
 
-  // Flujo Caja Real = Combinado - TODA la factibilizacion (gastada + por gastar)
-  const flujoCR = W.map((_,i) => negComb[i] - factTotal[i]);
-  const flujoCRAcum = cumul(flujoCR);
-
-  // Tierra
-  const tierraZ = {};
-  for (const z of activeTierraZones) tierraZ[z] = W.map(y => gv(tierraByZone[z], y));
-  if ((isFull || isOnlyPDUC) && tierraByZone['Industrial']) tierraZ['Industrial'] = W.map(y => gv(tierraByZone['Industrial'], y));
-  const totalTierra = W.map((_,i) => Object.values(tierraZ).reduce((s,a) => s + a[i], 0));
-
-  // Resultado Negocio = Flujo Caja Real - Tierra
-  const resultNeg = W.map((_,i) => flujoCR[i] - totalTierra[i]);
-  const resultNegAcum = cumul(resultNeg);
+  // (tierra and old flujoCR removed — now in sections below)
 
   // Hectareas
   const haByZ = {};
@@ -11340,7 +11328,7 @@ function _renderPE() {
   r0.push(mkR('Viviendas Acumuladas',recTotalAcum,'pe-acum',v=>fmtPh(v,0)));
   s0.appendChild(mkT(r0)); C.appendChild(s0);
 
-  // 1: VT — Ingresos expandible, Costos agrupados en uno expandible
+  // ── SECCION 1: Negocio Venta de Tierra (Ingresos + Costos + Sanitario) ──
   const totalCostos = W.map((_,i) => totalInfra[i] + totalMitig[i] + totalComerc[i] + totalMant_a[i]);
   const costosDetail = {
     'Infraestructura': totalInfra,
@@ -11348,106 +11336,83 @@ function _renderPE() {
     'Comercializacion (2%)': totalComerc,
     'Mantencion': totalMant_a,
   };
-
-  const s1 = mkS('1','pe-badge-green','Negocio Venta de Tierra \u2014 ' + modeTitle);
-  let r1 = [];
-  r1.push(mkP('pe-ing','Ingresos Venta de Tierra',totalIng));
-  r1.push(mkCh('pe-ing',ingByZ,1));
-  r1.push(mkP('pe-cos','Costos Operativos',neg(totalCostos)));
-  r1.push(mkCh('pe-cos',costosDetail,-1));
-  r1.push(mkR('SUBTOTAL NEGOCIO VENTA TIERRA',subtotalVT,'pe-sub'));
-  r1.push(mkR('Venta Tierra Acumulado',subtotalVTAcum,'pe-acum'));
-  s1.appendChild(mkT(r1)); C.appendChild(s1);
-
-  // 2: Sanitario — solo resultado, detalle expandible
-  const s2 = mkS('2','pe-badge-blue','Resultado Sanitario');
-  let r2 = [];
   const sanDetail = {
     'Ingresos Operacionales': sanIng,
     'Costos Operacionales': sanCost.map(v => -v),
     'Inversiones Sanitarias': sanInv.map(v => -v),
     'Venta Negocio Sanitario': sanVenta,
   };
-  r2.push(mkP('pe-san','Resultado Sanitario',subtotalSan));
-  r2.push(mkCh('pe-san',sanDetail,1));
-  r2.push(mkR('Resultado Sanitario Acumulado',subtotalSanAcum,'pe-acum'));
+  // Subtotal Negocio = VT + Sanitario = negComb
+  const s1 = mkS('1','pe-badge-green','Negocio Venta de Tierra \u2014 ' + modeTitle);
+  let r1 = [];
+  r1.push(mkP('pe-ing','Ingresos Venta de Tierra',totalIng));
+  r1.push(mkCh('pe-ing',ingByZ,1));
+  r1.push(mkP('pe-cos','Costos Operativos',neg(totalCostos)));
+  r1.push(mkCh('pe-cos',costosDetail,-1));
+  r1.push(mkP('pe-san','Resultado Sanitario',subtotalSan));
+  r1.push(mkCh('pe-san',sanDetail,1));
+  r1.push(mkR('SUBTOTAL NEGOCIO VENTA TIERRA',negComb,'pe-sub'));
+  r1.push(mkR('Negocio Venta Tierra Acumulado',negCombAcum,'pe-acum'));
+  s1.appendChild(mkT(r1)); C.appendChild(s1);
+
+  // ── SECCION 2: Flujo de Caja Futuro (Factib por gastar 2026+) ──
+  const factPorGastar = factTotal.map((v,i) => W[i] >= 2026 ? v : 0);
+  const factDetPG = {};
+  for (const z of activeFactZones) factDetPG[z] = W.map((y,i) => W[i] >= 2026 ? gv(factByZone[z], y) : 0);
+  const flujoCajaFuturo = W.map((_,i) => negComb[i] - factPorGastar[i]);
+  const flujoCajaFuturoAcum = cumul(flujoCajaFuturo);
+
+  const s2 = mkS('\u2605','pe-badge-amber','Flujo de Caja Futuro \u2014 '+ml);
+  s2.style.cssText = 'margin-bottom:24px;border:2px solid #d97706;border-radius:10px;padding:12px 14px;background:#fffbeb';
+  let r2 = [];
+  r2.push(mkP('pe-fpg','Factibilizacion por Gastar (2026+)',neg(factPorGastar)));
+  r2.push(mkCh('pe-fpg',factDetPG,-1));
+  r2.push(mkR('FLUJO DE CAJA FUTURO',flujoCajaFuturo,'pe-sub'));
+  r2.push(mkR('Flujo de Caja Futuro Acumulado',flujoCajaFuturoAcum,'pe-acum'));
   s2.appendChild(mkT(r2)); C.appendChild(s2);
 
-  // 3: Combinado
-  const s3 = mkS('3','pe-badge-purple','Negocio Combinado');
+  // ── SECCION 3: Resultado Negocio (+ factib gastada cargada al 2026) ──
+  // Factibilizacion gastada (pre-2026) sumada y cargada al 2026
+  const factGastadaTotal = factTotal.reduce((s,v,i) => W[i] < 2026 ? s+v : s, 0);
+  const factGastadaCargada = W.map((_,i) => W[i] === 2026 ? factGastadaTotal : 0);
+  const resultadoNeg = W.map((_,i) => flujoCajaFuturo[i] - factGastadaCargada[i]);
+  const resultadoNegAcum = cumul(resultadoNeg);
+
+  const s3 = mkS('3','pe-badge-gray','Factibilizacion Gastada \u2192 Resultado Negocio');
   let r3 = [];
-  r3.push(mkR('NEGOCIO COMBINADO',negComb,'pe-total'));
-  r3.push(mkR('Negocio Combinado Acumulado',negCombAcum,'pe-acum'));
+  r3.push(mkR('Factibilizacion Gastada (2023-2025 cargada al 2026)', neg(factGastadaCargada), ''));
+  if (peSanVentaOn && sanVentaVal > 0) {
+    r3.push(mkR('Venta Negocio Sanitario (capitalizacion)', sanVenta, ''));
+  }
+  r3.push(mkR('RESULTADO NEGOCIO',resultadoNeg,'pe-total'));
+  r3.push(mkR('Resultado Negocio Acumulado',resultadoNegAcum,'pe-acum'));
   s3.appendChild(mkT(r3)); C.appendChild(s3);
 
-  // 4: Factib completa — PROTAGONISTA
-  const factDetAll = {};
-  for (const z of activeFactZones) {
-    factDetAll[z] = W.map(y => gv(factByZone[z], y));
-  }
-  const s4 = mkS('\u2605','pe-badge-amber','Flujo de Caja Real \u2014 '+ml);
-  s4.style.cssText = 'margin-bottom:24px;border:2px solid #d97706;border-radius:10px;padding:12px 14px;background:#fffbeb';
-  let r4 = [];
-  r4.push(mkP('pe-fac','Factibilizacion (gastada + por gastar)',neg(factTotal)));
-  r4.push(mkCh('pe-fac',factDetAll,-1));
-  r4.push(mkR('FLUJO DE CAJA REAL',flujoCR,'pe-sub'));
-  r4.push(mkR('Flujo de Caja Real Acumulado',flujoCRAcum,'pe-acum'));
-  s4.appendChild(mkT(r4)); C.appendChild(s4);
-
-  // 5: Tierra + Resultado
-  const s5 = mkS('5','pe-badge-gray','Costo Tierra \u2192 Resultado Negocio');
-  s5.style.cssText = 'margin-bottom:24px;opacity:0.85';
-  let r5 = [];
-  r5.push(mkP('pe-ti','Costo de la Tierra',neg(totalTierra)));
-  r5.push(mkCh('pe-ti',tierraZ,-1));
-  if (peSanVentaOn && sanVentaVal > 0) {
-    r5.push(mkR('Venta Negocio Sanitario (capitalizacion)', sanVenta, ''));
-  }
-  r5.push(mkR('RESULTADO NEGOCIO',resultNeg,'pe-total'));
-  r5.push(mkR('Resultado Negocio Acumulado',resultNegAcum,'pe-acum'));
-  s5.appendChild(mkT(r5)); C.appendChild(s5);
-
-  // ── VAN / TIR / Capital de Trabajo ──
-  const vanRate = 0.08;
-  // NPV calculation
-  let npv = 0;
-  for (let i = 0; i < W.length; i++) npv += resultNeg[i] / Math.pow(1 + vanRate, i);
-  // IRR calculation (Newton-Raphson)
-  let irr = 0.10;
-  for (let iter = 0; iter < 200; iter++) {
-    let fv = 0, dfv = 0;
-    for (let i = 0; i < W.length; i++) {
-      const d = Math.pow(1 + irr, i);
-      fv += resultNeg[i] / d;
-      dfv -= i * resultNeg[i] / Math.pow(1 + irr, i + 1);
-    }
-    if (Math.abs(dfv) < 1e-12) break;
-    const nxt = irr - fv / dfv;
-    if (Math.abs(nxt - irr) < 1e-8) { irr = nxt; break; }
-    irr = nxt;
-  }
-  // Payback
+  // ── Indicadores ──
+  // Payback sobre resultadoNegAcum
   let pbYear = null;
-  { let cum = 0; for (let i = 0; i < W.length; i++) { cum += resultNeg[i]; if (cum > 0 && !pbYear) { pbYear = W[i]; break; } } }
-  // Capital de Trabajo sobre Flujo de Caja Real (sin tierra)
+  for (let i = 1; i < W.length; i++) {
+    if (resultadoNegAcum[i] >= 0 && resultadoNegAcum[i-1] < 0) { pbYear = W[i]; break; }
+  }
+  // Capital de Trabajo sobre flujoCajaFuturo
   let capMax = 0, cumCap = 0, cum2025 = 0;
   for (let i = 0; i < W.length; i++) {
-    cumCap += flujoCR[i];
+    cumCap += flujoCajaFuturo[i];
     if (W[i] <= 2025) cum2025 = cumCap;
     if (cumCap < capMax) capMax = cumCap;
   }
   const capTrabajo = Math.round(Math.abs(capMax));
+  const capGastado = Math.round(Math.abs(cum2025));
   const capPorGastar = Math.round(cum2025 - capMax);
 
   const sKpi = mkS('\u2261','pe-badge-gray','Indicadores Financieros');
   const kpiDiv = document.createElement('div');
-  kpiDiv.style.cssText = 'display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-top:6px';
+  kpiDiv.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-top:6px';
   const kpis = [
-    { label:'VAN (8%)', value: fmtCV(npv) + peUnit, color: npv >= 0 ? '#16a34a' : '#dc2626' },
-    { label:'TIR', value: isFinite(irr) ? (irr * 100).toFixed(1) + '%' : '\u2014', color: irr > vanRate ? '#16a34a' : '#dc2626' },
-    { label:'Payback', value: pbYear || '\u2014', color: '#d97706' },
     { label:'Capital de Trabajo', value: fmtCV(capTrabajo) + peUnit, color: '#dc2626' },
-    { label:'KdT por Gastar', value: fmtCV(capPorGastar) + peUnit, color: '#d97706' },
+    { label:'Capital Gastado', value: fmtCV(capGastado) + peUnit, color: '#d97706' },
+    { label:'Capital por Gastar', value: fmtCV(capPorGastar) + peUnit, color: '#d97706' },
+    { label:'Payback', value: pbYear || '\u2014', color: '#d97706' },
   ];
   kpis.forEach(function(k) {
     const card = document.createElement('div');
@@ -11465,33 +11430,20 @@ function _renderPE() {
   sKpi.appendChild(kpiDiv);
   C.appendChild(sKpi);
 
-  // ══ EXECUTIVE CHART: Flujo de Caja Real — lámina de directorio ══
-  // Key metrics for annotations
+  // ══ EXECUTIVE CHART: Flujo de Caja Futuro — Resumen Ejecutivo ══
   let lastNegYear = null, maxNegYear = null, maxNegVal = 0;
-  let maxPosYear = null, maxPosVal = 0;
   for (let i = 0; i < W.length; i++) {
-    if (flujoCR[i] < 0) lastNegYear = W[i];
-    if (flujoCR[i] < maxNegVal) { maxNegVal = flujoCR[i]; maxNegYear = W[i]; }
-    if (flujoCR[i] > maxPosVal) { maxPosVal = flujoCR[i]; maxPosYear = W[i]; }
+    if (flujoCajaFuturo[i] < 0) lastNegYear = W[i];
+    if (flujoCajaFuturo[i] < maxNegVal) { maxNegVal = flujoCajaFuturo[i]; maxNegYear = W[i]; }
   }
-  // Payback: primer a\u00f1o donde acumulado >= 0 y el anterior era negativo
-  // Payback: basado en Resultado Negocio (incluye factib gastada + tierra)
-  let paybackFCR = null;
-  for (let i = 1; i < W.length; i++) {
-    if (resultNegAcum[i] >= 0 && resultNegAcum[i-1] < 0) { paybackFCR = W[i]; break; }
-  }
-  // Capital de trabajo (piso del acumulado)
-  let minAcumVal = 0, minAcumYear = null;
-  for (let i = 0; i < W.length; i++) {
-    if (flujoCRAcum[i] < minAcumVal) { minAcumVal = flujoCRAcum[i]; minAcumYear = W[i]; }
-  }
+  const paybackFCR = pbYear; // already calculated above
 
   const chartSec = document.createElement('div');
   chartSec.style.cssText = 'margin-top:20px;background:#0f172a;border-radius:12px;padding:20px 24px;color:#f8fafc';
 
   const chartTitle = document.createElement('div');
   chartTitle.style.cssText = 'font-size:16px;font-weight:700;margin-bottom:4px';
-  chartTitle.textContent = 'Flujo de Caja Real \u2014 Resumen Ejecutivo';
+  chartTitle.textContent = 'Flujo de Caja Futuro \u2014 Resumen Ejecutivo';
   chartSec.appendChild(chartTitle);
 
   const chartSub = document.createElement('div');
@@ -11504,8 +11456,8 @@ function _renderPE() {
   let alwaysPosYear = null;
   for (let i = 0; i < W.length; i++) {
     let allPos = true;
-    for (let j = i; j < W.length; j++) { if (flujoCR[j] < 0) { allPos = false; break; } }
-    if (allPos && flujoCR[i] > 0) { alwaysPosYear = W[i]; break; }
+    for (let j = i; j < W.length; j++) { if (flujoCajaFuturo[j] < 0) { allPos = false; break; } }
+    if (allPos && flujoCajaFuturo[i] > 0) { alwaysPosYear = W[i]; break; }
   }
 
   const msgRow = document.createElement('div');
@@ -11549,7 +11501,7 @@ function _renderPE() {
 
   // Build chart — solo barras, sin linea acumulada
   if (peChart) { peChart.destroy(); peChart = null; }
-  const fcrUF = flujoCR.map(v => peIsUSD ? Math.round(cv(v)*100)/100 : Math.round(cv(v)));
+  const fcrUF = flujoCajaFuturo.map(v => peIsUSD ? Math.round(cv(v)*100)/100 : Math.round(cv(v)));
   const barColors = fcrUF.map((v,i) => W[i] === paybackFCR ? 'rgba(245,158,11,0.95)' : v >= 0 ? 'rgba(22,163,74,0.75)' : 'rgba(220,38,38,0.65)');
 
   peChart = new Chart(chartCvs.getContext('2d'), {
@@ -11557,7 +11509,7 @@ function _renderPE() {
     data:{
       labels: W,
       datasets:[
-        { label:'Flujo Caja Real ('+peCurrency+')', data:fcrUF, backgroundColor:barColors, borderRadius:3 },
+        { label:'Flujo Caja Futuro ('+peCurrency+')', data:fcrUF, backgroundColor:barColors, borderRadius:3 },
       ],
     },
     options:{
@@ -11583,7 +11535,7 @@ function _renderPE() {
   // Para cada año t: NPV de flujos desde t hasta el final, descontados al 8%
   const vanResidual = W.map((_,t) => {
     let v = 0;
-    for (let i = t; i < W.length; i++) v += resultNeg[i] / Math.pow(1 + vanRate, i - t);
+    for (let i = t; i < W.length; i++) v += resultadoNeg[i] / Math.pow(1 + vanRate, i - t);
     return v;
   });
   const vanResUF = vanResidual.map(v => peIsUSD ? Math.round(cv(v)*100)/100 : Math.round(cv(v)));
@@ -11641,9 +11593,9 @@ function _renderPE() {
     subtotalVT, subtotalVTAcum,
     sanIng, sanCost, sanInv, sanVenta, subtotalSan, subtotalSanAcum,
     negComb, negCombAcum,
-    factTotal, factDetAll, flujoCR, flujoCRAcum,
-    totalTierra, tierraZ, resultNeg, resultNegAcum,
-    npv, irr, pbYear, capTrabajo, capPorGastar,
+    factPorGastar, factDetPG, flujoCajaFuturo, flujoCajaFuturoAcum,
+    factGastadaCargada, resultadoNeg, resultadoNegAcum,
+    pbYear, capTrabajo, capGastado, capPorGastar,
     vanResidual, modeTitle, ml,
   };
 }
@@ -11725,54 +11677,33 @@ async function downloadPEXlsx() {
   addR('SUBTOTAL NEGOCIO VENTA TIERRA', d.subtotalVT, {bold:true, fill:'FFF0FDF4'});
   addR('Venta Tierra Acumulado', d.subtotalVTAcum, {italic:true, color:'FF7C3AED'});
 
-  // ── Resultado Sanitario ──
-  ws.addRow([]);
-  addR('RESULTADO SANITARIO', [], {bold:true, fill:'FFEFF6FF'});
-  addR('Ingresos Operacionales', d.sanIng);
-  addR('Costos Operacionales', neg(d.sanCost));
-  addR('Inversiones Sanitarias', neg(d.sanInv));
-  addR('Venta Negocio Sanitario', d.sanVenta);
-  addR('RESULTADO SANITARIO', d.subtotalSan, {bold:true, fill:'FFEFF6FF'});
-  addR('Resultado Sanitario Acumulado', d.subtotalSanAcum, {italic:true, color:'FF7C3AED'});
+  // ── Resultado Sanitario (dentro de Negocio VT) ──
+  addR('Resultado Sanitario', d.subtotalSan);
+  addR('  Ingresos Operacionales', d.sanIng);
+  addR('  Costos Operacionales', neg(d.sanCost));
+  addR('  Inversiones Sanitarias', neg(d.sanInv));
+  if (d.sanVenta) addR('  Venta Negocio Sanitario', d.sanVenta);
+  addR('SUBTOTAL NEGOCIO VENTA TIERRA', d.negComb, {bold:true, fill:'FFF0FDF4'});
+  addR('Negocio Venta Tierra Acumulado', d.negCombAcum, {italic:true, color:'FF7C3AED'});
 
-  // ── Negocio Combinado ──
+  // ── Flujo de Caja Futuro ──
   ws.addRow([]);
-  addR('NEGOCIO COMBINADO', d.negComb, {bold:true, fill:'FFF5F3FF'});
-  addR('Negocio Combinado Acumulado', d.negCombAcum, {italic:true, color:'FF7C3AED'});
+  addR('FLUJO DE CAJA FUTURO — '+(d.ml||''), [], {bold:true, fill:'FFFFFBEB'});
+  addR('Factibilizacion por Gastar (2026+)', neg(d.factPorGastar));
+  if (d.factDetPG) Object.entries(d.factDetPG).forEach(([z,v]) => addR('  '+z, neg(v)));
+  addR('FLUJO DE CAJA FUTURO', d.flujoCajaFuturo, {bold:true, fill:'FFFFFBEB'});
+  addR('Flujo Caja Futuro Acumulado', d.flujoCajaFuturoAcum, {italic:true, color:'FF7C3AED'});
 
-  // ── Factibilizacion (completa) ──
+  // ── Resultado Negocio ──
   ws.addRow([]);
-  addR('FACTIBILIZACION — '+(d.ml||''), [], {bold:true, fill:'FFFFFBEB'});
-  addR('Factibilizacion Total', neg(d.factTotal));
-  if (d.factDetAll) Object.entries(d.factDetAll).forEach(([z,v]) => addR('  '+z, neg(v)));
-  addR('FLUJO DE CAJA REAL', d.flujoCR, {bold:true, fill:'FFFFFBEB'});
-  addR('Flujo Caja Real Acumulado', d.flujoCRAcum, {italic:true, color:'FF7C3AED'});
+  addR('Factibilizacion Gastada (2023-2025 al 2026)', neg(d.factGastadaCargada));
+  if (peSanVentaOn && d.sanVenta) addR('Venta Negocio Sanitario', d.sanVenta);
+  const flujoRow = addR('RESULTADO NEGOCIO', d.resultadoNeg, {bold:true, fill:'FFFEF2F2'});
+  addR('Resultado Negocio Acumulado', d.resultadoNegAcum, {italic:true, color:'FF7C3AED'});
 
-  // ── Tierra → Resultado Negocio ──
-  ws.addRow([]);
-  addR('COSTO TIERRA', [], {bold:true, fill:'FFFEF2F2'});
-  addR('Costo de la Tierra', neg(d.totalTierra));
-  Object.entries(d.tierraZ).forEach(([z,v]) => addR('  '+z, neg(v)));
-  if (peSanVentaOn) addR('Venta Negocio Sanitario', d.sanVenta);
-  const flujoRow = addR('RESULTADO NEGOCIO', d.resultNeg, {bold:true, fill:'FFFEF2F2'});
-  addR('Resultado Negocio Acumulado', d.resultNegAcum, {italic:true, color:'FF7C3AED'});
-
-  // ── Indicadores con formulas ──
+  // ── Indicadores ──
   ws.addRow([]);
   addR('INDICADORES FINANCIEROS', [], {bold:true, fill:'FFF1F5F9'});
-  const fRow = flujoRow.number;
-  const fCol = colLetter(0);
-  const lCol = colLetter(N-1);
-
-  const vanRow = ws.addRow(['VAN (8%)']);
-  vanRow.getCell(2).value = { formula: fCol+fRow+'+NPV(0.08,'+colLetter(1)+fRow+':'+lCol+fRow+')' };
-  vanRow.getCell(2).numFmt = NFmt;
-  vanRow.font = { size:11, bold:true };
-
-  const tirRow = ws.addRow(['TIR']);
-  tirRow.getCell(2).value = { formula: 'IRR('+fCol+fRow+':'+lCol+fRow+')' };
-  tirRow.getCell(2).numFmt = '0.0%';
-  tirRow.font = { size:11, bold:true };
 
   const pbRow = ws.addRow(['PAYBACK', d.pbYear || 'N/A']);
   pbRow.font = { size:11, bold:true };
@@ -11781,7 +11712,11 @@ async function downloadPEXlsx() {
   kdtRow.getCell(2).numFmt = NFmt;
   kdtRow.font = { size:11, bold:true };
 
-  const kdtPGRow = ws.addRow(['KdT por Gastar', d.capPorGastar]);
+  const kdtGRow = ws.addRow(['Capital Gastado', d.capGastado]);
+  kdtGRow.getCell(2).numFmt = NFmt;
+  kdtGRow.font = { size:11, bold:true };
+
+  const kdtPGRow = ws.addRow(['Capital por Gastar', d.capPorGastar]);
   kdtPGRow.getCell(2).numFmt = NFmt;
   kdtPGRow.font = { size:11, bold:true };
 
