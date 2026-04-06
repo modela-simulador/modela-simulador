@@ -11111,7 +11111,7 @@ function _renderPE() {
 
   // Comercializacion y Mantencion
   const totalComerc = isFull ? W.map(y => gv(comercializacionByYear, y)) : totalIng.map(v => Math.round(v * 0.02));
-  const totalMant_a = W.map(y => gv(mantByYear, y));
+  const totalMant_a = isOnlyPDUC ? W.map(() => 0) : W.map(y => gv(mantByYear, y));
 
   const subtotalVT = W.map((_,i) => totalIng[i] - totalInfra[i] - totalMitig[i] - totalComerc[i] - totalMant_a[i]);
   const subtotalVTAcum = cumul(subtotalVT);
