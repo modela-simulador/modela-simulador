@@ -11250,7 +11250,7 @@ function _renderPE() {
   const haTotalAcum = cumul(haTotal);
 
   const chartIng = W.map((_,i) => totalIng[i] + sanIng[i] + sanVenta[i]);
-  const chartCos = W.map((_,i) => -(totalInfra[i]+totalMitig[i]+totalComerc[i]+totalMant_a[i]+sanCost[i]+sanInv[i]+factTotal[i]+totalTierra[i]));
+  const chartCos = W.map((_,i) => -(totalInfra[i]+totalMitig[i]+totalComerc[i]+totalMant_a[i]+sanCost[i]+sanInv[i]+factTotal[i]));
 
   // DOM builders
   const tgl = document.createElement('div'); tgl.className = 'pe-toggle';
