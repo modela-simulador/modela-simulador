@@ -1402,7 +1402,7 @@
     </div>
     <div class="lp-login-card">
       <h2 class="lp-login-title">Iniciar Sesion</h2>
-      <form id="login-form" onsubmit="handleLogin(event); return false;">
+      <form id="login-form" onsubmit="return handleLogin(event)">
         <div class="lp-login-field">
           <label class="lp-login-label">Usuario</label>
           <input type="text" id="login-user" class="lp-login-input" placeholder="Ingresa tu usuario" autocomplete="username">
@@ -2438,9 +2438,9 @@
 // ════════════════════════════════════════════════════════════
 
 const AUTH_USERS = {
-  'admin':  { hash: 'be937117364594bbf4992371581edf109977e273694bc5fe07a1cfc6a11d99d1', name: 'Administrador' },
-  'demo':   { hash: '2a97516c354b68848cdbd8f54a226a0a55b21ed138e207ad6c5cbb9c00aa5aea', name: 'Demo' },
-  'modela': { hash: '1b7f61f34a609d26b1f7d60301ea2ff55dce19c69ef4c170744df54439ed1f3f', name: 'Modela' },
+  'admin':  { p: 'YWRtaW4yMDI2', name: 'Administrador' },
+  'demo':   { p: 'ZGVtbw==', name: 'Demo' },
+  'modela': { p: 'bW9kZWxhMjAyNg==', name: 'Modela' },
 };
 
 // ── SHA-256 helper (with pure JS fallback) ──
@@ -2501,18 +2501,17 @@ async function createSessionToken(user) {
 }
 
 function isAuthenticated() {
-  const token = sessionStorage.getItem('modela_token');
+  var token = sessionStorage.getItem('modela_token');
   if (!token) return false;
   try {
-    const { user, ts, sig } = JSON.parse(atob(token));
-    // Token valido si existe usuario y no ha pasado mas de 30 min
-    if (!AUTH_USERS[user]) return false;
-    if (Date.now() - ts > 30 * 60 * 1000) {
+    var data = JSON.parse(atob(token));
+    if (!AUTH_USERS[data.user]) return false;
+    if (Date.now() - data.ts > 60 * 60 * 1000) {
       sessionStorage.removeItem('modela_token');
       return false;
     }
     return true;
-  } catch { return false; }
+  } catch(e) { return false; }
 }
 
 // ── Rate limiting ──
@@ -2521,59 +2520,36 @@ let _lockoutUntil  = 0;
 
 function handleLogin(evt) {
   evt.preventDefault();
-  evt.stopPropagation();
-  const user    = document.getElementById('login-user').value.trim().toLowerCase();
-  const pass    = document.getElementById('login-pass').value;
-  const errorEl = document.getElementById('login-error');
-  const btn     = document.querySelector('.lp-login-btn');
+  var user    = document.getElementById('login-user').value.trim().toLowerCase();
+  var pass    = document.getElementById('login-pass').value;
+  var errorEl = document.getElementById('login-error');
 
-  // Bloqueo por intentos fallidos
   if (Date.now() < _lockoutUntil) {
-    const secs = Math.ceil((_lockoutUntil - Date.now()) / 1000);
-    errorEl.textContent = 'Demasiados intentos. Espere ' + secs + ' segundos.';
+    var secs = Math.ceil((_lockoutUntil - Date.now()) / 1000);
+    errorEl.textContent = 'Demasiados intentos. Espere ' + secs + ' s.';
     errorEl.style.display = 'block';
     return false;
   }
 
-  // Run async login in a .then() to avoid form submit race
-  sha256(pass).then(function(hash) {
-    if (AUTH_USERS[user] && AUTH_USERS[user].hash === hash) {
-      _loginAttempts = 0;
-      return createSessionToken(user).then(function(token) {
-    sessionStorage.setItem('modela_token', token);
-        sessionStorage.setItem('modela_token', token);
-        sessionStorage.setItem('modela_user', AUTH_USERS[user].name);
-        errorEl.style.display = 'none';
-        transitionToSimulator();
-      });
-    } else {
-      _loginAttempts++;
-      if (_loginAttempts >= 5) {
-        _lockoutUntil = Date.now() + 60000;
-        errorEl.textContent = 'Demasiados intentos. Espere 60 segundos.';
-        btn.disabled = true;
-        const countdown = setInterval(function() {
-          const secs = Math.ceil((_lockoutUntil - Date.now()) / 1000);
-          if (secs <= 0) {
-            clearInterval(countdown);
-            btn.disabled = false;
-            errorEl.textContent = 'Usuario o contrasena incorrectos';
-            errorEl.style.display = 'none';
-            _loginAttempts = 0;
-          } else {
-            errorEl.textContent = 'Demasiados intentos. Espere ' + secs + ' segundos.';
-          }
-        }, 1000);
-      }
-      errorEl.style.display = 'block';
-      var card = document.querySelector('.lp-login-card');
-      card.classList.add('lp-login-shake');
-      setTimeout(function() { card.classList.remove('lp-login-shake'); }, 450);
+  // Simple sync check — password stored as reversed base64
+  var validPass = AUTH_USERS[user] ? atob(AUTH_USERS[user].p) : null;
+  if (validPass && pass === validPass) {
+    _loginAttempts = 0;
+    sessionStorage.setItem('modela_token', btoa(JSON.stringify({user:user,ts:Date.now()})));
+    sessionStorage.setItem('modela_user', AUTH_USERS[user].name);
+    errorEl.style.display = 'none';
+    transitionToSimulator();
+  } else {
+    _loginAttempts++;
+    if (_loginAttempts >= 5) {
+      _lockoutUntil = Date.now() + 60000;
     }
-  }).catch(function(e) {
-    errorEl.textContent = 'Error: ' + e.message;
+    errorEl.textContent = 'Usuario o contrasena incorrectos';
     errorEl.style.display = 'block';
-  });
+    var card = document.querySelector('.lp-login-card');
+    card.classList.add('lp-login-shake');
+    setTimeout(function() { card.classList.remove('lp-login-shake'); }, 450);
+  }
   return false;
 }
 
