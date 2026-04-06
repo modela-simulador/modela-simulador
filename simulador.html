@@ -11123,16 +11123,28 @@ function _renderPE() {
   // Sanitario — siempre recalcular inversiones con viviendas recepcionadas acumuladas
   const sanIng = W.map(y => Math.max(0, gv(sanitariaIngByYear, y)));
   const sanCost = W.map(y => gv(sanitariaOpCostByYear, y));
+  // Inversiones sanitarias: etapa 1 = 100% al gatillar, etapa 2+ = 55% ano 1 + 45% ano 2
   const peTriggered = new Array(PLANTA_SANITARIA.length).fill(false);
-  const sanInv = W.map((_,i) => {
-    if (recTotalAcum[i] === 0) return 0;
-    let inv = 0;
+  const sanInvRaw = new Array(W.length).fill(0);
+  for (let i = 0; i < W.length; i++) {
+    if (recTotalAcum[i] === 0) continue;
     for (let j = 0; j < PLANTA_SANITARIA.length; j++) {
       if (peTriggered[j]) continue;
-      if (recTotalAcum[i] >= PLANTA_SANITARIA[j].viv) { peTriggered[j] = true; inv += PLANTA_SANITARIA[j].monto; }
+      if (recTotalAcum[i] >= PLANTA_SANITARIA[j].viv) {
+        peTriggered[j] = true;
+        const m = PLANTA_SANITARIA[j].monto;
+        if (j === 0) {
+          // Etapa 1: 100% el ano de gatillamiento
+          sanInvRaw[i] += m;
+        } else {
+          // Etapa 2+: 55% ano 1, 45% ano 2
+          sanInvRaw[i] += Math.round(m * 0.55);
+          if (i + 1 < W.length) sanInvRaw[i + 1] += Math.round(m * 0.45);
+        }
+      }
     }
-    return inv;
-  });
+  }
+  const sanInv = sanInvRaw;
   // Venta sanitaria: solo si toggle está activo, se calcula en el último año de la ventana
   const sanVenta = W.map(() => 0);
   let sanVentaVal = 0;
@@ -11670,29 +11682,30 @@ async function downloadPEXlsx() {
   ws2.getColumn(1).width = 8;
   ws2.getColumn(2).width = 22;
   ws2.getColumn(3).width = 18;
-  ws2.getColumn(4).width = 18;
-  ws2.getColumn(5).width = 16;
+  ws2.getColumn(4).width = 14;
+  ws2.getColumn(5).width = 14;
+  ws2.getColumn(6).width = 18;
+  ws2.getColumn(7).width = 12;
 
   // Header
-  const hdr2 = ws2.addRow(['Etapa', 'Umbral Viviendas Acum.', 'Inversion (UF)', 'Inversion Acum. (UF)', 'Gatillada']);
+  const hdr2 = ws2.addRow(['Etapa', 'Umbral Viv. Acum.', 'Inversion (UF)', 'Ano 1 (55%)', 'Ano 2 (45%)', 'Inv. Acum. (UF)', 'Gatillada']);
   hdr2.font = { bold:true, size:10, color:{argb:'FFF8FAFC'} };
   hdr2.fill = { type:'pattern', pattern:'solid', fgColor:{argb:'FF0F172A'} };
 
   let cumInvSan = 0;
   PLANTA_SANITARIA.forEach(function(p, idx) {
     cumInvSan += p.monto;
-    // Check if this plant was triggered in the PE flow
     let triggered = false;
     const recAcum = d.recTotalAcum;
     for (let i = 0; i < recAcum.length; i++) {
       if (recAcum[i] >= p.viv && recAcum[i] > 0) { triggered = true; break; }
     }
-    const row = ws2.addRow([idx + 1, p.viv, p.monto, cumInvSan, triggered ? 'Si' : 'No']);
+    const a1 = idx === 0 ? p.monto : Math.round(p.monto * 0.55);
+    const a2 = idx === 0 ? 0 : Math.round(p.monto * 0.45);
+    const row = ws2.addRow([idx + 1, p.viv, p.monto, a1, a2, cumInvSan, triggered ? 'Si' : 'No']);
     row.getCell(1).font = { size:10, bold:true };
-    row.getCell(2).numFmt = NFmt;
-    row.getCell(3).numFmt = NFmt;
-    row.getCell(4).numFmt = NFmt;
-    row.getCell(5).font = { size:10, bold:true, color:{ argb: triggered ? 'FF16A34A' : 'FF94A3B8' } };
+    for (let c = 2; c <= 6; c++) row.getCell(c).numFmt = NFmt;
+    row.getCell(7).font = { size:10, bold:true, color:{ argb: triggered ? 'FF16A34A' : 'FF94A3B8' } };
     if (triggered) row.fill = { type:'pattern', pattern:'solid', fgColor:{argb:'FFF0FDF4'} };
   });
 
