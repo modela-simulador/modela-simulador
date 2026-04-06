@@ -11171,14 +11171,14 @@ function _renderPE() {
 
   let sanIng, sanCost, sanInv;
   if (isOnlyPDUC) {
-    // Solo PDUC: sanitaria = full - AUDP-only (for each component)
+    // Solo PDUC: sanitaria = full project - AUDP only (diferencia exacta)
     const fullOp = calcSanOp(recFullAcum);
     const audpOp = calcSanOp(recAudpAcum);
-    sanIng = W.map((_,i) => Math.max(0, fullOp.ing[i] - audpOp.ing[i]));
-    sanCost = W.map((_,i) => Math.max(0, fullOp.cost[i] - audpOp.cost[i]));
+    sanIng = W.map((_,i) => fullOp.ing[i] - audpOp.ing[i]);
+    sanCost = W.map((_,i) => fullOp.cost[i] - audpOp.cost[i]);
     const sanInvFull = calcSanInv(recFullAcum);
     const sanInvAudp = calcSanInv(recAudpAcum);
-    sanInv = W.map((_,i) => Math.max(0, sanInvFull[i] - sanInvAudp[i]));
+    sanInv = W.map((_,i) => sanInvFull[i] - sanInvAudp[i]);
   } else {
     const useAcum = isFull ? recFullAcum : recAudpAcum;
     const ops = calcSanOp(useAcum);
