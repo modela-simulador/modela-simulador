@@ -11042,25 +11042,28 @@ function _renderPE() {
   const ALL_HAB = [...AUDP, ...PDUC_HAB];
   const LAG = 2;
   const isFull = peMode === 'full';
-  const incPDUC = peMode === 'pduc' || isFull;
+  const isOnlyPDUC = peMode === 'onlypduc';
+  const incPDUC = peMode === 'pduc' || isFull || isOnlyPDUC;
 
   // Active zones for ingresos/costos
-  const activeIngZones = isFull ? ALL_HAB : AUDP;
-  const activeMitGroups = isFull ? ['AUDP Batuco', 'AUDP Colina', 'PDUC'] : AUDP;
-  const activeInfraZones = isFull ? [...AUDP, ...PDUC_HAB, 'Ciudad Industrial'] : AUDP;
-  const activeTierraZones = isFull ? ALL_HAB : AUDP;
-  const activeFactZones = incPDUC ? [...AUDP, ...PDUC_FACT] : [...AUDP];
+  const activeIngZones = isOnlyPDUC ? PDUC_HAB : (isFull ? ALL_HAB : AUDP);
+  const activeMitGroups = isOnlyPDUC ? ['PDUC'] : (isFull ? ['AUDP Batuco', 'AUDP Colina', 'PDUC'] : AUDP);
+  const activeInfraZones = isOnlyPDUC ? [...PDUC_HAB, 'Ciudad Industrial'] : (isFull ? [...AUDP, ...PDUC_HAB, 'Ciudad Industrial'] : AUDP);
+  const activeTierraZones = isOnlyPDUC ? PDUC_HAB : (isFull ? ALL_HAB : AUDP);
+  const activeFactZones = isOnlyPDUC ? [...PDUC_FACT] : (incPDUC ? [...AUDP, ...PDUC_FACT] : [...AUDP]);
 
-  // Window: from 2023 to last reception year (AUDP or all zones depending on mode)
-  const recZones = isFull ? ALL_HAB : AUDP;
+  // Window: from 2023 to last reception year
+  const recZones = (isFull || isOnlyPDUC) ? ALL_HAB : AUDP;
+  // For Solo PDUC, window extends to end of sim (PDUC goes longer)
+  const recZonesWindow = isOnlyPDUC ? PDUC_HAB : recZones;
   let lastRecY = years[0];
   for (const y of years) {
     let rec = 0;
-    for (const z of recZones) rec += (unitsByZone[z]?.[y - LAG] ?? 0);
+    for (const z of recZonesWindow) rec += (unitsByZone[z]?.[y - LAG] ?? 0);
     if (rec > 0) lastRecY = y;
   }
-  // Full mode: extend to end of simulation
-  let endY = isFull ? years[years.length - 1] : lastRecY;
+  // Full or onlyPDUC: extend to end of simulation
+  let endY = (isFull || isOnlyPDUC) ? years[years.length - 1] : lastRecY;
   if (peCutoffYear > 0 && peCutoffYear < endY) endY = peCutoffYear;
   const W = [];
   for (let y = 2023; y <= endY; y++) W.push(y);
@@ -11088,8 +11091,8 @@ function _renderPE() {
   // Ingresos por zona (hab + com mayor + com menor)
   const ingByZ = {};
   for (const z of activeIngZones) ingByZ[z] = W.map(y => gv(revenueByZone[z],y) + gv(commercialRevByZone?.[z],y) + gv(comMenorRevByZone?.[z],y));
-  // Full mode: add industrial + otros as pseudo-zones in ingresos
-  if (isFull) {
+  // Full/onlyPDUC mode: add industrial + otros as pseudo-zones in ingresos
+  if (isFull || isOnlyPDUC) {
     ingByZ['Industrial'] = W.map(y => gv(industrialRevByYear, y));
     ingByZ['Otros Usos D4.0'] = W.map(y => gv(otrosRevByYear, y));
   }
@@ -11107,44 +11110,82 @@ function _renderPE() {
   const totalMitig = W.map((_,i) => Object.values(mitigZ).reduce((s,a) => s + a[i], 0));
 
   // Comercializacion y Mantencion
-  const totalComerc = isFull ? W.map(y => gv(comercializacionByYear, y)) : totalIng.map(v => Math.round(v * 0.02));
+  const totalComerc = (isFull || isOnlyPDUC) ? W.map(y => gv(comercializacionByYear, y)) : totalIng.map(v => Math.round(v * 0.02));
   const totalMant_a = W.map(y => gv(mantByYear, y));
 
   const subtotalVT = W.map((_,i) => totalIng[i] - totalInfra[i] - totalMitig[i] - totalComerc[i] - totalMant_a[i]);
   const subtotalVTAcum = cumul(subtotalVT);
 
   // Viviendas recepcionadas
-  const vivZones = isFull ? ALL_HAB : AUDP;
+  const vivZones = (isFull || isOnlyPDUC) ? ALL_HAB : AUDP;
   const recByZ = {};
-  for (const z of vivZones) recByZ[z] = W.map(y => (unitsByZone[z]?.[y - LAG] ?? 0));
+  const vivDisplay = isOnlyPDUC ? PDUC_HAB : vivZones; // what to show in table
+  for (const z of vivDisplay) recByZ[z] = W.map(y => (unitsByZone[z]?.[y - LAG] ?? 0));
+  // recTotal for display uses only displayed zones
   const recTotal = W.map((_,i) => Object.values(recByZ).reduce((s,a) => s + a[i], 0));
   const recTotalAcum = cumul(recTotal);
 
-  // Sanitario — siempre recalcular inversiones con viviendas recepcionadas acumuladas
-  const sanIng = W.map(y => Math.max(0, gv(sanitariaIngByYear, y)));
-  const sanCost = W.map(y => gv(sanitariaOpCostByYear, y));
-  // Inversiones sanitarias: etapa 1 = 100% al gatillar, etapa 2+ = 55% ano 1 + 45% ano 2
-  const peTriggered = new Array(PLANTA_SANITARIA.length).fill(false);
-  const sanInvRaw = new Array(W.length).fill(0);
-  for (let i = 0; i < W.length; i++) {
-    if (recTotalAcum[i] === 0) continue;
-    for (let j = 0; j < PLANTA_SANITARIA.length; j++) {
-      if (peTriggered[j]) continue;
-      if (recTotalAcum[i] >= PLANTA_SANITARIA[j].viv) {
-        peTriggered[j] = true;
-        const m = PLANTA_SANITARIA[j].monto;
-        if (j === 0) {
-          // Etapa 1: 100% el ano de gatillamiento
-          sanInvRaw[i] += m;
-        } else {
-          // Etapa 2+: 55% ano 1, 45% ano 2
-          sanInvRaw[i] += Math.round(m * 0.55);
-          if (i + 1 < W.length) sanInvRaw[i + 1] += Math.round(m * 0.45);
+  // For sanitaria: always need full + audp-only viviendas acumuladas
+  const recFullAcum = cumul(W.map(y => ALL_HAB.reduce((s,z) => s + (unitsByZone[z]?.[y-LAG]??0), 0)));
+  const recAudpAcum = cumul(W.map(y => AUDP.reduce((s,z) => s + (unitsByZone[z]?.[y-LAG]??0), 0)));
+
+  // Helper: calculate sanInv with 55/45 split from a given recAcum array
+  function calcSanInv(recAcum) {
+    const triggered = new Array(PLANTA_SANITARIA.length).fill(false);
+    const raw = new Array(W.length).fill(0);
+    for (let i = 0; i < W.length; i++) {
+      if (recAcum[i] === 0) continue;
+      for (let j = 0; j < PLANTA_SANITARIA.length; j++) {
+        if (triggered[j]) continue;
+        if (recAcum[i] >= PLANTA_SANITARIA[j].viv) {
+          triggered[j] = true;
+          const m = PLANTA_SANITARIA[j].monto;
+          if (j === 0) { raw[i] += m; }
+          else { raw[i] += Math.round(m * 0.55); if (i+1 < W.length) raw[i+1] += Math.round(m * 0.45); }
         }
       }
     }
+    return raw;
   }
-  const sanInv = sanInvRaw;
+
+  // Sanitario: for Solo PDUC = full - audp; otherwise use appropriate recAcum
+  // Sanitaria ingresos/costos: recalculate from formulas for each scenario
+  // Formula: ing = cumViv * 11.13 - 3449 (year 1: -3449/3)
+  // Formula: cost = cumViv * 3.35 + 21548/divisor (yr1:2.75, yr2:2.5, yr3:2, yr4+:1)
+  function calcSanOp(recAcum) {
+    let firstIdx = -1;
+    const ing = new Array(W.length).fill(0);
+    const cost = new Array(W.length).fill(0);
+    for (let i = 0; i < W.length; i++) {
+      const cv = recAcum[i];
+      if (cv === 0) continue;
+      if (firstIdx < 0) firstIdx = i;
+      const raw = (firstIdx === i) ? cv * 11.13 - 3449/3 : cv * 11.13 - 3449;
+      ing[i] = Math.max(0, raw);
+      const rel = i - firstIdx + 1;
+      const div = rel === 1 ? 2.75 : rel === 2 ? 2.5 : rel === 3 ? 2 : 1;
+      cost[i] = cv * 3.35 + 21548 / div;
+    }
+    return { ing, cost };
+  }
+
+  let sanIng, sanCost, sanInv;
+  if (isOnlyPDUC) {
+    // Solo PDUC: sanitaria = full - AUDP-only (for each component)
+    const fullOp = calcSanOp(recFullAcum);
+    const audpOp = calcSanOp(recAudpAcum);
+    sanIng = W.map((_,i) => Math.max(0, fullOp.ing[i] - audpOp.ing[i]));
+    sanCost = W.map((_,i) => Math.max(0, fullOp.cost[i] - audpOp.cost[i]));
+    const sanInvFull = calcSanInv(recFullAcum);
+    const sanInvAudp = calcSanInv(recAudpAcum);
+    sanInv = W.map((_,i) => Math.max(0, sanInvFull[i] - sanInvAudp[i]));
+  } else {
+    const useAcum = isFull ? recFullAcum : recAudpAcum;
+    const ops = calcSanOp(useAcum);
+    sanIng = ops.ing;
+    sanCost = ops.cost;
+    sanInv = calcSanInv(useAcum);
+  }
   // Venta sanitaria: solo si toggle está activo, se calcula en el último año de la ventana
   const sanVenta = W.map(() => 0);
   let sanVentaVal = 0;
@@ -11185,7 +11226,7 @@ function _renderPE() {
   // Tierra
   const tierraZ = {};
   for (const z of activeTierraZones) tierraZ[z] = W.map(y => gv(tierraByZone[z], y));
-  if (isFull && tierraByZone['Industrial']) tierraZ['Industrial'] = W.map(y => gv(tierraByZone['Industrial'], y));
+  if ((isFull || isOnlyPDUC) && tierraByZone['Industrial']) tierraZ['Industrial'] = W.map(y => gv(tierraByZone['Industrial'], y));
   const totalTierra = W.map((_,i) => Object.values(tierraZ).reduce((s,a) => s + a[i], 0));
 
   // Resultado Negocio = Flujo Caja Real - Tierra
@@ -11194,8 +11235,9 @@ function _renderPE() {
 
   // Hectareas
   const haByZ = {};
-  for (const z of (isFull ? ALL_HAB : AUDP)) haByZ[z] = W.map(y => gv(landByZone[z], y));
-  if (isFull) {
+  const haZones = isOnlyPDUC ? PDUC_HAB : (isFull ? ALL_HAB : AUDP);
+  for (const z of haZones) haByZ[z] = W.map(y => gv(landByZone[z], y));
+  if (isFull || isOnlyPDUC) {
     haByZ['Industrial'] = W.map(y => gv(industrialHaByYear, y));
     haByZ['Otros Usos D4.0'] = W.map(y => gv(otrosHaByYear, y));
   }
@@ -11207,7 +11249,7 @@ function _renderPE() {
 
   // DOM builders
   const tgl = document.createElement('div'); tgl.className = 'pe-toggle';
-  [['audp','Solo AUDP'],['pduc','AUDP + Factibilizacion PDUC'],['full','PDUC Completa']].forEach(([m,lbl]) => {
+  [['audp','Solo AUDP'],['pduc','AUDP + Factib PDUC'],['full','PDUC Completa'],['onlypduc','Solo PDUC']].forEach(([m,lbl]) => {
     const b = document.createElement('button');
     b.textContent = lbl;
     if (m === peMode) b.classList.add('active');
@@ -11216,8 +11258,8 @@ function _renderPE() {
   });
   C.appendChild(tgl);
 
-  const ml = isFull ? 'Proyecto Completo' : incPDUC ? 'AUDP + PDUC' : 'Solo AUDP';
-  const modeTitle = isFull ? 'Proyecto Completo' : 'AUDP';
+  const ml = isOnlyPDUC ? 'Solo PDUC' : isFull ? 'Proyecto Completo' : incPDUC ? 'AUDP + PDUC' : 'Solo AUDP';
+  const modeTitle = isOnlyPDUC ? 'PDUC' : isFull ? 'Proyecto Completo' : 'AUDP';
 
   function mkTh() {
     const thead = document.createElement('thead'); const tr = document.createElement('tr');
