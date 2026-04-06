@@ -11235,13 +11235,6 @@ function _renderPE() {
 
   // Factibilizacion
   const factTotal = W.map(y => sumZ(factByZone, activeFactZones, y));
-  const factPorGastar = factTotal.map((v,i) => W[i] >= 2026 ? v : 0);
-  const factGastada = factTotal.map((v,i) => W[i] < 2026 ? v : 0);
-  const factDetPG = {}; const factDetG = {};
-  for (const z of activeFactZones) {
-    factDetPG[z] = W.map((y,i) => W[i] >= 2026 ? gv(factByZone[z], y) : 0);
-    factDetG[z] = W.map((y,i) => W[i] < 2026 ? gv(factByZone[z], y) : 0);
-  }
 
   // (tierra and old flujoCR removed — now in sections below)
 
