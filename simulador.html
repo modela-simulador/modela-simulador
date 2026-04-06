@@ -11111,6 +11111,30 @@ function _renderPE() {
   function fmtPh(v, dec) { return v === 0 ? '\u2014' : (dec ? v.toLocaleString('es-CL',{minimumFractionDigits:dec,maximumFractionDigits:dec}) : Math.round(v).toLocaleString('es-CL')); }
   function cumul(a) { const r=[]; a.forEach((v,i) => r.push((r[i-1]||0)+v)); return r; }
 
+  // ── Factibilizacion PE: datos actualizados (solo para Primeras Etapas) ──
+  const PE_FACT = {
+    AUDP: { 2023:42439, 2024:33320, 2025:38716, 2026:61160, 2027:29956, 2028:18687, 2029:10087 },
+    PDUC: { 2023:43925, 2024:29150, 2025:35021, 2026:49550, 2027:31193, 2028:37665, 2029:51660, 2030:53802, 2031:43868, 2032:34002, 2033:195 },
+  };
+  // Rebuild factByZone for PE using FACT_SHARE proportions
+  const peFactByZone = {};
+  const AUDP_ZONES_FACT = ['AUDP Batuco', 'AUDP Colina'];
+  const PDUC_ZONES_FACT = ['Distrito G', 'Distrito 4.0', 'Industrial'];
+  for (const z of AUDP_ZONES_FACT) {
+    peFactByZone[z] = {};
+    for (const [yr, cost] of Object.entries(PE_FACT.AUDP)) {
+      peFactByZone[z][parseInt(yr)] = (peFactByZone[z][parseInt(yr)] ?? 0) + FACT_SHARE[z] * cost;
+    }
+  }
+  for (const z of PDUC_ZONES_FACT) {
+    peFactByZone[z] = {};
+    for (const [yr, cost] of Object.entries(PE_FACT.PDUC)) {
+      peFactByZone[z][parseInt(yr)] = (peFactByZone[z][parseInt(yr)] ?? 0) + FACT_SHARE[z] * cost;
+    }
+  }
+  // Use peFactByZone instead of factByZone in all PE calculations
+  const factByZonePE = peFactByZone;
+
   // ── Compute ──
   // Ingresos por zona (hab + com mayor + com menor)
   const ingByZ = {};
@@ -11252,7 +11276,7 @@ function _renderPE() {
   const negCombAcum = cumul(negComb);
 
   // Factibilizacion
-  const factTotal = W.map(y => sumZ(factByZone, activeFactZones, y));
+  const factTotal = W.map(y => sumZ(factByZonePE, activeFactZones, y));
 
   // (tierra and old flujoCR removed — now in sections below)
 
@@ -11393,7 +11417,7 @@ function _renderPE() {
   // ── SECCION 2: Flujo de Caja Futuro (Factib por gastar 2026+) ──
   const factPorGastar = factTotal.map((v,i) => W[i] >= 2026 ? v : 0);
   const factDetPG = {};
-  for (const z of activeFactZones) factDetPG[z] = W.map((y,i) => W[i] >= 2026 ? gv(factByZone[z], y) : 0);
+  for (const z of activeFactZones) factDetPG[z] = W.map((y,i) => W[i] >= 2026 ? gv(factByZonePE[z], y) : 0);
   const flujoCajaFuturo = W.map((_,i) => negComb[i] - factPorGastar[i]);
   const flujoCajaFuturoAcum = cumul(flujoCajaFuturo);
 
@@ -11408,9 +11432,9 @@ function _renderPE() {
 
   // ── SECCION 3: Resultado Negocio (+ factib gastada cargada al 2026) ──
   // Factibilizacion gastada (pre-2026) sumada y cargada al 2026
-  // Sumar factibilizacion de 2023, 2024, 2025 directamente de factByZone (no estan en W)
+  // Sumar factibilizacion de 2023, 2024, 2025 directamente de factByZonePE (no estan en W)
   let factGastadaTotal = 0;
-  for (let y = 2023; y <= 2025; y++) { factGastadaTotal += sumZ(factByZone, activeFactZones, y); }
+  for (let y = 2023; y <= 2025; y++) { factGastadaTotal += sumZ(factByZonePE, activeFactZones, y); }
   const factGastadaCargada = W.map((_,i) => W[i] === 2026 ? factGastadaTotal : 0);
   const resultadoNeg = W.map((_,i) => flujoCajaFuturo[i] - factGastadaCargada[i]);
   const resultadoNegAcum = cumul(resultadoNeg);
