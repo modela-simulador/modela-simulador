@@ -11408,7 +11408,9 @@ function _renderPE() {
 
   // ── SECCION 3: Resultado Negocio (+ factib gastada cargada al 2026) ──
   // Factibilizacion gastada (pre-2026) sumada y cargada al 2026
-  const factGastadaTotal = factTotal.reduce((s,v,i) => W[i] < 2026 ? s+v : s, 0);
+  // Sumar factibilizacion de 2023, 2024, 2025 directamente de factByZone (no estan en W)
+  let factGastadaTotal = 0;
+  for (let y = 2023; y <= 2025; y++) { factGastadaTotal += sumZ(factByZone, activeFactZones, y); }
   const factGastadaCargada = W.map((_,i) => W[i] === 2026 ? factGastadaTotal : 0);
   const resultadoNeg = W.map((_,i) => flujoCajaFuturo[i] - factGastadaCargada[i]);
   const resultadoNegAcum = cumul(resultadoNeg);
