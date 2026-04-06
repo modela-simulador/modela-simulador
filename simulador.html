@@ -1058,7 +1058,7 @@
     .pe-badge-purple{background:#f5f3ff;color:#7c3aed}.pe-badge-amber{background:#fffbeb;color:#d97706}
     .pe-badge-red{background:#fef2f2;color:#dc2626}.pe-badge-gray{background:#f1f5f9;color:#475569}
     .pe-section-hdr h3{font-size:13px;font-weight:600;margin:0}
-    .pe-tbl{width:100%;border-collapse:collapse;font-size:13px}
+    .pe-tbl{width:100%;border-collapse:collapse;font-size:13px;table-layout:fixed}
     .pe-tbl th{text-align:right;padding:6px 8px;font-weight:600;color:#64748b;font-size:12px;white-space:nowrap;background:#f8fafc;border-bottom:2px solid #e2e8f0;width:76px}
     .pe-tbl th:first-child{text-align:left;width:230px}
     .pe-tbl td{text-align:right;padding:5px 8px;font-variant-numeric:tabular-nums;white-space:nowrap;border-bottom:1px solid #f1f5f9;width:76px;overflow:hidden}
@@ -11265,14 +11265,14 @@ function _renderPE() {
     const thead = document.createElement('thead'); const tr = document.createElement('tr');
     const th0 = document.createElement('th'); th0.textContent = 'Concepto'; tr.appendChild(th0);
     W.forEach(y => { const th = document.createElement('th'); th.textContent = y; tr.appendChild(th); });
-    const thT = document.createElement('th'); thT.textContent = 'TOTAL'; thT.style.cssText = 'background:#0f172a;color:#f8fafc'; tr.appendChild(thT);
+    const thT = document.createElement('th'); thT.textContent = 'TOTAL'; thT.style.borderLeft = '2px solid #94a3b8'; tr.appendChild(thT);
     thead.appendChild(tr); return thead;
   }
   function addTotalCell(tr, data, fmt) {
     const total = data.reduce((s,v) => s+v, 0);
     const td = document.createElement('td'); td.textContent = fmt(total);
     td.className = total > 0 ? 'pe-pos' : total < 0 ? 'pe-neg' : 'pe-zero';
-    td.style.cssText = 'font-weight:700;background:#f8fafc;border-left:2px solid #d1d5db';
+    td.style.borderLeft = '2px solid #94a3b8';
     tr.appendChild(td);
   }
   function mkR(label, data, cls, fn) {
