@@ -11090,7 +11090,7 @@ function _renderPE() {
   let endY = (isFull || isOnlyPDUC) ? years[years.length - 1] : lastRecY;
   if (peCutoffYear > 0 && peCutoffYear < endY) endY = peCutoffYear;
   const W = [];
-  for (let y = 2023; y <= endY; y++) W.push(y);
+  for (let y = 2026; y <= endY; y++) W.push(y);
 
   const gv = (obj, y) => obj?.[y] ?? 0;
   const sumZ = (obj, zones, y) => zones.reduce((s, z) => s + gv(obj[z], y), 0);
