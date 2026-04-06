@@ -11178,7 +11178,8 @@ function _renderPE() {
     factDetG[z] = W.map((y,i) => W[i] < 2026 ? gv(factByZone[z], y) : 0);
   }
 
-  const flujoCR = W.map((_,i) => negComb[i] - factPorGastar[i]);
+  // Flujo Caja Real = Combinado - TODA la factibilizacion (gastada + por gastar)
+  const flujoCR = W.map((_,i) => negComb[i] - factTotal[i]);
   const flujoCRAcum = cumul(flujoCR);
 
   // Tierra
@@ -11187,7 +11188,8 @@ function _renderPE() {
   if (isFull && tierraByZone['Industrial']) tierraZ['Industrial'] = W.map(y => gv(tierraByZone['Industrial'], y));
   const totalTierra = W.map((_,i) => Object.values(tierraZ).reduce((s,a) => s + a[i], 0));
 
-  const resultNeg = W.map((_,i) => flujoCR[i] - factGastada[i] - totalTierra[i]);
+  // Resultado Negocio = Flujo Caja Real - Tierra
+  const resultNeg = W.map((_,i) => flujoCR[i] - totalTierra[i]);
   const resultNegAcum = cumul(resultNeg);
 
   // Hectareas
@@ -11325,23 +11327,24 @@ function _renderPE() {
   r3.push(mkR('Negocio Combinado Acumulado',negCombAcum,'pe-acum'));
   s3.appendChild(mkT(r3)); C.appendChild(s3);
 
-  // 4: Factib — PROTAGONISTA
+  // 4: Factib completa — PROTAGONISTA
+  const factDetAll = {};
+  for (const z of activeFactZones) {
+    factDetAll[z] = W.map(y => gv(factByZone[z], y));
+  }
   const s4 = mkS('\u2605','pe-badge-amber','Flujo de Caja Real \u2014 '+ml);
-  // Add highlight border
   s4.style.cssText = 'margin-bottom:24px;border:2px solid #d97706;border-radius:10px;padding:12px 14px;background:#fffbeb';
   let r4 = [];
-  r4.push(mkP('pe-fpg','Factibilizacion por Gastar (2026+)',neg(factPorGastar)));
-  r4.push(mkCh('pe-fpg',factDetPG,-1));
+  r4.push(mkP('pe-fac','Factibilizacion (gastada + por gastar)',neg(factTotal)));
+  r4.push(mkCh('pe-fac',factDetAll,-1));
   r4.push(mkR('FLUJO DE CAJA REAL',flujoCR,'pe-sub'));
   r4.push(mkR('Flujo de Caja Real Acumulado',flujoCRAcum,'pe-acum'));
   s4.appendChild(mkT(r4)); C.appendChild(s4);
 
-  // 5: Resultado + Venta Sanitaria — menos protagonismo
-  const s5 = mkS('5','pe-badge-gray','Costos Hundidos \u2192 Resultado Negocio');
+  // 5: Tierra + Resultado
+  const s5 = mkS('5','pe-badge-gray','Costo Tierra \u2192 Resultado Negocio');
   s5.style.cssText = 'margin-bottom:24px;opacity:0.85';
   let r5 = [];
-  r5.push(mkP('pe-fg','Factibilizacion Gastada (pre-2026)',neg(factGastada)));
-  r5.push(mkCh('pe-fg',factDetG,-1));
   r5.push(mkP('pe-ti','Costo de la Tierra',neg(totalTierra)));
   r5.push(mkCh('pe-ti',tierraZ,-1));
   if (peSanVentaOn && sanVentaVal > 0) {
@@ -11524,6 +11527,61 @@ function _renderPE() {
     },
   });
 
+  // ── VAN Residual por año ──
+  // Para cada año t: NPV de flujos desde t hasta el final, descontados al 8%
+  const vanResidual = W.map((_,t) => {
+    let v = 0;
+    for (let i = t; i < W.length; i++) v += resultNeg[i] / Math.pow(1 + vanRate, i - t);
+    return v;
+  });
+  const vanResUF = vanResidual.map(v => peIsUSD ? Math.round(cv(v)*100)/100 : Math.round(cv(v)));
+  const vanResColors = vanResUF.map(v => v >= 0 ? 'rgba(22,163,74,0.7)' : 'rgba(220,38,38,0.6)');
+
+  const vanSec = document.createElement('div');
+  vanSec.style.cssText = 'margin-top:16px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:16px 20px';
+  const vanTitle = document.createElement('div');
+  vanTitle.style.cssText = 'font-size:14px;font-weight:700;color:#1e293b;margin-bottom:4px';
+  vanTitle.textContent = 'VAN Residual por A\u00F1o (tasa 8%)';
+  vanSec.appendChild(vanTitle);
+  const vanSubt = document.createElement('div');
+  vanSubt.style.cssText = 'font-size:11px;color:#64748b;margin-bottom:12px';
+  vanSubt.textContent = 'Valor presente neto de los flujos restantes desde cada a\u00F1o en adelante';
+  vanSec.appendChild(vanSubt);
+  const vanWrap = document.createElement('div');
+  vanWrap.style.cssText = 'position:relative;height:220px';
+  const vanCvs = document.createElement('canvas');
+  vanWrap.appendChild(vanCvs);
+  vanSec.appendChild(vanWrap);
+  C.appendChild(vanSec);
+
+  if (window._peVanChart) { window._peVanChart.destroy(); window._peVanChart = null; }
+  window._peVanChart = new Chart(vanCvs.getContext('2d'), {
+    type:'bar',
+    data:{
+      labels: W,
+      datasets:[
+        { label:'VAN Residual ('+peCurrency+')', data:vanResUF, backgroundColor:vanResColors, borderRadius:2 },
+      ],
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},
+      plugins:{
+        legend:{display:false},
+        tooltip:{backgroundColor:'#fff',titleColor:'#111',bodyColor:'#333',borderColor:'#e5e7eb',borderWidth:1,
+          titleFont:{size:11},bodyFont:{size:10},
+          callbacks:{label:function(c){var v=c.parsed.y; return 'VAN Residual: '+(peIsUSD?v.toLocaleString('es-CL',{minimumFractionDigits:2,maximumFractionDigits:2}):v.toLocaleString('es-CL'))+peUnit}}
+        },
+      },
+      scales:{
+        x:{ticks:{color:'#94a3b8',font:{size:9}},grid:{color:'#f1f5f9'}},
+        y:{ticks:{color:'#64748b',font:{size:9},callback:function(v){return v.toLocaleString('es-CL')}},
+          grid:{color:'#f1f5f9'},
+          title:{display:true,text:peCurrency,color:'#64748b',font:{size:9}}},
+      },
+    },
+  });
+
   // Store all PE data for Excel export
   window._peData = {
     W, haTotal, haByZ, haTotalAcum, recTotal, recByZ, recTotalAcum,
@@ -11531,10 +11589,10 @@ function _renderPE() {
     subtotalVT, subtotalVTAcum,
     sanIng, sanCost, sanInv, sanVenta, subtotalSan, subtotalSanAcum,
     negComb, negCombAcum,
-    factPorGastar, factDetPG, flujoCR, flujoCRAcum,
-    factGastada, factDetG, totalTierra, tierraZ, resultNeg, resultNegAcum,
+    factTotal, factDetAll, flujoCR, flujoCRAcum,
+    totalTierra, tierraZ, resultNeg, resultNegAcum,
     npv, irr, pbYear, capTrabajo, capPorGastar,
-    modeTitle, ml,
+    vanResidual, modeTitle, ml,
   };
 }
 
@@ -11630,19 +11688,17 @@ async function downloadPEXlsx() {
   addR('NEGOCIO COMBINADO', d.negComb, {bold:true, fill:'FFF5F3FF'});
   addR('Negocio Combinado Acumulado', d.negCombAcum, {italic:true, color:'FF7C3AED'});
 
-  // ── Factibilizacion por Gastar ──
+  // ── Factibilizacion (completa) ──
   ws.addRow([]);
-  addR('FACTIBILIZACION POR GASTAR — '+(d.ml||''), [], {bold:true, fill:'FFFFFBEB'});
-  addR('Factibilizacion por Gastar', neg(d.factPorGastar));
-  Object.entries(d.factDetPG).forEach(([z,v]) => addR('  '+z, neg(v)));
+  addR('FACTIBILIZACION — '+(d.ml||''), [], {bold:true, fill:'FFFFFBEB'});
+  addR('Factibilizacion Total', neg(d.factTotal));
+  if (d.factDetAll) Object.entries(d.factDetAll).forEach(([z,v]) => addR('  '+z, neg(v)));
   addR('FLUJO DE CAJA REAL', d.flujoCR, {bold:true, fill:'FFFFFBEB'});
   addR('Flujo Caja Real Acumulado', d.flujoCRAcum, {italic:true, color:'FF7C3AED'});
 
-  // ── Resultado Negocio ──
+  // ── Tierra → Resultado Negocio ──
   ws.addRow([]);
-  addR('FACTIB GASTADA + TIERRA', [], {bold:true, fill:'FFFEF2F2'});
-  addR('Factibilizacion Gastada', neg(d.factGastada));
-  Object.entries(d.factDetG).forEach(([z,v]) => addR('  '+z, neg(v)));
+  addR('COSTO TIERRA', [], {bold:true, fill:'FFFEF2F2'});
   addR('Costo de la Tierra', neg(d.totalTierra));
   Object.entries(d.tierraZ).forEach(([z,v]) => addR('  '+z, neg(v)));
   if (peSanVentaOn) addR('Venta Negocio Sanitario', d.sanVenta);
