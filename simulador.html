@@ -11219,25 +11219,10 @@ function _renderPE() {
 
   let sanIng, sanCost, sanInv;
   if (isOnlyPDUC) {
-    // Solo PDUC sanitaria inversiones:
-    // Plantas cuyo umbral supera el maximo de viviendas que AUDP puede alcanzar sola
-    const maxVivAudp = AUDP.reduce((s,z) => s + (ZONAS_DEF[z]?.maxViviendas ?? 0), 0);
-    // Solo contar plantas con umbral > maxVivAudp, gatilladas por recFullAcum
-    const sanInvRaw = new Array(W.length).fill(0);
-    const triggeredPDUC = new Array(PLANTA_SANITARIA.length).fill(false);
-    for (let i = 0; i < W.length; i++) {
-      for (let j = 0; j < PLANTA_SANITARIA.length; j++) {
-        if (triggeredPDUC[j]) continue;
-        if (PLANTA_SANITARIA[j].viv <= maxVivAudp) continue; // planta AUDP, no PDUC
-        if (recFullAcum[i] >= PLANTA_SANITARIA[j].viv) {
-          triggeredPDUC[j] = true;
-          const m = PLANTA_SANITARIA[j].monto;
-          if (j === 0) { sanInvRaw[i] += m; }
-          else { sanInvRaw[i] += Math.round(m * 0.55); if (i+1 < W.length) sanInvRaw[i+1] += Math.round(m * 0.45); }
-        }
-      }
-    }
-    sanInv = sanInvRaw;
+    // Solo PDUC sanitaria = full - AUDP. Diferencias negativas (por desfase 55/45) se dejan en 0
+    const sanInvFull = calcSanInv(recFullAcum);
+    const sanInvAudp = calcSanInv(recAudpAcum);
+    sanInv = W.map((_,i) => Math.max(0, sanInvFull[i] - sanInvAudp[i]));
     // Ingresos/costos op: diferencia full - audp (estas formulas son aditivas, la resta es correcta)
     const fullOp = calcSanOp(recFullAcum);
     const audpOp = calcSanOp(recAudpAcum);
