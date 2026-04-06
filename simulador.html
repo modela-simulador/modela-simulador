@@ -11195,14 +11195,32 @@ function _renderPE() {
 
   let sanIng, sanCost, sanInv;
   if (isOnlyPDUC) {
-    // Solo PDUC: sanitaria = full project - AUDP only (diferencia exacta)
+    // Solo PDUC sanitaria inversiones: plantas que gatilla el full pero NO el AUDP solo
+    // Identificar cuales plantas se gatillan en cada escenario
+    const triggeredFull = new Array(PLANTA_SANITARIA.length).fill(-1); // year index when triggered
+    const triggeredAudp = new Array(PLANTA_SANITARIA.length).fill(-1);
+    for (let i = 0; i < W.length; i++) {
+      for (let j = 0; j < PLANTA_SANITARIA.length; j++) {
+        if (triggeredFull[j] < 0 && recFullAcum[i] >= PLANTA_SANITARIA[j].viv && recFullAcum[i] > 0) triggeredFull[j] = i;
+        if (triggeredAudp[j] < 0 && recAudpAcum[i] >= PLANTA_SANITARIA[j].viv && recAudpAcum[i] > 0) triggeredAudp[j] = i;
+      }
+    }
+    // Plantas PDUC = gatilladas en full pero NO en AUDP, aplicar 55/45 en el ano que gatilla en full
+    const sanInvRaw = new Array(W.length).fill(0);
+    for (let j = 0; j < PLANTA_SANITARIA.length; j++) {
+      if (triggeredFull[j] >= 0 && triggeredAudp[j] < 0) {
+        const i = triggeredFull[j];
+        const m = PLANTA_SANITARIA[j].monto;
+        if (j === 0) { sanInvRaw[i] += m; }
+        else { sanInvRaw[i] += Math.round(m * 0.55); if (i+1 < W.length) sanInvRaw[i+1] += Math.round(m * 0.45); }
+      }
+    }
+    sanInv = sanInvRaw;
+    // Ingresos/costos op: diferencia full - audp (estas formulas son aditivas, la resta es correcta)
     const fullOp = calcSanOp(recFullAcum);
     const audpOp = calcSanOp(recAudpAcum);
     sanIng = W.map((_,i) => fullOp.ing[i] - audpOp.ing[i]);
     sanCost = W.map((_,i) => fullOp.cost[i] - audpOp.cost[i]);
-    const sanInvFull = calcSanInv(recFullAcum);
-    const sanInvAudp = calcSanInv(recAudpAcum);
-    sanInv = W.map((_,i) => sanInvFull[i] - sanInvAudp[i]);
   } else {
     const useAcum = isFull ? recFullAcum : recAudpAcum;
     const ops = calcSanOp(useAcum);
