@@ -11455,23 +11455,16 @@ function _renderPE() {
   for (let i = 1; i < W.length; i++) {
     if (resultadoNegAcum[i] >= 0 && resultadoNegAcum[i-1] < 0) { pbYear = W[i]; break; }
   }
-  // Capital de Trabajo sobre flujoCajaFuturo
-  let capMax = 0, cumCap = 0, cum2025 = 0;
-  for (let i = 0; i < W.length; i++) {
-    cumCap += flujoCajaFuturo[i];
-    if (W[i] <= 2025) cum2025 = cumCap;
-    if (cumCap < capMax) capMax = cumCap;
-  }
-  const capTrabajo = Math.round(Math.abs(capMax));
-  const capGastado = Math.round(Math.abs(cum2025));
-  const capPorGastar = Math.round(cum2025 - capMax);
+  // Capital de Trabajo = minimo del acumulado de Resultado Negocio
+  const capTrabajo = Math.round(Math.abs(Math.min(...resultadoNegAcum)));
+  // Capital de Trabajo por Gastar = minimo del acumulado de Flujo Caja Futuro
+  const capPorGastar = Math.round(Math.abs(Math.min(...flujoCajaFuturoAcum, 0)));
 
   const sKpi = mkS('\u2261','pe-badge-gray','Indicadores Financieros');
   const kpiDiv = document.createElement('div');
   kpiDiv.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-top:6px';
   const kpis = [
     { label:'Capital de Trabajo', value: fmtCV(capTrabajo) + peUnit, color: '#dc2626' },
-    { label:'Capital Gastado', value: fmtCV(capGastado) + peUnit, color: '#d97706' },
     { label:'Capital por Gastar', value: fmtCV(capPorGastar) + peUnit, color: '#d97706' },
     { label:'Payback', value: pbYear || '\u2014', color: '#d97706' },
   ];
@@ -11657,7 +11650,7 @@ function _renderPE() {
     negComb, negCombAcum,
     factPorGastar, factDetPG, flujoCajaFuturo, flujoCajaFuturoAcum,
     factGastadaCargada, resultadoNeg, resultadoNegAcum,
-    pbYear, capTrabajo, capGastado, capPorGastar,
+    pbYear, capTrabajo, capPorGastar,
     vanResidual, modeTitle, ml,
   };
 }
@@ -11773,10 +11766,6 @@ async function downloadPEXlsx() {
   const kdtRow = ws.addRow(['Capital de Trabajo', d.capTrabajo]);
   kdtRow.getCell(2).numFmt = NFmt;
   kdtRow.font = { size:11, bold:true };
-
-  const kdtGRow = ws.addRow(['Capital Gastado', d.capGastado]);
-  kdtGRow.getCell(2).numFmt = NFmt;
-  kdtGRow.font = { size:11, bold:true };
 
   const kdtPGRow = ws.addRow(['Capital por Gastar', d.capPorGastar]);
   kdtPGRow.getCell(2).numFmt = NFmt;
