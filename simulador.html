@@ -1402,7 +1402,7 @@
     </div>
     <div class="lp-login-card">
       <h2 class="lp-login-title">Iniciar Sesion</h2>
-      <form id="login-form" onsubmit="handleLogin(event)">
+      <form id="login-form" onsubmit="handleLogin(event); return false;">
         <div class="lp-login-field">
           <label class="lp-login-label">Usuario</label>
           <input type="text" id="login-user" class="lp-login-input" placeholder="Ingresa tu usuario" autocomplete="username">
@@ -2519,8 +2519,9 @@ function isAuthenticated() {
 let _loginAttempts = 0;
 let _lockoutUntil  = 0;
 
-async function handleLogin(evt) {
+function handleLogin(evt) {
   evt.preventDefault();
+  evt.stopPropagation();
   const user    = document.getElementById('login-user').value.trim().toLowerCase();
   const pass    = document.getElementById('login-pass').value;
   const errorEl = document.getElementById('login-error');
@@ -2531,48 +2532,49 @@ async function handleLogin(evt) {
     const secs = Math.ceil((_lockoutUntil - Date.now()) / 1000);
     errorEl.textContent = 'Demasiados intentos. Espere ' + secs + ' segundos.';
     errorEl.style.display = 'block';
-    return;
+    return false;
   }
 
-  let hash;
-  try { hash = await sha256(pass); } catch(e) {
-    errorEl.textContent = 'Error de autenticacion: ' + e.message;
-    errorEl.style.display = 'block';
-    return;
-  }
-
-  if (AUTH_USERS[user] && AUTH_USERS[user].hash === hash) {
-    _loginAttempts = 0;
-    const token = await createSessionToken(user);
+  // Run async login in a .then() to avoid form submit race
+  sha256(pass).then(function(hash) {
+    if (AUTH_USERS[user] && AUTH_USERS[user].hash === hash) {
+      _loginAttempts = 0;
+      return createSessionToken(user).then(function(token) {
     sessionStorage.setItem('modela_token', token);
-    sessionStorage.setItem('modela_user', AUTH_USERS[user].name);
-    errorEl.style.display = 'none';
-    errorEl.textContent = 'Usuario o contraseña incorrectos';
-    transitionToSimulator();
-  } else {
-    _loginAttempts++;
-    if (_loginAttempts >= 5) {
-      _lockoutUntil = Date.now() + 60000;
-      errorEl.textContent = 'Demasiados intentos. Espere 60 segundos.';
-      btn.disabled = true;
-      const countdown = setInterval(() => {
-        const secs = Math.ceil((_lockoutUntil - Date.now()) / 1000);
-        if (secs <= 0) {
-          clearInterval(countdown);
-          btn.disabled = false;
-          errorEl.textContent = 'Usuario o contraseña incorrectos';
-          errorEl.style.display = 'none';
-          _loginAttempts = 0;
-        } else {
-          errorEl.textContent = 'Demasiados intentos. Espere ' + secs + ' segundos.';
-        }
-      }, 1000);
+        sessionStorage.setItem('modela_token', token);
+        sessionStorage.setItem('modela_user', AUTH_USERS[user].name);
+        errorEl.style.display = 'none';
+        transitionToSimulator();
+      });
+    } else {
+      _loginAttempts++;
+      if (_loginAttempts >= 5) {
+        _lockoutUntil = Date.now() + 60000;
+        errorEl.textContent = 'Demasiados intentos. Espere 60 segundos.';
+        btn.disabled = true;
+        const countdown = setInterval(function() {
+          const secs = Math.ceil((_lockoutUntil - Date.now()) / 1000);
+          if (secs <= 0) {
+            clearInterval(countdown);
+            btn.disabled = false;
+            errorEl.textContent = 'Usuario o contrasena incorrectos';
+            errorEl.style.display = 'none';
+            _loginAttempts = 0;
+          } else {
+            errorEl.textContent = 'Demasiados intentos. Espere ' + secs + ' segundos.';
+          }
+        }, 1000);
+      }
+      errorEl.style.display = 'block';
+      var card = document.querySelector('.lp-login-card');
+      card.classList.add('lp-login-shake');
+      setTimeout(function() { card.classList.remove('lp-login-shake'); }, 450);
     }
+  }).catch(function(e) {
+    errorEl.textContent = 'Error: ' + e.message;
     errorEl.style.display = 'block';
-    const card = document.querySelector('.lp-login-card');
-    card.classList.add('lp-login-shake');
-    setTimeout(() => card.classList.remove('lp-login-shake'), 450);
-  }
+  });
+  return false;
 }
 
 function handleLogout() {
