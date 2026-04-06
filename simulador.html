@@ -11418,11 +11418,10 @@ function _renderPE() {
   // Payback
   let pbYear = null;
   { let cum = 0; for (let i = 0; i < W.length; i++) { cum += resultNeg[i]; if (cum > 0 && !pbYear) { pbYear = W[i]; break; } } }
-  // Capital de Trabajo (sin tierra)
+  // Capital de Trabajo sobre Flujo de Caja Real (sin tierra)
   let capMax = 0, cumCap = 0, cum2025 = 0;
-  const netSinTierra = W.map((_,i) => flujoCR[i] - factGastada[i]);
   for (let i = 0; i < W.length; i++) {
-    cumCap += netSinTierra[i];
+    cumCap += flujoCR[i];
     if (W[i] <= 2025) cum2025 = cumCap;
     if (cumCap < capMax) capMax = cumCap;
   }
