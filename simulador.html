@@ -11545,13 +11545,12 @@ function _renderPE() {
     const sumFv=(zs,y)=>zs.reduce((s,z)=>s+(factByZonePE[z]?.[y]??0),0);
     const fPG=Wv.map(y=>y>=2026?sumFv(activeFactZones,y):0);
     const fG=[2023,2024,2025].reduce((s,y)=>s+sumFv(activeFactZones,y),0);
+    // VAN = flujo caja futuro (sin costos arrastre 23-25) - tierra
     const fcf=Wv.map((_,i)=>nC[i]-fPG[i]);
-    const rN=Wv.map((_,i)=>Wv[i]===2026?fcf[i]-fG:fcf[i]);
-    // Tierra
     const tT=Wv.map(y=>{let t=tierraZonesVAN.reduce((s,z)=>s+gv(tierraByZone[z],y),0);if((isFull||isOnlyPDUC)&&tierraByZone['Industrial'])t+=gv(tierraByZone['Industrial'],y);return t;});
     const tIFC=Wv.map(()=>0);
     if(peIFC&&(incPDUC||isOnlyPDUC)){const c=857000*30/323.72;for(const[yr,pct]of Object.entries(IFC_SCHED)){const idx=Wv.indexOf(parseInt(yr));if(idx>=0)tIFC[idx]=Math.round(c*pct);}}
-    return Wv.map((_,i)=>rN[i]-tT[i]-tIFC[i]);
+    return Wv.map((_,i)=>fcf[i]-tT[i]-tIFC[i]);
   }
   const flujoVANFull = calcFullFlowForVAN();
   let npv = 0;
