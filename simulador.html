@@ -11551,6 +11551,19 @@ function _renderPE() {
     const sumFv=(zs,y)=>zs.reduce((s,z)=>s+(factByZonePE[z]?.[y]??0),0);
     const fPG=Wv.map(y=>y>=2026?sumFv(activeFactZones,y):0);
     const fG=[2023,2024,2025].reduce((s,y)=>s+sumFv(activeFactZones,y),0);
+    // Venta sanitaria si toggle activo
+    if (peSanVentaOn) {
+      const vivZV = isOnlyPDUC ? PDUC_HAB : (isFull ? ALL_HAB : AUDP);
+      let sanEndV = -1;
+      for (let i = Wv.length-1; i >= 0; i--) { let rc=0; for(const z of vivZV) rc+=(unitsByZone[z]?.[Wv[i]-LAG]??0); if(rc>0){sanEndV=i;break;} }
+      if (sanEndV >= 0) {
+        const opRes = sI[sanEndV] - sC[sanEndV];
+        if (opRes > 0) { let cumI=0; for(let i=0;i<=sanEndV;i++) cumI+=sV2[i]; const vta=opRes/0.06-0.20*cumI; if(vta>0) sSub[sanEndV]+=vta; }
+        for (let i=sanEndV+1;i<Wv.length;i++){sI[i]=0;sC[i]=0;sV2[i]=0;sSub[i]=0;}
+      }
+      // Recalcular nC con sanitaria actualizada
+      for(let i=0;i<Wv.length;i++) nC[i]=sVT[i]+sSub[i];
+    }
     // VAN = flujo caja futuro (sin costos arrastre 23-25) - tierra
     const fcf=Wv.map((_,i)=>nC[i]-fPG[i]);
     const tT=Wv.map(y=>{let t=tierraZonesVAN.reduce((s,z)=>s+gv(tierraByZone[z],y),0);if((isFull||isOnlyPDUC)&&tierraByZone['Industrial'])t+=gv(tierraByZone['Industrial'],y);return t;});
