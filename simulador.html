@@ -11156,7 +11156,6 @@ function _renderPE() {
     ingByZ['Industrial'] = W.map(y => gv(industrialRevByYear, y));
     ingByZ['Otros Usos D4.0'] = W.map(y => gv(otrosRevByYear, y));
   }
-  const allIngKeys = Object.keys(ingByZ);
   // IFC: ingreso por venta terreno PDUC = 0.8 UF/m2 * 300,000 m2 = 240,000 UF
   // Repartido 30% 2028, 30% 2029, 40% 2030. Solo aplica a modos con PDUC.
   if (peIFC && (incPDUC || isOnlyPDUC)) {
