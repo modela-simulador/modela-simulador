@@ -11245,9 +11245,10 @@ function _renderPE() {
 
   // Helper: calculate sanInv with 55/45 split from a given recAcum array
   function calcSanInv(recAcum) {
+    const n = recAcum.length;
     const triggered = new Array(PLANTA_SANITARIA.length).fill(false);
-    const raw = new Array(W.length).fill(0);
-    for (let i = 0; i < W.length; i++) {
+    const raw = new Array(n).fill(0);
+    for (let i = 0; i < n; i++) {
       if (recAcum[i] === 0) continue;
       for (let j = 0; j < PLANTA_SANITARIA.length; j++) {
         if (triggered[j]) continue;
@@ -11255,7 +11256,7 @@ function _renderPE() {
           triggered[j] = true;
           const m = PLANTA_SANITARIA[j].monto;
           if (j === 0) { raw[i] += m; }
-          else { raw[i] += Math.round(m * 0.55); if (i+1 < W.length) raw[i+1] += Math.round(m * 0.45); }
+          else { raw[i] += Math.round(m * 0.55); if (i+1 < n) raw[i+1] += Math.round(m * 0.45); }
         }
       }
     }
@@ -11267,10 +11268,11 @@ function _renderPE() {
   // Formula: ing = cumViv * 11.13 - 3449 (year 1: -3449/3)
   // Formula: cost = cumViv * 3.35 + 21548/divisor (yr1:2.75, yr2:2.5, yr3:2, yr4+:1)
   function calcSanOp(recAcum) {
+    const n = recAcum.length;
     let firstIdx = -1;
-    const ing = new Array(W.length).fill(0);
-    const cost = new Array(W.length).fill(0);
-    for (let i = 0; i < W.length; i++) {
+    const ing = new Array(n).fill(0);
+    const cost = new Array(n).fill(0);
+    for (let i = 0; i < n; i++) {
       const cv = recAcum[i];
       if (cv === 0) continue;
       if (firstIdx < 0) firstIdx = i;
