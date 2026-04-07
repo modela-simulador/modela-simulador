@@ -11561,7 +11561,7 @@ function _renderPE() {
   const kpiDiv = document.createElement('div');
   kpiDiv.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:6px';
   const kpis = [
-    { label:'VAN (8%)', value: fmtCV(npv) + peUnit, color: npv >= 0 ? '#16a34a' : '#dc2626' },
+    { label:'VAN (8%)', value: fmtCV(vanResidual[0]) + peUnit, color: vanResidual[0] >= 0 ? '#16a34a' : '#dc2626' },
     { label:'Capital de Trabajo', value: fmtCV(capTrabajo) + peUnit, color: '#dc2626' },
     { label:'Capital por Gastar', value: fmtCV(capPorGastar) + peUnit, color: '#d97706' },
     { label:'Payback', value: pbYear || '\u2014', color: '#d97706' },
@@ -11683,8 +11683,7 @@ function _renderPE() {
     },
   });
 
-  // ── VAN Residual por año ──
-  // vanRate ya definido arriba (0.08)
+  // ── VAN Residual por año (sobre resultadoNeg, sin tierra — consistente con flujo mostrado) ──
   const vanResidual = W.map((_,t) => {
     let v = 0;
     for (let i = t; i < W.length; i++) v += resultadoNeg[i] / Math.pow(1 + vanRate, i - t);
@@ -11917,7 +11916,18 @@ async function downloadPEPptx() {
   });
   s5.addText('Escenario Esperado \u00B7 Abril 2026 \u00B7 TC: 1 USD = 900 CLP', { x: 0.6, y: 5.25, w: 8.8, h: 0.15, fontSize: 8, fontFace: 'Arial', color: '64748B', margin: 0 });
 
-  pres.writeFile({ fileName: 'Reporte_Directorio_Primeras_Etapas.pptx' });
+  try {
+    const pptBlob = await pres.write({ outputType: 'blob' });
+    const url = URL.createObjectURL(new Blob([pptBlob], { type: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'Reporte_Directorio_Primeras_Etapas.pptx';
+    a.click();
+    URL.revokeObjectURL(url);
+  } catch(e) {
+    alert('Error generando PPT: ' + e.message);
+    console.error('PPT error:', e);
+  }
 }
 
 // ── Excel Download ──
