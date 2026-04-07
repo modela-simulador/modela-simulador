@@ -11099,7 +11099,8 @@ function _renderPE() {
     if (rec > 0) lastRecY = y;
   }
   // Full or onlyPDUC: extend to end of simulation
-  let endY = (isFull || isOnlyPDUC) ? years[years.length - 1] : lastRecY;
+  const endYFull = (isFull || isOnlyPDUC) ? years[years.length - 1] : lastRecY; // para VAN (siempre completo)
+  let endY = endYFull;
   if (peCutoffYear > 0 && peCutoffYear < endY) endY = peCutoffYear;
   const W = [];
   for (let y = 2026; y <= endY; y++) W.push(y);
@@ -11504,33 +11505,53 @@ function _renderPE() {
   const capTrabajo = Math.round(Math.abs(Math.min(...resultadoNegAcum)));
   const capPorGastar = Math.round(Math.abs(Math.min(...flujoCajaFuturoAcum, 0)));
 
-  // ── VAN completo (incluye costo de tierra anual) ──
-  // tierraByZone ya disponible desde el destructuring al inicio
+  // ── VAN completo (siempre sobre ventana FULL, no afectado por cutoff) ──
+  // Reconstruir ventana completa para VAN
+  const WFull = []; for (let y = 2026; y <= endYFull; y++) WFull.push(y);
   const tierraZonesVAN = isOnlyPDUC ? [...PDUC_HAB] : (isFull ? ALL_HAB : AUDP);
-  const totalTierraVAN = W.map(y => tierraZonesVAN.reduce((s,z) => s + gv(tierraByZone[z],y), 0));
-  // Agregar tierra industrial para modos PDUC
-  if ((isFull || isOnlyPDUC) && tierraByZone['Industrial']) {
-    for (let i = 0; i < W.length; i++) totalTierraVAN[i] += gv(tierraByZone['Industrial'], W[i]);
-  }
-  // IFC: costo de tierra proporcional a los m2 vendidos
-  // IFC vende 300,000 m2 = 30 Ha. Costo tierra PDUC = 857,000 UF para ~323.72 Ha
-  // Proporcional = 857,000 * 30 / 323.72 = ~79,434 UF, repartido segun IFC_SCHED
-  const tierraIFC = W.map(() => 0);
-  if (peIFC && (incPDUC || isOnlyPDUC)) {
-    const PDUC_TIERRA = 857000;
-    const PDUC_HA = 323.72;
-    const IFC_HA_TIERRA = 30; // ~300,000 m2
-    const ifcTierraCosto = PDUC_TIERRA * IFC_HA_TIERRA / PDUC_HA;
-    for (const [yr, pct] of Object.entries(IFC_SCHED)) {
-      const idx = W.indexOf(parseInt(yr));
-      if (idx >= 0) tierraIFC[idx] = Math.round(ifcTierraCosto * pct);
-    }
-  }
-  // Flujo para VAN = resultadoNeg - tierra - tierraIFC
   const vanRate = 0.08;
-  const flujoVAN = W.map((_,i) => resultadoNeg[i] - totalTierraVAN[i] - tierraIFC[i]);
+  // Recalcular flujo completo para VAN (mismo calculo que resultadoNeg pero sobre WFull)
+  function calcFullFlowForVAN() {
+    const Wv = WFull;
+    const tIng = Wv.map(y => { let v2 = activeIngZones.reduce((s,z) => s+gv(revenueByZone[z],y)+gv(commercialRevByZone?.[z],y)+gv(comMenorRevByZone?.[z],y),0); if(isFull||isOnlyPDUC) v2+=gv(industrialRevByYear,y)+gv(otrosRevByYear,y); return v2; });
+    // IFC ingresos
+    if (peIFC && (incPDUC||isOnlyPDUC)) { for(const[yr,pct]of Object.entries(IFC_SCHED)){const idx=Wv.indexOf(parseInt(yr));if(idx>=0)tIng[idx]+=Math.round(IFC_TOTAL*pct);} }
+    // IFC reduce Distrito G ingresos
+    if (peIFC && (incPDUC||isOnlyPDUC)) {
+      const dgIng=Wv.map(y=>gv(revenueByZone['Distrito G'],y)+gv(commercialRevByZone?.['Distrito G'],y)+gv(comMenorRevByZone?.['Distrito G'],y));
+      const totDG=dgIng.reduce((s,v)=>s+v,0);
+      if(totDG>0){const mx=ZONAS_DEF?.['Distrito G']?.maxViviendas??10425;let p=Math.round(totDG*IFC_VIV_PERDIDAS/mx);for(let i=dgIng.length-1;i>=0&&p>0;i--){const q=Math.min(dgIng[i],p);tIng[i]-=q;p-=q;}}
+    }
+    const tInfra=Wv.map(y=>activeInfraZones.reduce((s,z)=>s+gv(infraByZone[z],y),0));
+    const mRaw={};for(const z of activeMitGroups)mRaw[z]=Wv.map(y=>gv(mitByGroup[z],y));
+    if(mRaw['PDUC']){const o=mRaw['PDUC'].slice();mRaw['PDUC']=Wv.map((_,i)=>i>=2?o[i-2]:0);}
+    const tMitig=Wv.map((_,i)=>Object.values(mRaw).reduce((s,a)=>s+a[i],0));
+    const tComerc=isFull?Wv.map(y=>gv(comercializacionByYear,y)):tIng.map(v=>Math.round(v*0.02));
+    const tMant=isOnlyPDUC?Wv.map(()=>0):Wv.map(y=>gv(mantByYear,y));
+    const tCos=Wv.map((_,i)=>tInfra[i]+tMitig[i]+tComerc[i]+tMant[i]);
+    // Sanitaria
+    const rAA=cumul(Wv.map(y=>AUDP.reduce((s,z)=>s+(unitsByZone[z]?.[y-LAG]??0),0)));
+    const rFA=cumul(Wv.map(y=>ALL_HAB.reduce((s,z)=>s+(unitsByZone[z]?.[y-LAG]??0),0)));
+    let sI,sC,sV2;
+    if(isOnlyPDUC){const fo=calcSanOp(rFA),ao=calcSanOp(rAA);sI=Wv.map((_,i)=>fo.ing[i]-ao.ing[i]);sC=Wv.map((_,i)=>fo.cost[i]-ao.cost[i]);const iF2=calcSanInv(rFA),iA2=calcSanInv(rAA);sV2=Wv.map((_,i)=>Math.max(0,iF2[i]-iA2[i]));}
+    else{const ua=isFull?rFA:rAA;const ops=calcSanOp(ua);sI=ops.ing;sC=ops.cost;sV2=calcSanInv(ua);}
+    const sSub=Wv.map((_,i)=>sI[i]-sC[i]-sV2[i]);
+    const sVT=Wv.map((_,i)=>tIng[i]-tCos[i]);
+    const nC=Wv.map((_,i)=>sVT[i]+sSub[i]);
+    const sumFv=(zs,y)=>zs.reduce((s,z)=>s+(factByZonePE[z]?.[y]??0),0);
+    const fPG=Wv.map(y=>y>=2026?sumFv(activeFactZones,y):0);
+    const fG=[2023,2024,2025].reduce((s,y)=>s+sumFv(activeFactZones,y),0);
+    const fcf=Wv.map((_,i)=>nC[i]-fPG[i]);
+    const rN=Wv.map((_,i)=>Wv[i]===2026?fcf[i]-fG:fcf[i]);
+    // Tierra
+    const tT=Wv.map(y=>{let t=tierraZonesVAN.reduce((s,z)=>s+gv(tierraByZone[z],y),0);if((isFull||isOnlyPDUC)&&tierraByZone['Industrial'])t+=gv(tierraByZone['Industrial'],y);return t;});
+    const tIFC=Wv.map(()=>0);
+    if(peIFC&&(incPDUC||isOnlyPDUC)){const c=857000*30/323.72;for(const[yr,pct]of Object.entries(IFC_SCHED)){const idx=Wv.indexOf(parseInt(yr));if(idx>=0)tIFC[idx]=Math.round(c*pct);}}
+    return Wv.map((_,i)=>rN[i]-tT[i]-tIFC[i]);
+  }
+  const flujoVANFull = calcFullFlowForVAN();
   let npv = 0;
-  for (let i = 0; i < W.length; i++) npv += flujoVAN[i] / Math.pow(1 + vanRate, i);
+  for (let i = 0; i < flujoVANFull.length; i++) npv += flujoVANFull[i] / Math.pow(1 + vanRate, i);
 
   const sKpi = mkS('\u2261','pe-badge-gray','Indicadores Financieros');
   const kpiDiv = document.createElement('div');
