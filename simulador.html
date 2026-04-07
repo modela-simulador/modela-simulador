@@ -11218,13 +11218,23 @@ function _renderPE() {
   // Viviendas recepcionadas
   const vivZones = (isFull || isOnlyPDUC) ? ALL_HAB : AUDP;
   const recByZ = {};
-  const vivDisplay = isOnlyPDUC ? PDUC_HAB : vivZones; // what to show in table
+  const vivDisplay = isOnlyPDUC ? PDUC_HAB : vivZones;
   for (const z of vivDisplay) recByZ[z] = W.map(y => (unitsByZone[z]?.[y - LAG] ?? 0));
-  // recTotal for display uses only displayed zones
+  // IFC: quitar 843 viviendas del Distrito G de atras hacia adelante
+  if (peIFC && recByZ['Distrito G']) {
+    const dg = recByZ['Distrito G'];
+    let pendiente = IFC_VIV_PERDIDAS;
+    for (let i = dg.length - 1; i >= 0 && pendiente > 0; i--) {
+      const quitar = Math.min(dg[i], pendiente);
+      dg[i] -= quitar;
+      pendiente -= quitar;
+    }
+  }
   const recTotal = W.map((_,i) => Object.values(recByZ).reduce((s,a) => s + a[i], 0));
   const recTotalAcum = cumul(recTotal);
 
   // For sanitaria: always need full + audp-only viviendas acumuladas
+  // Sanitaria usa viviendas SIN reduccion IFC (la planta atiende todas las viviendas del territorio)
   const recFullAcum = cumul(W.map(y => ALL_HAB.reduce((s,z) => s + (unitsByZone[z]?.[y-LAG]??0), 0)));
   const recAudpAcum = cumul(W.map(y => AUDP.reduce((s,z) => s + (unitsByZone[z]?.[y-LAG]??0), 0)));
 
