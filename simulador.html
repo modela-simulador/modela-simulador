@@ -11648,8 +11648,7 @@ function _renderPE() {
   });
 
   // ── VAN Residual por año ──
-  // Para cada año t: NPV de flujos desde t hasta el final, descontados al 8%
-  const vanRate = 0.08;
+  // vanRate ya definido arriba (0.08)
   const vanResidual = W.map((_,t) => {
     let v = 0;
     for (let i = t; i < W.length; i++) v += resultadoNeg[i] / Math.pow(1 + vanRate, i - t);
