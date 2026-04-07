@@ -11494,8 +11494,7 @@ function _renderPE() {
   const capPorGastar = Math.round(Math.abs(Math.min(...flujoCajaFuturoAcum, 0)));
 
   // ── VAN completo (incluye costo de tierra anual) ──
-  // Tierra anual por zona activa (del simulador)
-  const tierraByZone = r.tierraByZone || {};
+  // tierraByZone ya disponible desde el destructuring al inicio
   const tierraZonesVAN = isOnlyPDUC ? [...PDUC_HAB] : (isFull ? ALL_HAB : AUDP);
   const totalTierraVAN = W.map(y => tierraZonesVAN.reduce((s,z) => s + gv(tierraByZone[z],y), 0));
   // Agregar tierra industrial para modos PDUC
