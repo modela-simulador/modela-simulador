@@ -1090,6 +1090,8 @@
     .pe-ctrl-group select:focus{outline:none;border-color:#7c3aed;box-shadow:0 0 0 2px rgba(124,58,237,0.1)}
     #pe-san-venta-toggle:checked+span{background:#16a34a}
     #pe-san-venta-toggle:checked~#pe-san-slider{transform:translateX(16px)}
+    #pe-ifc-toggle:checked+span{background:#2563eb}
+    #pe-ifc-toggle:checked~#pe-ifc-slider{transform:translateX(16px)}
 
     /* ══════════════════════════════════════════════════════════
        MOBILE RESPONSIVE (max-width: 768px)
@@ -1850,6 +1852,15 @@
               <input id="pe-usd-rate" type="number" value="900" min="100" max="5000" step="10" style="width:60px;padding:4px 6px;font-size:11px;border:1px solid #475569;border-radius:4px;background:#1e293b;color:#f8fafc;font-family:inherit;text-align:right" onchange="renderPrimerasEtapas()">
               <span style="font-size:10px;color:#94a3b8">CLP</span>
             </div>
+          </div>
+          <div style="width:1px;height:20px;background:#475569"></div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <label style="font-size:11px;font-weight:700;color:#e2e8f0;text-transform:uppercase;letter-spacing:0.4px;white-space:nowrap">IFC</label>
+            <label style="position:relative;display:inline-block;width:36px;height:20px;cursor:pointer">
+              <input type="checkbox" id="pe-ifc-toggle" style="opacity:0;width:0;height:0" onchange="peIFC=this.checked;renderPrimerasEtapas()">
+              <span style="position:absolute;inset:0;background:#475569;border-radius:10px;transition:background .2s"></span>
+              <span style="position:absolute;top:2px;left:2px;width:16px;height:16px;background:#fff;border-radius:50%;transition:transform .2s" id="pe-ifc-slider"></span>
+            </label>
           </div>
           <div style="flex:1"></div>
           <button id="pe-btn-xlsx" onclick="downloadPEXlsx()" style="padding:6px 14px;font-size:11px;font-weight:600;font-family:inherit;border:1px solid #475569;border-radius:6px;background:#1e293b;color:#f8fafc;cursor:pointer;display:flex;align-items:center;gap:4px">
@@ -10892,6 +10903,7 @@ let peChart = null;
 let peSanVentaOn = false; // toggle venta sanitaria — off by default
 let peCutoffYear = 0; // 0 = hasta termino, else specific year
 let peCurrency = 'UF'; // 'UF' or 'USD'
+let peIFC = false; // toggle IFC (Informe Favorable de Construccion)
 
 function setPeCurrency(mode) {
   peCurrency = mode;
@@ -11145,6 +11157,19 @@ function _renderPE() {
     ingByZ['Otros Usos D4.0'] = W.map(y => gv(otrosRevByYear, y));
   }
   const allIngKeys = Object.keys(ingByZ);
+  // IFC: ingreso por venta terreno PDUC = 0.8 UF/m2 * 300,000 m2 = 240,000 UF
+  // Repartido 30% 2028, 30% 2029, 40% 2030. Solo aplica a modos con PDUC.
+  if (peIFC && (incPDUC || isOnlyPDUC)) {
+    const IFC_TOTAL = 0.8 * 300000; // 240,000 UF
+    const IFC_SCHED = { 2028: 0.30, 2029: 0.30, 2030: 0.40 };
+    if (!ingByZ['IFC']) ingByZ['IFC'] = W.map(() => 0);
+    for (const [yr, pct] of Object.entries(IFC_SCHED)) {
+      const y = parseInt(yr);
+      const idx = W.indexOf(y);
+      if (idx >= 0) ingByZ['IFC'][idx] = Math.round(IFC_TOTAL * pct);
+    }
+  }
+  const allIngKeys = Object.keys(ingByZ);
   const totalIng = W.map((_,i) => allIngKeys.reduce((s,z) => s + ingByZ[z][i], 0));
 
   // Infraestructura
@@ -11155,6 +11180,12 @@ function _renderPE() {
   // Mitigaciones
   const mitigZ = {};
   for (const z of activeMitGroups) mitigZ[z] = W.map(y => gv(mitByGroup[z],y));
+  // IFC: Nuevo Acceso a Batuco se retrasa 2 anos (desplazar mitigaciones PDUC 2 anos)
+  if (peIFC && mitigZ['PDUC']) {
+    const orig = mitigZ['PDUC'].slice();
+    mitigZ['PDUC'] = W.map((_,i) => i >= 2 ? orig[i-2] : 0);
+    // Truncar: los ultimos 2 anos que se desplazaron fuera de la ventana se pierden
+  }
   const totalMitig = W.map((_,i) => Object.values(mitigZ).reduce((s,a) => s + a[i], 0));
 
   // Comercializacion y Mantencion
