@@ -11160,7 +11160,7 @@ function _renderPE() {
   // Repartido 30% 2028, 30% 2029, 40% 2030. Solo aplica a modos con PDUC.
   if (peIFC && (incPDUC || isOnlyPDUC)) {
     const IFC_TOTAL = 0.8 * 300000; // 240,000 UF
-    const IFC_SCHED = { 2028: 0.30, 2029: 0.30, 2030: 0.40 };
+    const IFC_SCHED = { 2029: 0.30, 2030: 0.30, 2031: 0.40 };
     if (!ingByZ['IFC']) ingByZ['IFC'] = W.map(() => 0);
     for (const [yr, pct] of Object.entries(IFC_SCHED)) {
       const y = parseInt(yr);
