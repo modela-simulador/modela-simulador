@@ -1867,6 +1867,10 @@
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
             Excel
           </button>
+          <button id="pe-btn-ppt" onclick="downloadPEPptx()" style="padding:6px 14px;font-size:11px;font-weight:600;font-family:inherit;border:1px solid #f59e0b;border-radius:6px;background:#f59e0b;color:#0f172a;cursor:pointer;display:flex;align-items:center;gap:4px">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            PPT
+          </button>
         </div>
         <div id="pe-dashboard-container">
           <div style="text-align:center;padding:60px;color:#94a3b8;font-size:14px">
@@ -11746,6 +11750,174 @@ function _renderPE() {
     pbYear, capTrabajo, capPorGastar,
     vanResidual, modeTitle, ml,
   };
+}
+
+// ── PPT Download ──
+async function downloadPEPptx() {
+  if (!lastResults) { alert('Ejecute la simulacion primero.'); return; }
+
+  // Load pptxgenjs from CDN if not loaded
+  if (typeof pptxgen === 'undefined') {
+    await new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = 'https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgenjs.bundle.js';
+      s.onload = resolve;
+      s.onerror = () => reject(new Error('No se pudo cargar pptxgenjs'));
+      document.head.appendChild(s);
+    });
+  }
+
+  const U = 40000 / 900;
+  const musd = v => (v * U / 1e6).toFixed(1);
+  const musd2 = v => (v * U / 1e6).toFixed(2);
+
+  // Capture data for each view by running _renderPE
+  const savedMode = peMode, savedIFC = peIFC, savedSan = peSanVentaOn, savedCut = peCutoffYear, savedCurr = peCurrency;
+
+  function captureView(mode, ifc, san, cut) {
+    peMode = mode; peIFC = ifc; peSanVentaOn = san; peCutoffYear = cut; peCurrency = 'UF';
+    try { _renderPE(); } catch(e) { console.error('PPT capture error:', e); }
+    const d = window._peData;
+    if (!d) return null;
+    const W = d.W, fcf = d.flujoCajaFuturo || [];
+    let lastNeg = null, alwaysPos = null;
+    for (let i = 0; i < W.length; i++) if (fcf[i] < 0) lastNeg = W[i];
+    for (let i = 0; i < W.length; i++) { let ok = true; for (let j = i; j < W.length; j++) if (fcf[j] < 0) { ok = false; break; } if (ok && fcf[i] > 0) { alwaysPos = W[i]; break; } }
+    const van = d.vanResidual ? Math.round(d.vanResidual[0]) : 0;
+    const fg = d.factGastadaCargada ? d.factGastadaCargada.reduce((s, v) => s + v, 0) : 0;
+    return { W, totalIng: d.totalIng, totalCostos: d.totalCostos, subtotalSan: d.subtotalSan,
+      factPG: d.factPorGastar, factGastada: fg,
+      flujoCF: d.flujoCajaFuturo, flujoCFAcum: d.flujoCajaFuturoAcum,
+      resultNeg: d.resultadoNeg, resultNegAcum: d.resultadoNegAcum,
+      recVivAcum: d.recVivAcum, payback: d.pbYear, capTrabajo: d.capTrabajo, capPorGastar: d.capPorGastar,
+      lastNeg, alwaysPos, van };
+  }
+
+  const views = [
+    { data: captureView('audp', false, false, 2038), title: 'Solo AUDP \u2014 Batuco y Colina', sub: 'Flujo de caja 2026-2038 \u00B7 Escenario Esperado \u00B7 MUSD (1 USD = 900 CLP)' },
+    { data: captureView('onlypduc', false, false, 0), title: 'Solo PDUC \u2014 Sin IFC', sub: 'Flujo de caja 2026-2043 \u00B7 Escenario Esperado \u00B7 Sin IFC \u00B7 MUSD' },
+    { data: captureView('onlypduc', true, false, 0), title: 'Solo PDUC \u2014 Con IFC', sub: 'Flujo de caja 2026-2043 \u00B7 Escenario Esperado \u00B7 Con IFC \u00B7 MUSD' },
+    { data: captureView('full', true, false, 0), title: 'Proyecto Completo \u2014 AUDP + PDUC (con IFC)', sub: 'Flujo de caja 2026-2043 \u00B7 Escenario Esperado \u00B7 MUSD' },
+  ];
+
+  // Restore state
+  peMode = savedMode; peIFC = savedIFC; peSanVentaOn = savedSan; peCutoffYear = savedCut; peCurrency = savedCurr;
+  renderPrimerasEtapas();
+
+  // Build PPTX
+  const pres = new pptxgen();
+  pres.layout = 'LAYOUT_16x9';
+
+  views.forEach(function(view) {
+    const v = view.data;
+    if (!v) return;
+    const W = v.W;
+    const s = pres.addSlide();
+    s.background = { color: '0F172A' };
+    s.addShape(pres.shapes.RECTANGLE, { x: 0, y: 0, w: 10, h: 0.04, fill: { color: 'F59E0B' } });
+    s.addText(view.title, { x: 0.4, y: 0.12, w: 9.2, h: 0.38, fontSize: 19, fontFace: 'Arial', bold: true, color: 'FFFFFF', margin: 0 });
+    s.addText(view.sub, { x: 0.4, y: 0.48, w: 9.2, h: 0.2, fontSize: 9, fontFace: 'Arial', color: '94A3B8', margin: 0 });
+
+    var lW = 2.0, cW = (9.2 - lW) / W.length, tY = 0.72;
+
+    // Year headers
+    W.forEach(function(yr, i) { s.addText(String(yr), { x: 0.4 + lW + i * cW, y: tY, w: cW, h: 0.16, fontSize: 8, fontFace: 'Arial', bold: true, color: '94A3B8', align: 'right', margin: 0 }); });
+    // Viv acum
+    s.addText('Viv. Acum.', { x: 0.4, y: tY + 0.16, w: lW, h: 0.16, fontSize: 7, fontFace: 'Arial', italic: true, color: '64748B', margin: 0 });
+    v.recVivAcum.forEach(function(val, i) { s.addText(val === 0 ? '\u2014' : Math.round(val).toLocaleString('es-CL'), { x: 0.4 + lW + i * cW, y: tY + 0.16, w: cW, h: 0.16, fontSize: 7, fontFace: 'Arial', italic: true, color: '64748B', align: 'right', margin: 0 }); });
+    s.addShape(pres.shapes.LINE, { x: 0.4, y: tY + 0.34, w: 9.2, h: 0, line: { color: '334155', width: 0.5 } });
+
+    function addRow(y, label, data, bold, italic) {
+      var fc = italic ? 'A78BFA' : (bold ? 'FFFFFF' : '94A3B8');
+      s.addText(label, { x: 0.4, y: y, w: lW, h: 0.2, fontSize: bold ? 9 : 8, fontFace: 'Arial', bold: !!bold, italic: !!italic, color: fc, margin: 0 });
+      data.forEach(function(val, i) {
+        var usd = val * U / 1e6;
+        var txt = Math.abs(usd) < 0.01 ? '\u2014' : usd.toFixed(1);
+        var c = usd > 0.01 ? '22C55E' : (usd < -0.01 ? 'EF4444' : '64748B');
+        if (italic) c = usd >= 0 ? '22C55E' : 'EF4444';
+        s.addText(txt, { x: 0.4 + lW + i * cW, y: y, w: cW, h: 0.2, fontSize: bold ? 9 : 8, fontFace: 'Arial', bold: !!bold, italic: !!italic, color: c, align: 'right', margin: 0 });
+      });
+    }
+
+    var ry = tY + 0.40;
+    addRow(ry, 'Ingresos por Ventas', v.totalIng); ry += 0.20;
+    addRow(ry, 'Costos Operativos', v.totalCostos.map(function(x) { return -x; })); ry += 0.20;
+    addRow(ry, 'Resultado Sanitario', v.subtotalSan); ry += 0.20;
+    addRow(ry, 'Factibilizacion por Gastar', v.factPG.map(function(x) { return -x; })); ry += 0.04;
+    s.addShape(pres.shapes.LINE, { x: 0.4, y: ry, w: 9.2, h: 0, line: { color: '334155', width: 0.5 } }); ry += 0.05;
+    addRow(ry, 'FLUJO DE CAJA FUTURO', v.flujoCF, true); ry += 0.22;
+    addRow(ry, 'Flujo Caja Futuro Acumulado', v.flujoCFAcum, false, true); ry += 0.24;
+    var gR = v.W.map(function(_, i) { return v.W[i] === 2026 ? -v.factGastada : 0; });
+    addRow(ry, 'Factib. Gastada (al 2026)', gR); ry += 0.04;
+    s.addShape(pres.shapes.LINE, { x: 0.4, y: ry, w: 9.2, h: 0, line: { color: '334155', width: 0.5 } }); ry += 0.05;
+    addRow(ry, 'RESULTADO NEGOCIO', v.resultNeg, true); ry += 0.22;
+    addRow(ry, 'Resultado Acumulado', v.resultNegAcum, false, true); ry += 0.15;
+
+    // Bar chart as native pptxgenjs chart
+    var barData = [{ name: 'Flujo', labels: W.map(String), values: v.flujoCF.map(function(x) { return Math.round(x * U / 1e6 * 10) / 10; }) }];
+    s.addChart(pres.charts.BAR, barData, {
+      x: 0.2, y: ry, w: 9.6, h: 1.5, barDir: 'col',
+      chartColors: ['22C55E'],
+      chartArea: { fill: { color: '0F172A' }, roundedCorners: false },
+      catAxisLabelColor: '94A3B8', catAxisLabelFontSize: 8,
+      valAxisLabelColor: '64748B', valAxisLabelFontSize: 7,
+      valGridLine: { color: '1E293B', size: 0.5 },
+      catGridLine: { style: 'none' },
+      showLegend: false, showValue: false,
+    });
+    ry += 1.55;
+
+    // KPIs
+    [{ l: 'VAN (8%)', v: musd2(v.van) + ' MUSD', c: v.van >= 0 ? '22C55E' : 'EF4444' },
+     { l: 'Capital de Trabajo', v: musd2(v.capTrabajo) + ' MUSD', c: 'EF4444' },
+     { l: 'Capital por Gastar', v: musd2(v.capPorGastar) + ' MUSD', c: 'F59E0B' },
+     { l: 'Payback', v: v.payback ? String(v.payback) : '\u2014', c: 'F59E0B' },
+     { l: 'Flujos (+) desde', v: v.alwaysPos ? String(v.alwaysPos) : '\u2014', c: '22C55E' },
+    ].forEach(function(k, idx) {
+      var kx = 0.3 + idx * 1.9;
+      s.addShape(pres.shapes.ROUNDED_RECTANGLE, { x: kx, y: ry + 0.03, w: 1.75, h: 0.42, fill: { color: '1E293B' }, rectRadius: 0.04, line: { color: '334155', width: 0.5 } });
+      s.addText(k.l, { x: kx + 0.06, y: ry + 0.05, w: 1.6, h: 0.12, fontSize: 6, fontFace: 'Arial', bold: true, color: '94A3B8', margin: 0 });
+      s.addText(k.v, { x: kx + 0.06, y: ry + 0.18, w: 1.6, h: 0.22, fontSize: 11, fontFace: 'Arial', bold: true, color: k.c, margin: 0 });
+    });
+
+    // Messages
+    var msg1 = v.alwaysPos ? ('Flujos positivos permanentes desde el ' + v.alwaysPos + '. Payback al ' + (v.payback || '\u2014') + '. VAN: ' + musd2(v.van) + ' MUSD.') : '';
+    var msg2 = 'Capital de trabajo: ' + musd2(v.capTrabajo) + ' MUSD. Pendiente: ' + musd2(v.capPorGastar) + ' MUSD.';
+    s.addShape(pres.shapes.RECTANGLE, { x: 0.4, y: 5.05, w: 0.03, h: 0.18, fill: { color: '22C55E' } });
+    s.addText(msg1, { x: 0.55, y: 5.03, w: 9, h: 0.22, fontSize: 8, fontFace: 'Arial', bold: true, color: 'FFFFFF', margin: 0 });
+    s.addShape(pres.shapes.RECTANGLE, { x: 0.4, y: 5.28, w: 0.03, h: 0.18, fill: { color: 'F59E0B' } });
+    s.addText(msg2, { x: 0.55, y: 5.26, w: 9, h: 0.22, fontSize: 8, fontFace: 'Arial', color: '94A3B8', margin: 0 });
+  });
+
+  // Slide 5: Conclusiones
+  var audp = views[0].data, pn = views[1].data, pi = views[2].data, full = views[3].data;
+  var s5 = pres.addSlide();
+  s5.background = { color: '0F172A' };
+  s5.addShape(pres.shapes.RECTANGLE, { x: 0, y: 0, w: 10, h: 0.04, fill: { color: 'F59E0B' } });
+  s5.addText('Conclusiones', { x: 0.6, y: 0.3, w: 8.8, h: 0.45, fontSize: 24, fontFace: 'Arial', bold: true, color: 'FFFFFF', margin: 0 });
+  s5.addShape(pres.shapes.LINE, { x: 0.6, y: 0.82, w: 1.2, h: 0, line: { color: 'F59E0B', width: 3 } });
+
+  var pts = [
+    { n: '1', t: 'Las AUDP generan caja desde el ' + (audp.alwaysPos || '\u2014') + ' con payback al ' + (audp.payback || '\u2014'),
+      b: 'Resultado acumulado: ' + musd(audp.resultNegAcum[audp.resultNegAcum.length - 1]) + ' MUSD al 2038. VAN: ' + musd2(audp.van) + ' MUSD. Capital por gastar: ' + musd2(audp.capPorGastar) + ' MUSD.', c: '22C55E' },
+    { n: '2', t: 'El IFC reduce el capital requerido del PDUC en un ' + (pn && pi ? (100 - Math.round(pi.capPorGastar / pn.capPorGastar * 100)) : 0) + '%',
+      b: 'Sin IFC: ' + musd2(pn.capPorGastar) + ' MUSD. Con IFC: ' + musd2(pi.capPorGastar) + ' MUSD. VAN PDUC con IFC: ' + musd2(pi.van) + ' MUSD.', c: '2563EB' },
+    { n: '3', t: 'El proyecto completo recupera la inversion el ' + (full.payback || '\u2014'),
+      b: 'Resultado al 2043: ' + musd(full.resultNegAcum[full.resultNegAcum.length - 1]) + ' MUSD. VAN: ' + musd2(full.van) + ' MUSD. Capital pendiente: ' + musd2(full.capPorGastar) + ' MUSD.', c: 'F59E0B' },
+    { n: '4', t: 'La factibilizacion PDUC ya ejecutada suma ' + musd2(pn.factGastada) + ' MUSD',
+      b: 'De no continuar, estos recursos no generan retorno. El PDUC acumula ' + musd(pi.resultNegAcum[pi.resultNegAcum.length - 1]) + ' MUSD al 2043 (con IFC).', c: 'EF4444' },
+  ];
+  var py = 1.1;
+  pts.forEach(function(p) {
+    s5.addShape(pres.shapes.OVAL, { x: 0.6, y: py + 0.03, w: 0.3, h: 0.3, fill: { color: p.c } });
+    s5.addText(p.n, { x: 0.6, y: py + 0.03, w: 0.3, h: 0.3, fontSize: 12, fontFace: 'Arial', bold: true, color: '0F172A', align: 'center', valign: 'middle', margin: 0 });
+    s5.addText(p.t, { x: 1.1, y: py, w: 8.3, h: 0.28, fontSize: 13, fontFace: 'Arial', bold: true, color: 'FFFFFF', margin: 0 });
+    s5.addText(p.b, { x: 1.1, y: py + 0.33, w: 8.3, h: 0.42, fontSize: 10, fontFace: 'Arial', color: '94A3B8', margin: 0 });
+    py += 0.95;
+  });
+  s5.addText('Escenario Esperado \u00B7 Abril 2026 \u00B7 TC: 1 USD = 900 CLP', { x: 0.6, y: 5.25, w: 8.8, h: 0.15, fontSize: 8, fontFace: 'Arial', color: '64748B', margin: 0 });
+
+  pres.writeFile({ fileName: 'Reporte_Directorio_Primeras_Etapas.pptx' });
 }
 
 // ── Excel Download ──
