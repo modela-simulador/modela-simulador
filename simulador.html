@@ -11301,6 +11301,10 @@ function _renderPE() {
         sanVentaVal = opResult / 0.06 - 0.20 * cumInvSan;
         if (sanVentaVal > 0) sanVenta[sanEndIdx] = sanVentaVal;
       }
+      // Despues de vender: cero ingresos, costos e inversiones
+      for (let i = sanEndIdx + 1; i < W.length; i++) {
+        sanIng[i] = 0; sanCost[i] = 0; sanInv[i] = 0;
+      }
     }
   }
   const subtotalSan = W.map((_,i) => sanIng[i] - sanCost[i] - sanInv[i] + sanVenta[i]);
@@ -11476,9 +11480,7 @@ function _renderPE() {
   const s3 = mkS('3','pe-badge-gray','Factibilizacion Gastada \u2192 Resultado Negocio');
   let r3 = [];
   r3.push(mkR('Factibilizacion Gastada (2023-2025 cargada al 2026)', neg(factGastadaCargada), ''));
-  if (peSanVentaOn && sanVentaVal > 0) {
-    r3.push(mkR('Venta Negocio Sanitario (capitalizacion)', sanVenta, ''));
-  }
+  // Venta sanitaria ya incluida en Resultado Sanitario (seccion 1)
   r3.push(mkR('RESULTADO NEGOCIO',resultadoNeg,'pe-total'));
   r3.push(mkR('Resultado Negocio Acumulado',resultadoNegAcum,'pe-acum'));
   s3.appendChild(mkT(r3)); C.appendChild(s3);
@@ -11812,7 +11814,7 @@ async function downloadPEXlsx() {
   // ── Resultado Negocio ──
   ws.addRow([]);
   addR('Factibilizacion Gastada (2023-2025 al 2026)', neg(d.factGastadaCargada));
-  if (peSanVentaOn && d.sanVenta) addR('Venta Negocio Sanitario', d.sanVenta);
+  // Venta sanitaria ya en Resultado Sanitario
   const flujoRow = addR('RESULTADO NEGOCIO', d.resultadoNeg, {bold:true, fill:'FFFEF2F2'});
   addR('Resultado Negocio Acumulado', d.resultadoNegAcum, {italic:true, color:'FF7C3AED'});
 
