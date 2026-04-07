@@ -11201,11 +11201,10 @@ function _renderPE() {
   // Mitigaciones
   const mitigZ = {};
   for (const z of activeMitGroups) mitigZ[z] = W.map(y => gv(mitByGroup[z],y));
-  // IFC: Nuevo Acceso a Batuco se retrasa 2 anos (desplazar mitigaciones PDUC 2 anos)
-  if (peIFC && mitigZ['PDUC']) {
+  // Nuevo Acceso a Batuco: retraso de 2 anos (situacion base, no depende de IFC)
+  if (mitigZ['PDUC']) {
     const orig = mitigZ['PDUC'].slice();
     mitigZ['PDUC'] = W.map((_,i) => i >= 2 ? orig[i-2] : 0);
-    // Truncar: los ultimos 2 anos que se desplazaron fuera de la ventana se pierden
   }
   const totalMitig = W.map((_,i) => Object.values(mitigZ).reduce((s,a) => s + a[i], 0));
 
