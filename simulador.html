@@ -11509,11 +11509,17 @@ function _renderPE() {
   const capTrabajo = Math.round(Math.abs(Math.min(...resultadoNegAcum)));
   const capPorGastar = Math.round(Math.abs(Math.min(...flujoCajaFuturoAcum, 0)));
 
+  // ── VAN Residual por año (sobre resultadoNeg, sin tierra) ──
+  const vanRate = 0.08;
+  const vanResidual = W.map((_,t) => {
+    let v = 0;
+    for (let i = t; i < W.length; i++) v += resultadoNeg[i] / Math.pow(1 + vanRate, i - t);
+    return v;
+  });
+
   // ── VAN completo (siempre sobre ventana FULL, no afectado por cutoff) ──
-  // Reconstruir ventana completa para VAN
   const WFull = []; for (let y = 2026; y <= endYFull; y++) WFull.push(y);
   const tierraZonesVAN = isOnlyPDUC ? [...PDUC_HAB] : (isFull ? ALL_HAB : AUDP);
-  const vanRate = 0.08;
   // Recalcular flujo completo para VAN (mismo calculo que resultadoNeg pero sobre WFull)
   function calcFullFlowForVAN() {
     const Wv = WFull;
@@ -11682,12 +11688,7 @@ function _renderPE() {
     },
   });
 
-  // ── VAN Residual por año (sobre resultadoNeg, sin tierra — consistente con flujo mostrado) ──
-  const vanResidual = W.map((_,t) => {
-    let v = 0;
-    for (let i = t; i < W.length; i++) v += resultadoNeg[i] / Math.pow(1 + vanRate, i - t);
-    return v;
-  });
+  // vanResidual ya calculado arriba
   const vanResUF = vanResidual.map(v => peIsUSD ? Math.round(cv(v)*100)/100 : Math.round(cv(v)));
   const vanResColors = vanResUF.map(v => v >= 0 ? 'rgba(22,163,74,0.7)' : 'rgba(220,38,38,0.6)');
 
