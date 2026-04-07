@@ -11757,7 +11757,7 @@ async function downloadPEPptx() {
   if (!lastResults) { alert('Ejecute la simulacion primero.'); return; }
 
   // Load pptxgenjs from CDN if not loaded
-  if (typeof pptxgen === 'undefined') {
+  if (typeof PptxGenJS === 'undefined') {
     await new Promise((resolve, reject) => {
       const s = document.createElement('script');
       s.src = 'https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgenjs.bundle.js';
@@ -11805,7 +11805,7 @@ async function downloadPEPptx() {
   renderPrimerasEtapas();
 
   // Build PPTX
-  const pres = new pptxgen();
+  const pres = new PptxGenJS();
   pres.layout = 'LAYOUT_16x9';
 
   views.forEach(function(view) {
