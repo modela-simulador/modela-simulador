@@ -11157,15 +11157,37 @@ function _renderPE() {
     ingByZ['Otros Usos D4.0'] = W.map(y => gv(otrosRevByYear, y));
   }
   // IFC: ingreso por venta terreno PDUC = 0.8 UF/m2 * 300,000 m2 = 240,000 UF
-  // Repartido 30% 2028, 30% 2029, 40% 2030. Solo aplica a modos con PDUC.
+  // Repartido 30% 2029, 30% 2030, 40% 2031. Solo aplica a modos con PDUC.
+  // IFC activo: quita 843 viviendas (4.44 Ha) del Distrito G (de atras hacia adelante)
+  const IFC_TOTAL = 0.8 * 300000; // 240,000 UF
+  const IFC_HA = 4.44; // Ha que se venden como terreno industrial
+  const IFC_VIV_PERDIDAS = 843; // Viviendas que se pierden del Distrito G
+  const IFC_SCHED = { 2029: 0.30, 2030: 0.30, 2031: 0.40 };
   if (peIFC && (incPDUC || isOnlyPDUC)) {
-    const IFC_TOTAL = 0.8 * 300000; // 240,000 UF
-    const IFC_SCHED = { 2029: 0.30, 2030: 0.30, 2031: 0.40 };
+    // Agregar ingreso IFC
     if (!ingByZ['IFC']) ingByZ['IFC'] = W.map(() => 0);
     for (const [yr, pct] of Object.entries(IFC_SCHED)) {
       const y = parseInt(yr);
       const idx = W.indexOf(y);
       if (idx >= 0) ingByZ['IFC'][idx] = Math.round(IFC_TOTAL * pct);
+    }
+    // Quitar ingresos de Distrito G por 843 viv menos (efecto de atras hacia adelante)
+    // Reducir los ultimos anos de ingresos del Distrito G proporcionalmente
+    if (ingByZ['Distrito G']) {
+      const dg = ingByZ['Distrito G'];
+      const totalDG = dg.reduce((s,v) => s+v, 0);
+      if (totalDG > 0) {
+        // Calcular cuanto quitar: proporcion de viv perdidas sobre total Distrito G
+        const dgMaxViv = ZONAS_DEF['Distrito G']?.maxViviendas ?? 10425;
+        const reducPct = IFC_VIV_PERDIDAS / dgMaxViv;
+        // Quitar de atras hacia adelante
+        let pendiente = Math.round(totalDG * reducPct);
+        for (let i = dg.length - 1; i >= 0 && pendiente > 0; i--) {
+          const quitar = Math.min(dg[i], pendiente);
+          dg[i] -= quitar;
+          pendiente -= quitar;
+        }
+      }
     }
   }
   const allIngKeys = Object.keys(ingByZ);
@@ -11468,15 +11490,43 @@ function _renderPE() {
   for (let i = 1; i < W.length; i++) {
     if (resultadoNegAcum[i] >= 0 && resultadoNegAcum[i-1] < 0) { pbYear = W[i]; break; }
   }
-  // Capital de Trabajo = minimo del acumulado de Resultado Negocio
   const capTrabajo = Math.round(Math.abs(Math.min(...resultadoNegAcum)));
-  // Capital de Trabajo por Gastar = minimo del acumulado de Flujo Caja Futuro
   const capPorGastar = Math.round(Math.abs(Math.min(...flujoCajaFuturoAcum, 0)));
+
+  // ── VAN completo (incluye costo de tierra anual) ──
+  // Tierra anual por zona activa (del simulador)
+  const tierraByZone = r.tierraByZone || {};
+  const tierraZonesVAN = isOnlyPDUC ? [...PDUC_HAB] : (isFull ? ALL_HAB : AUDP);
+  const totalTierraVAN = W.map(y => tierraZonesVAN.reduce((s,z) => s + gv(tierraByZone[z],y), 0));
+  // Agregar tierra industrial para modos PDUC
+  if ((isFull || isOnlyPDUC) && tierraByZone['Industrial']) {
+    for (let i = 0; i < W.length; i++) totalTierraVAN[i] += gv(tierraByZone['Industrial'], W[i]);
+  }
+  // IFC: costo de tierra proporcional a los m2 vendidos
+  // IFC vende 300,000 m2 = 30 Ha. Costo tierra PDUC = 857,000 UF para ~323.72 Ha
+  // Proporcional = 857,000 * 30 / 323.72 = ~79,434 UF, repartido segun IFC_SCHED
+  const tierraIFC = W.map(() => 0);
+  if (peIFC && (incPDUC || isOnlyPDUC)) {
+    const PDUC_TIERRA = 857000;
+    const PDUC_HA = 323.72;
+    const IFC_HA_TIERRA = 30; // ~300,000 m2
+    const ifcTierraCosto = PDUC_TIERRA * IFC_HA_TIERRA / PDUC_HA;
+    for (const [yr, pct] of Object.entries(IFC_SCHED)) {
+      const idx = W.indexOf(parseInt(yr));
+      if (idx >= 0) tierraIFC[idx] = Math.round(ifcTierraCosto * pct);
+    }
+  }
+  // Flujo para VAN = resultadoNeg - tierra - tierraIFC
+  const vanRate = 0.08;
+  const flujoVAN = W.map((_,i) => resultadoNeg[i] - totalTierraVAN[i] - tierraIFC[i]);
+  let npv = 0;
+  for (let i = 0; i < W.length; i++) npv += flujoVAN[i] / Math.pow(1 + vanRate, i);
 
   const sKpi = mkS('\u2261','pe-badge-gray','Indicadores Financieros');
   const kpiDiv = document.createElement('div');
-  kpiDiv.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-top:6px';
+  kpiDiv.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:6px';
   const kpis = [
+    { label:'VAN (8%)', value: fmtCV(npv) + peUnit, color: npv >= 0 ? '#16a34a' : '#dc2626' },
     { label:'Capital de Trabajo', value: fmtCV(capTrabajo) + peUnit, color: '#dc2626' },
     { label:'Capital por Gastar', value: fmtCV(capPorGastar) + peUnit, color: '#d97706' },
     { label:'Payback', value: pbYear || '\u2014', color: '#d97706' },
