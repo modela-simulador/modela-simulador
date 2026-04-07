@@ -11554,6 +11554,7 @@ function _renderPE() {
     const fPG=Wv.map(y=>y>=2026?sumFv(activeFactZones,y):0);
     const fG=[2023,2024,2025].reduce((s,y)=>s+sumFv(activeFactZones,y),0);
     // Venta sanitaria si toggle activo
+    console.log('VAN calcFullFlow: peSanVentaOn=', peSanVentaOn, 'peIFC=', peIFC);
     if (peSanVentaOn) {
       const vivZV = isOnlyPDUC ? PDUC_HAB : (isFull ? ALL_HAB : AUDP);
       let sanEndV = -1;
