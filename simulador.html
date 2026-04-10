@@ -11527,15 +11527,20 @@ function _renderPE() {
     s0.appendChild(mkT(r0)); C.appendChild(s0);
 
     // 1: Negocio Sanitaria — componentes del flujo operacional
-    // Pago Desarrollador = Inversiones (positivo, netea la inversión)
+    // Orden pedido por el usuario:
+    //   1. Ingresos Operacionales
+    //   2. Costos Operacionales
+    //   3. Inversiones Sanitarias
+    //   4. Pago Desarrollador  (= Inversiones, positivo → netea)
+    //   5. Venta Sanitaria
     const pagoDesarrollador = sanInv.slice();
     const s1 = mkS('1','pe-badge-green','Negocio Sanitaria ' + sanTag);
     let r1 = [];
     r1.push(mkR('Ingresos Operacionales',           sanIng,                 ''));
-    r1.push(mkR('Ingreso Pago Desarrollador',       pagoDesarrollador,      ''));
-    r1.push(mkR('Venta Sanitaria ' + sanTag,        sanVenta,               ''));
     r1.push(mkR('Costos Operacionales',             sanCost.map(v => -v),   ''));
     r1.push(mkR('Inversiones Sanitarias',           sanInv.map(v => -v),    ''));
+    r1.push(mkR('Ingreso Pago Desarrollador',       pagoDesarrollador,      ''));
+    r1.push(mkR('Venta Sanitaria ' + sanTag,        sanVenta,               ''));
     r1.push(mkR('SUBTOTAL NEGOCIO SANITARIA',       subtotalSan,            'pe-sub'));
     r1.push(mkR('Sanitaria Acumulado',              subtotalSanAcum,        'pe-acum'));
     s1.appendChild(mkT(r1)); C.appendChild(s1);
@@ -11770,19 +11775,25 @@ function _renderPE() {
   chartSec.appendChild(chartSub);
 
   // Key messages row
-  // "Flujos positivos permanentes" = primer año donde el ACUMULADO se vuelve
-  // positivo y se mantiene positivo hasta el final de la ventana.
-  // Esto es más robusto que "todos los flujos positivos" porque tolera
-  // pequeños gastos residuales al final (ej. mitigaciones viales) mientras
-  // el acumulado siga siendo positivo.
+  // "Flujos positivos permanentes" = primer año desde el cual TODOS los
+  // flujos de caja anuales subsiguientes son ≥ 0.
+  // Se calcula sobre flujoCajaFuturo (flujo anual), NO sobre el acumulado.
+  //
+  // Tolerancia: ignoramos residuales chicos < 1% del mayor desembolso
+  // absoluto del flujo. Esto evita que cola de mitigaciones viales (ej.
+  // -1.925 UF en 2044 cuando los picos son 200K+) rompan la cadena.
+  const maxFlowAbs = Math.max(...flujoCajaFuturo.map(Math.abs), 1);
+  const negThreshold = -maxFlowAbs * 0.01;  // e.g. -2.000 para flujos con max ~200.000
   let alwaysPosYear = null;
-  for (let i = 0; i < flujoCajaFuturoAcum.length; i++) {
-    if (flujoCajaFuturoAcum[i] >= 0) {
-      let staysPos = true;
-      for (let j = i; j < flujoCajaFuturoAcum.length; j++) {
-        if (flujoCajaFuturoAcum[j] < 0) { staysPos = false; break; }
-      }
-      if (staysPos) { alwaysPosYear = W[i]; break; }
+  for (let i = 0; i < flujoCajaFuturo.length; i++) {
+    let staysNonNeg = true;
+    for (let j = i; j < flujoCajaFuturo.length; j++) {
+      // Negativo significativo (bajo el umbral de tolerancia) rompe la cadena
+      if (flujoCajaFuturo[j] < negThreshold) { staysNonNeg = false; break; }
+    }
+    if (staysNonNeg) {
+      const hasAnyPos = flujoCajaFuturo.slice(i).some(v => v > 0);
+      if (hasAnyPos) { alwaysPosYear = W[i]; break; }
     }
   }
 
