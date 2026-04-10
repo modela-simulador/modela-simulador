@@ -11143,11 +11143,17 @@ function _renderPE() {
   function fmtPh(v, dec) { return v === 0 ? '\u2014' : (dec ? v.toLocaleString('es-CL',{minimumFractionDigits:dec,maximumFractionDigits:dec}) : Math.round(v).toLocaleString('es-CL')); }
   function cumul(a) { const r=[]; a.forEach((v,i) => r.push((r[i-1]||0)+v)); return r; }
 
-  // ── Factibilizacion PE: datos actualizados desde xlsx "Distribución de costos Proyecto (Mar-26)" ──
+  // ── Factibilizacion PE: tabla actualizada por el usuario (rev 2) ──
+  // Fuente: nueva tabla adjunta — sin año 2022, 2033 en cero para las tres.
+  // Totales verificados:
+  //   AUDP:     gastada 2023-25 = 132.513 · por gastar 2026+ = 126.908 · total = 259.421
+  //   PDUC:     gastada 2023-25 =  47.159 · por gastar 2026+ = 276.100 · total = 323.259
+  //   SANIT.:   gastada 2023-25 =  42.899 · por gastar 2026+ =  30.625 · total =  73.524
+  //   GRAN TOTAL = 656.204 UF
   const PE_FACT = {
-    AUDP:      { 2022:8465,  2023:42507, 2024:39116, 2025:50357, 2026:58726, 2027:33713, 2028:24350, 2029:4909,  2030:2813,  2031:1139,  2032:133,   2033:0 },
-    PDUC:      { 2022:23670, 2023:20086, 2024:13846, 2025:13761, 2026:19046, 2027:30246, 2028:36021, 2029:60726, 2030:52884, 2031:44656, 2032:33648, 2033:9 },
-    SANITARIA: { 2022:683,   2023:23771, 2024:9508,  2025:9620,  2026:11850, 2027:9099,  2028:6336,  2029:892,   2030:842,   2031:827,   2032:779,   2033:179 },
+    AUDP:      { 2023:43040, 2024:39116, 2025:50357, 2026:58923, 2027:34641, 2028:24350, 2029:4909,  2030:2813,  2031:1139,  2032:133,   2033:0 },
+    PDUC:      { 2023:19552, 2024:13846, 2025:13761, 2026:18848, 2027:29317, 2028:36021, 2029:60726, 2030:52884, 2031:44656, 2032:33648, 2033:0 },
+    SANITARIA: { 2023:23771, 2024:9508,  2025:9620,  2026:11850, 2027:9099,  2028:6336,  2029:892,   2030:842,   2031:827,   2032:779,   2033:0 },
   };
   // Rebuild factByZone for PE using FACT_SHARE proportions
   const peFactByZone = {};
