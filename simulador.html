@@ -11128,10 +11128,11 @@ function _renderPE() {
   function fmtPh(v, dec) { return v === 0 ? '\u2014' : (dec ? v.toLocaleString('es-CL',{minimumFractionDigits:dec,maximumFractionDigits:dec}) : Math.round(v).toLocaleString('es-CL')); }
   function cumul(a) { const r=[]; a.forEach((v,i) => r.push((r[i-1]||0)+v)); return r; }
 
-  // ── Factibilizacion PE: datos actualizados (solo para Primeras Etapas) ──
+  // ── Factibilizacion PE: datos actualizados desde xlsx "Distribución de costos Proyecto (Mar-26)" ──
   const PE_FACT = {
-    AUDP: { 2023:42439, 2024:33320, 2025:38716, 2026:61160, 2027:29956, 2028:18687, 2029:10087 },
-    PDUC: { 2023:43925, 2024:29150, 2025:35021, 2026:49550, 2027:31193, 2028:37665, 2029:51660, 2030:53802, 2031:43868, 2032:34002, 2033:195 },
+    AUDP:      { 2022:8465,  2023:42507, 2024:39116, 2025:50357, 2026:58726, 2027:33713, 2028:24350, 2029:4909,  2030:2813,  2031:1139,  2032:133,   2033:0 },
+    PDUC:      { 2022:23670, 2023:20086, 2024:13846, 2025:13761, 2026:19046, 2027:30246, 2028:36021, 2029:60726, 2030:52884, 2031:44656, 2032:33648, 2033:9 },
+    SANITARIA: { 2022:683,   2023:23771, 2024:9508,  2025:9620,  2026:11850, 2027:9099,  2028:6336,  2029:892,   2030:842,   2031:827,   2032:779,   2033:179 },
   };
   // Rebuild factByZone for PE using FACT_SHARE proportions
   const peFactByZone = {};
@@ -11313,9 +11314,8 @@ function _renderPE() {
     if (sanEndIdx >= 0) {
       const opResult = sanIng[sanEndIdx] - sanCost[sanEndIdx];
       if (opResult > 0) {
-        let cumInvSan = 0;
-        for (let i = 0; i <= sanEndIdx; i++) cumInvSan += sanInv[i];
-        sanVentaVal = opResult / 0.06 - 0.20 * cumInvSan;
+        // Venta = perpetuidad del margen operacional al 6% (sin descuento por inversiones)
+        sanVentaVal = opResult / 0.06;
         if (sanVentaVal > 0) sanVenta[sanEndIdx] = sanVentaVal;
       }
       // Despues de vender: cero ingresos, costos e inversiones
@@ -11324,14 +11324,58 @@ function _renderPE() {
       }
     }
   }
-  const subtotalSan = W.map((_,i) => sanIng[i] - sanCost[i] - sanInv[i] + sanVenta[i]);
+  // En los modos de Venta de Tierra (audp, pduc, full, onlypduc) el impacto
+  // sanitario es SOLO las inversiones — ingresos op, costos op y venta pertenecen
+  // al negocio sanitario separado (modo 'sanAudp'). Para 'sanAudp' usamos el
+  // flujo sanitario completo incluyendo fact sanitaria + pago desarrollador.
+  const isSanAudp = peMode === 'sanAudp';
+  // Fact sanitaria por año (desde PE_FACT.SANITARIA). Gastada (< 2026) se acumula en 2026.
+  const sanFact = W.map(() => 0);
+  let sanFactSunk = 0;
+  if (PE_FACT.SANITARIA) {
+    for (const [yr, cost] of Object.entries(PE_FACT.SANITARIA)) {
+      const y = parseInt(yr);
+      if (y < 2026) sanFactSunk += cost;
+      else {
+        const idx = W.indexOf(y);
+        if (idx >= 0) sanFact[idx] += cost;
+      }
+    }
+    // Arrastre: lump sunk into first year of window (2026)
+    if (W[0] === 2026 && sanFactSunk > 0) sanFact[0] += sanFactSunk;
+  }
+  const subtotalSan = isSanAudp
+    // Sanitaria AUDP: ingresos + pago_dev + venta - costos - inversiones - fact_sanitaria
+    //   pago_dev = inversiones → neteados, por lo que CF = ing - cost - fact_san + venta
+    ? W.map((_,i) => sanIng[i] - sanCost[i] - sanFact[i] + sanVenta[i])
+    // Venta Tierra: solo carga las inversiones sanitarias (no ingresos, no costos, no venta)
+    : W.map((_,i) => -sanInv[i]);
   const subtotalSanAcum = cumul(subtotalSan);
 
   const negComb = W.map((_,i) => subtotalVT[i] + subtotalSan[i]);
   const negCombAcum = cumul(negComb);
 
   // Factibilizacion
-  const factTotal = W.map(y => sumZ(factByZonePE, activeFactZones, y));
+  let factTotal = W.map(y => sumZ(factByZonePE, activeFactZones, y));
+
+  // ── Modo 'Sanitaria AUDP': sustituir componentes ──
+  // El negocio sanitario AUDP es independiente del de venta tierra.
+  // - Ingresos: solo operacionales + venta sanitaria (no hay tierra)
+  // - Costos: solo sanitarios (op + inversiones) + fact sanitaria (sin mit/mant/infra)
+  // - Factibilización: solo la sanitaria (gastada 2022-25 arrastre + por gastar 2026+)
+  if (isSanAudp) {
+    const zero = W.map(() => 0);
+    // Zero-ear componentes venta tierra
+    for (let i = 0; i < W.length; i++) {
+      totalIng[i] = 0;
+      totalInfra[i] = 0;
+      totalMitig[i] = 0;
+      totalComerc[i] = 0;
+      totalMant_a[i] = 0;
+    }
+    // Reemplazar factTotal con fact sanitaria (gastada arrastre + por gastar)
+    factTotal = sanFact.slice();
+  }
 
   // (tierra and old flujoCR removed — now in sections below)
 
@@ -11347,11 +11391,14 @@ function _renderPE() {
   const haTotalAcum = cumul(haTotal);
 
   const chartIng = W.map((_,i) => totalIng[i] + sanIng[i] + sanVenta[i]);
-  const chartCos = W.map((_,i) => -(totalInfra[i]+totalMitig[i]+totalComerc[i]+totalMant_a[i]+sanCost[i]+sanInv[i]+factTotal[i]));
+  // Si estamos en sanAudp, pago desarrollador cancela inversiones — incluimos ambos para visual
+  const chartCos = isSanAudp
+    ? W.map((_,i) => -(sanCost[i]+sanInv[i]+factTotal[i]))
+    : W.map((_,i) => -(totalInfra[i]+totalMitig[i]+totalComerc[i]+totalMant_a[i]+sanCost[i]+sanInv[i]+factTotal[i]));
 
   // DOM builders
   const tgl = document.createElement('div'); tgl.className = 'pe-toggle';
-  [['audp','Solo AUDP'],['pduc','AUDP + Factib PDUC'],['full','PDUC Completa'],['onlypduc','Solo PDUC']].forEach(([m,lbl]) => {
+  [['audp','Solo AUDP'],['sanAudp','Sanitaria AUDP'],['pduc','AUDP + Factib PDUC'],['full','PDUC Completa'],['onlypduc','Solo PDUC']].forEach(([m,lbl]) => {
     const b = document.createElement('button');
     b.textContent = lbl;
     if (m === peMode) b.classList.add('active');
