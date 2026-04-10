@@ -11619,8 +11619,14 @@ function _renderPE() {
   for (let i = 1; i < W.length; i++) {
     if (resultadoNegAcum[i] >= 0 && resultadoNegAcum[i-1] < 0) { pbYear = W[i]; break; }
   }
-  const capTrabajo = Math.round(Math.abs(Math.min(...resultadoNegAcum)));
-  const capPorGastar = Math.round(Math.abs(Math.min(...flujoCajaFuturoAcum, 0)));
+  // Capital de Trabajo: máximo drawdown del flujo de caja REAL (forward).
+  // Sobre flujoCajaFuturoAcum para reflejar cash efectivo a fondear desde 2026.
+  // NO usar resultadoNegAcum porque incluye la fact gastada como sunk cost
+  // ya incurrido — ese dinero ya salió, no es capital a fondear.
+  const capTrabajo = Math.round(Math.abs(Math.min(...flujoCajaFuturoAcum, 0)));
+  // Capital por Gastar: total de factibilización pendiente (2026+)
+  // — el compromiso total de plata que hay que desembolsar.
+  const capPorGastar = Math.round(factPorGastar.reduce((a, b) => a + b, 0));
 
   // ── VAN Residual por año (sobre resultadoNeg, sin tierra) ──
   const vanRate = 0.08;
