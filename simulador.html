@@ -11218,6 +11218,19 @@ function _renderPE() {
   const totalComerc = isFull ? W.map(y => gv(comercializacionByYear, y)) : totalIng.map(v => Math.round(v * 0.02));
   const totalMant_a = isOnlyPDUC ? W.map(() => 0) : W.map(y => gv(mantByYear, y));
 
+  // ── Modo 'Sanitaria AUDP': zero-ear componentes venta tierra ANTES de subtotales ──
+  // El negocio sanitario es independiente del de venta tierra: no tiene ingresos de tierra,
+  // ni infra/mitigaciones/comercialización/mantención (esos son del negocio de venta tierra).
+  if (peMode === 'sanAudp') {
+    for (let i = 0; i < W.length; i++) {
+      totalIng[i] = 0;
+      totalInfra[i] = 0;
+      totalMitig[i] = 0;
+      totalComerc[i] = 0;
+      totalMant_a[i] = 0;
+    }
+  }
+
   const subtotalVT = W.map((_,i) => totalIng[i] - totalInfra[i] - totalMitig[i] - totalComerc[i] - totalMant_a[i]);
   const subtotalVTAcum = cumul(subtotalVT);
 
@@ -11329,25 +11342,29 @@ function _renderPE() {
   // al negocio sanitario separado (modo 'sanAudp'). Para 'sanAudp' usamos el
   // flujo sanitario completo incluyendo fact sanitaria + pago desarrollador.
   const isSanAudp = peMode === 'sanAudp';
-  // Fact sanitaria por año (desde PE_FACT.SANITARIA). Gastada (< 2026) se acumula en 2026.
-  const sanFact = W.map(() => 0);
-  let sanFactSunk = 0;
+  // Fact sanitaria separada en "por gastar" (2026+) y "gastada" (2022-2025 lump sum)
+  const sanFactFwd = W.map(() => 0);     // solo 2026+
+  let sanFactSunk = 0;                    // 2022-2025 total
   if (PE_FACT.SANITARIA) {
     for (const [yr, cost] of Object.entries(PE_FACT.SANITARIA)) {
       const y = parseInt(yr);
       if (y < 2026) sanFactSunk += cost;
       else {
         const idx = W.indexOf(y);
-        if (idx >= 0) sanFact[idx] += cost;
+        if (idx >= 0) sanFactFwd[idx] += cost;
       }
     }
-    // Arrastre: lump sunk into first year of window (2026)
-    if (W[0] === 2026 && sanFactSunk > 0) sanFact[0] += sanFactSunk;
   }
+  // Para el cálculo de subtotalSan (sanAudp) incluimos todo: gastada+por gastar cargados en 2026
+  const sanFactTotal = sanFactFwd.slice();
+  if (W[0] === 2026 && sanFactSunk > 0) sanFactTotal[0] += sanFactSunk;
+
   const subtotalSan = isSanAudp
-    // Sanitaria AUDP: ingresos + pago_dev + venta - costos - inversiones - fact_sanitaria
-    //   pago_dev = inversiones → neteados, por lo que CF = ing - cost - fact_san + venta
-    ? W.map((_,i) => sanIng[i] - sanCost[i] - sanFact[i] + sanVenta[i])
+    // Sanitaria AUDP (subtotal OPERACIONAL, sin fact):
+    //   CF_op = ingresos + pago_dev + venta - costos - inversiones
+    //         = ing - cost + venta  (porque pago = inv, se netean)
+    //   La fact sanitaria (por gastar + gastada) se resta en secciones 2 y 3.
+    ? W.map((_,i) => sanIng[i] - sanCost[i] + sanVenta[i])
     // Venta Tierra: solo carga las inversiones sanitarias (no ingresos, no costos, no venta)
     : W.map((_,i) => -sanInv[i]);
   const subtotalSanAcum = cumul(subtotalSan);
@@ -11358,23 +11375,10 @@ function _renderPE() {
   // Factibilizacion
   let factTotal = W.map(y => sumZ(factByZonePE, activeFactZones, y));
 
-  // ── Modo 'Sanitaria AUDP': sustituir componentes ──
-  // El negocio sanitario AUDP es independiente del de venta tierra.
-  // - Ingresos: solo operacionales + venta sanitaria (no hay tierra)
-  // - Costos: solo sanitarios (op + inversiones) + fact sanitaria (sin mit/mant/infra)
-  // - Factibilización: solo la sanitaria (gastada 2022-25 arrastre + por gastar 2026+)
+  // ── Modo 'Sanitaria AUDP': fact total = solo sanitaria por gastar ──
+  // (los componentes venta tierra ya fueron zero-eados antes de subtotalVT)
   if (isSanAudp) {
-    const zero = W.map(() => 0);
-    // Zero-ear componentes venta tierra
-    for (let i = 0; i < W.length; i++) {
-      totalIng[i] = 0;
-      totalInfra[i] = 0;
-      totalMitig[i] = 0;
-      totalComerc[i] = 0;
-      totalMant_a[i] = 0;
-    }
-    // Reemplazar factTotal con fact sanitaria (gastada arrastre + por gastar)
-    factTotal = sanFact.slice();
+    factTotal = sanFactFwd.slice();
   }
 
   // (tierra and old flujoCR removed — now in sections below)
@@ -11417,8 +11421,10 @@ function _renderPE() {
     const thT = document.createElement('th'); thT.textContent = 'TOTAL'; thT.style.borderLeft = '2px solid #94a3b8'; tr.appendChild(thT);
     thead.appendChild(tr); return thead;
   }
-  function addTotalCell(tr, data, fmt) {
-    const total = data.reduce((s,v) => s+v, 0);
+  function addTotalCell(tr, data, fmt, isAcum) {
+    // Para filas acumuladas el total es el ÚLTIMO valor (valor final del acumulado),
+    // no la suma de la fila (que sería un número sin sentido).
+    const total = isAcum ? (data[data.length - 1] || 0) : data.reduce((s,v) => s+v, 0);
     const td = document.createElement('td'); td.textContent = fmt(total);
     td.className = total > 0 ? 'pe-pos' : total < 0 ? 'pe-neg' : 'pe-zero';
     td.style.borderLeft = '2px solid #94a3b8';
@@ -11426,6 +11432,7 @@ function _renderPE() {
   }
   function mkR(label, data, cls, fn) {
     const fmt = fn || fmtUF;
+    const isAcum = cls && cls.indexOf('pe-acum') >= 0;
     const tr = document.createElement('tr'); if (cls) tr.className = cls;
     const td0 = document.createElement('td'); td0.textContent = label; tr.appendChild(td0);
     data.forEach(v => {
@@ -11433,7 +11440,7 @@ function _renderPE() {
       td.className = v > 0 ? (fmt === fmtUF ? 'pe-pos' : 'pe-phys') : v < 0 ? 'pe-neg' : 'pe-zero';
       tr.appendChild(td);
     });
-    addTotalCell(tr, data, fmt);
+    addTotalCell(tr, data, fmt, isAcum);
     return tr;
   }
   function mkP(id, label, data) {
@@ -11478,74 +11485,123 @@ function _renderPE() {
   }
   const neg = a => a.map(v => -v);
 
-  // 0: Fisico
-  const s0 = mkS('\u2302','pe-badge-gray','Indicadores Fisicos \u2014 ' + modeTitle);
-  let r0 = [];
-  r0.push(mkR('Ha Vendidas (lotes)',haTotal,'',v=>fmtPh(v,2)));
-  Object.keys(haByZ).forEach(z => r0.push(mkR('  '+z,haByZ[z],'',v=>fmtPh(v,2))));
-  r0.push(mkR('Ha Vendidas Acumuladas',haTotalAcum,'pe-acum',v=>fmtPh(v,2)));
-  r0.push(mkR('Viviendas Recepcionadas',recTotal,'',v=>fmtPh(v,0)));
-  Object.keys(recByZ).forEach(z => r0.push(mkR('  '+z,recByZ[z],'',v=>fmtPh(v,0))));
-  r0.push(mkR('Viviendas Acumuladas',recTotalAcum,'pe-acum',v=>fmtPh(v,0)));
-  s0.appendChild(mkT(r0)); C.appendChild(s0);
+  // ══════════════════════════════════════════════════════════════
+  // MODO SANITARIA AUDP — Vista dedicada del negocio sanitario
+  // (completamente independiente del negocio venta tierra)
+  // ══════════════════════════════════════════════════════════════
+  if (isSanAudp) {
+    // 0: Indicadores Físicos (solo viviendas acumuladas AUDP)
+    const s0 = mkS('\u2302','pe-badge-gray','Indicadores Fisicos \u2014 Sanitaria AUDP');
+    let r0 = [];
+    r0.push(mkR('Viviendas Recepcionadas AUDP',recTotal,'',v=>fmtPh(v,0)));
+    r0.push(mkR('Viviendas Acumuladas AUDP',recTotalAcum,'pe-acum',v=>fmtPh(v,0)));
+    s0.appendChild(mkT(r0)); C.appendChild(s0);
 
-  // ── SECCION 1: Negocio Venta de Tierra (Ingresos + Costos + Sanitario) ──
-  const totalCostos = W.map((_,i) => totalInfra[i] + totalMitig[i] + totalComerc[i] + totalMant_a[i]);
-  const costosDetail = {
-    'Infraestructura': totalInfra,
-    'Mitigaciones': totalMitig,
-    'Comercializacion (2%)': totalComerc,
-    'Mantencion': totalMant_a,
-  };
-  const sanDetail = {
-    'Ingresos Operacionales': sanIng,
-    'Costos Operacionales': sanCost.map(v => -v),
-    'Inversiones Sanitarias': sanInv.map(v => -v),
-    'Venta Negocio Sanitario': sanVenta,
-  };
-  // Subtotal Negocio = VT + Sanitario = negComb
-  const s1 = mkS('1','pe-badge-green','Negocio Venta de Tierra \u2014 ' + modeTitle);
-  let r1 = [];
-  r1.push(mkP('pe-ing','Ingresos Venta de Tierra',totalIng));
-  r1.push(mkCh('pe-ing',ingByZ,1));
-  r1.push(mkP('pe-cos','Costos Operativos',neg(totalCostos)));
-  r1.push(mkCh('pe-cos',costosDetail,-1));
-  r1.push(mkP('pe-san','Resultado Sanitario',subtotalSan));
-  r1.push(mkCh('pe-san',sanDetail,1));
-  r1.push(mkR('SUBTOTAL NEGOCIO VENTA TIERRA',negComb,'pe-sub'));
-  r1.push(mkR('Negocio Venta Tierra Acumulado',negCombAcum,'pe-acum'));
-  s1.appendChild(mkT(r1)); C.appendChild(s1);
+    // 1: Negocio Sanitaria AUDP — componentes del flujo operacional
+    // Pago Desarrollador = Inversiones (positivo, netea la inversión)
+    const pagoDesarrollador = sanInv.slice();  // positivo
+    // subtotalSan ya fue calculado arriba como: ing - cost - fact_san + venta (pago cancela inv)
+    const s1 = mkS('1','pe-badge-green','Negocio Sanitaria AUDP');
+    let r1 = [];
+    r1.push(mkR('Ingresos Operacionales',         sanIng,                                ''));
+    r1.push(mkR('Ingreso Pago Desarrollador',     pagoDesarrollador,                     ''));
+    r1.push(mkR('Venta Sanitaria AUDP',           sanVenta,                              ''));
+    r1.push(mkR('Costos Operacionales',           sanCost.map(v => -v),                  ''));
+    r1.push(mkR('Inversiones Sanitarias',         sanInv.map(v => -v),                   ''));
+    r1.push(mkR('SUBTOTAL NEGOCIO SANITARIA',     subtotalSan,                           'pe-sub'));
+    r1.push(mkR('Sanitaria Acumulado',            subtotalSanAcum,                       'pe-acum'));
+    s1.appendChild(mkT(r1)); C.appendChild(s1);
+  } else {
+    // ══════════════════════════════════════════════════════════════
+    // MODO NORMAL (Solo AUDP, Solo PDUC, AUDP+PDUC, Completo)
+    // ══════════════════════════════════════════════════════════════
+    // 0: Fisico
+    const s0 = mkS('\u2302','pe-badge-gray','Indicadores Fisicos \u2014 ' + modeTitle);
+    let r0 = [];
+    r0.push(mkR('Ha Vendidas (lotes)',haTotal,'',v=>fmtPh(v,2)));
+    Object.keys(haByZ).forEach(z => r0.push(mkR('  '+z,haByZ[z],'',v=>fmtPh(v,2))));
+    r0.push(mkR('Ha Vendidas Acumuladas',haTotalAcum,'pe-acum',v=>fmtPh(v,2)));
+    r0.push(mkR('Viviendas Recepcionadas',recTotal,'',v=>fmtPh(v,0)));
+    Object.keys(recByZ).forEach(z => r0.push(mkR('  '+z,recByZ[z],'',v=>fmtPh(v,0))));
+    r0.push(mkR('Viviendas Acumuladas',recTotalAcum,'pe-acum',v=>fmtPh(v,0)));
+    s0.appendChild(mkT(r0)); C.appendChild(s0);
+
+    // ── SECCION 1: Negocio Venta de Tierra (Ingresos + Costos + SOLO Inversiones Sanitarias) ──
+    const totalCostos = W.map((_,i) => totalInfra[i] + totalMitig[i] + totalComerc[i] + totalMant_a[i]);
+    const costosDetail = {
+      'Infraestructura': totalInfra,
+      'Mitigaciones': totalMitig,
+      'Comercializacion (2%)': totalComerc,
+      'Mantencion': totalMant_a,
+    };
+    // Venta Tierra solo asume Inversiones Sanitarias como costo.
+    // Ingresos op, costos op y venta sanitaria pertenecen al negocio Sanitaria AUDP (botón dedicado).
+    const s1 = mkS('1','pe-badge-green','Negocio Venta de Tierra \u2014 ' + modeTitle);
+    let r1 = [];
+    r1.push(mkP('pe-ing','Ingresos Venta de Tierra',totalIng));
+    r1.push(mkCh('pe-ing',ingByZ,1));
+    r1.push(mkP('pe-cos','Costos Operativos',neg(totalCostos)));
+    r1.push(mkCh('pe-cos',costosDetail,-1));
+    r1.push(mkR('Inversiones Sanitarias', sanInv.map(v => -v), ''));
+    r1.push(mkR('SUBTOTAL NEGOCIO VENTA TIERRA',negComb,'pe-sub'));
+    r1.push(mkR('Negocio Venta Tierra Acumulado',negCombAcum,'pe-acum'));
+    s1.appendChild(mkT(r1)); C.appendChild(s1);
+  }
 
   // ── SECCION 2: Flujo de Caja Futuro (Factib por gastar 2026+) ──
+  // En modo sanAudp: factTotal es sanFactFwd (solo fact sanitaria 2026+)
+  //                  y no hay breakdown por zonas — es todo "Sanitaria"
   const factPorGastar = factTotal.map((v,i) => W[i] >= 2026 ? v : 0);
   const factDetPG = {};
-  for (const z of activeFactZones) factDetPG[z] = W.map((y,i) => W[i] >= 2026 ? gv(factByZonePE[z], y) : 0);
+  if (isSanAudp) {
+    factDetPG['Sanitaria'] = sanFactFwd.slice();
+  } else {
+    for (const z of activeFactZones) factDetPG[z] = W.map((y,i) => W[i] >= 2026 ? gv(factByZonePE[z], y) : 0);
+  }
   const flujoCajaFuturo = W.map((_,i) => negComb[i] - factPorGastar[i]);
   const flujoCajaFuturoAcum = cumul(flujoCajaFuturo);
 
-  const s2 = mkS('\u2605','pe-badge-amber','Flujo de Caja Futuro \u2014 '+ml);
+  const s2Title = isSanAudp
+    ? 'Flujo de Caja Futuro \u2014 Sanitaria AUDP'
+    : 'Flujo de Caja Futuro \u2014 '+ml;
+  const s2 = mkS('\u2605','pe-badge-amber',s2Title);
   s2.style.cssText = 'margin-bottom:24px;border:2px solid #d97706;border-radius:10px;padding:12px 14px;background:#fffbeb';
   let r2 = [];
-  r2.push(mkP('pe-fpg','Factibilizacion por Gastar (2026+)',neg(factPorGastar)));
+  const factPgLabel = isSanAudp
+    ? 'Factibilizacion Sanitaria por Gastar (2026+)'
+    : 'Factibilizacion por Gastar (2026+)';
+  r2.push(mkP('pe-fpg',factPgLabel,neg(factPorGastar)));
   r2.push(mkCh('pe-fpg',factDetPG,-1));
   r2.push(mkR('FLUJO DE CAJA FUTURO',flujoCajaFuturo,'pe-sub'));
   r2.push(mkR('Flujo de Caja Futuro Acumulado',flujoCajaFuturoAcum,'pe-acum'));
   s2.appendChild(mkT(r2)); C.appendChild(s2);
 
   // ── SECCION 3: Resultado Negocio (+ factib gastada cargada al 2026) ──
-  // Factibilizacion gastada (pre-2026) sumada y cargada al 2026
-  // Sumar factibilizacion de 2023, 2024, 2025 directamente de factByZonePE (no estan en W)
+  // En modo sanAudp: usar SOLO la fact sanitaria gastada 2022-2025
   let factGastadaTotal = 0;
-  for (let y = 2023; y <= 2025; y++) { factGastadaTotal += sumZ(factByZonePE, activeFactZones, y); }
+  if (isSanAudp) {
+    factGastadaTotal = sanFactSunk;  // ya calculado arriba (2022-2025 sanitaria)
+  } else {
+    // Fact gastada AUDP/PDUC 2023-2025 (2022 queda fuera del modelo antiguo)
+    for (let y = 2022; y <= 2025; y++) {
+      factGastadaTotal += sumZ(factByZonePE, activeFactZones, y);
+    }
+  }
   const factGastadaCargada = W.map((_,i) => W[i] === 2026 ? factGastadaTotal : 0);
   const resultadoNeg = W.map((_,i) => flujoCajaFuturo[i] - factGastadaCargada[i]);
   const resultadoNegAcum = cumul(resultadoNeg);
 
-  const s3 = mkS('3','pe-badge-gray','Factibilizacion Gastada \u2192 Resultado Negocio');
+  const s3Title = isSanAudp
+    ? 'Factibilizacion Sanitaria Gastada \u2192 Resultado Negocio Sanitaria'
+    : 'Factibilizacion Gastada \u2192 Resultado Negocio';
+  const s3 = mkS('3','pe-badge-gray',s3Title);
   let r3 = [];
-  r3.push(mkR('Factibilizacion Gastada (2023-2025 cargada al 2026)', neg(factGastadaCargada), ''));
-  // Venta sanitaria ya incluida en Resultado Sanitario (seccion 1)
-  r3.push(mkR('RESULTADO NEGOCIO',resultadoNeg,'pe-total'));
+  const gastadaLabel = isSanAudp
+    ? 'Factibilizacion Sanitaria Gastada (2022-2025 cargada al 2026)'
+    : 'Factibilizacion Gastada (2022-2025 cargada al 2026)';
+  r3.push(mkR(gastadaLabel, neg(factGastadaCargada), ''));
+  const resultadoLabel = isSanAudp ? 'RESULTADO NEGOCIO SANITARIA' : 'RESULTADO NEGOCIO';
+  r3.push(mkR(resultadoLabel,resultadoNeg,'pe-total'));
   r3.push(mkR('Resultado Negocio Acumulado',resultadoNegAcum,'pe-acum'));
   s3.appendChild(mkT(r3)); C.appendChild(s3);
 
@@ -11566,32 +11622,61 @@ function _renderPE() {
     return v;
   });
 
-  // ── VAN = flujoCajaFuturo - tierra (simple, usa datos ya calculados) ──
-  // flujoCajaFuturo ya incluye venta sanitaria e IFC si estan activos
-  const tierraZonesVAN = isOnlyPDUC ? [...PDUC_HAB] : (isFull ? ALL_HAB : AUDP);
-  const totalTierraVAN = W.map(y => {
-    let t = tierraZonesVAN.reduce((s,z) => s + gv(tierraByZone[z],y), 0);
-    if ((isFull||isOnlyPDUC) && tierraByZone['Industrial']) t += gv(tierraByZone['Industrial'],y);
-    return t;
-  });
-  const tierraIFCvan = W.map(() => 0);
-  if (peIFC && (incPDUC||isOnlyPDUC)) {
-    const ifcTC = 857000 * 30 / 323.72;
-    for (const [yr,pct] of Object.entries(IFC_SCHED)) {
-      const idx = W.indexOf(parseInt(yr));
-      if (idx >= 0) tierraIFCvan[idx] = Math.round(ifcTC * pct);
+  // ── VAN ──
+  // En sanAudp: VAN sobre flujoCajaFuturo puro (sin restar tierra, es otro negocio)
+  // En otros modos: flujoCajaFuturo - tierra
+  let npv = 0;
+  if (isSanAudp) {
+    // VAN del negocio sanitario: descontar el flujo de caja futuro directamente
+    for (let i = 0; i < W.length; i++) {
+      npv += flujoCajaFuturo[i] / Math.pow(1 + vanRate, i);
+    }
+  } else {
+    const tierraZonesVAN = isOnlyPDUC ? [...PDUC_HAB] : (isFull ? ALL_HAB : AUDP);
+    const totalTierraVAN = W.map(y => {
+      let t = tierraZonesVAN.reduce((s,z) => s + gv(tierraByZone[z],y), 0);
+      if ((isFull||isOnlyPDUC) && tierraByZone['Industrial']) t += gv(tierraByZone['Industrial'],y);
+      return t;
+    });
+    const tierraIFCvan = W.map(() => 0);
+    if (peIFC && (incPDUC||isOnlyPDUC)) {
+      const ifcTC = 857000 * 30 / 323.72;
+      for (const [yr,pct] of Object.entries(IFC_SCHED)) {
+        const idx = W.indexOf(parseInt(yr));
+        if (idx >= 0) tierraIFCvan[idx] = Math.round(ifcTC * pct);
+      }
+    }
+    for (let i = 0; i < W.length; i++) {
+      const flujoVAN_i = flujoCajaFuturo[i] - totalTierraVAN[i] - tierraIFCvan[i];
+      npv += flujoVAN_i / Math.pow(1 + vanRate, i);
     }
   }
-  let npv = 0;
-  for (let i = 0; i < W.length; i++) {
-    const flujoVAN_i = flujoCajaFuturo[i] - totalTierraVAN[i] - tierraIFCvan[i];
-    npv += flujoVAN_i / Math.pow(1 + vanRate, i);
+
+  // ── TIR (solo para sanAudp: descontar flujoCajaFuturo) ──
+  let tirVal = null;
+  if (isSanAudp) {
+    let lo = -0.99, hi = 10.0;
+    function npvAtRate(rate) {
+      let v = 0;
+      for (let i = 0; i < W.length; i++) v += flujoCajaFuturo[i] / Math.pow(1 + rate, i);
+      return v;
+    }
+    for (let k = 0; k < 200; k++) {
+      const mid = (lo + hi) / 2;
+      if (npvAtRate(mid) > 0) lo = mid; else hi = mid;
+    }
+    tirVal = (lo + hi) / 2;
   }
 
   const sKpi = mkS('\u2261','pe-badge-gray','Indicadores Financieros');
   const kpiDiv = document.createElement('div');
   kpiDiv.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:6px';
-  const kpis = [
+  const kpis = isSanAudp ? [
+    { label:'VAN Sanitaria (8%)', value: fmtCV(npv) + peUnit, color: npv >= 0 ? '#16a34a' : '#dc2626' },
+    { label:'TIR Sanitaria',      value: (tirVal*100).toFixed(2).replace('.',',') + '%', color: (tirVal >= 0.08) ? '#16a34a' : '#dc2626' },
+    { label:'Capital de Trabajo', value: fmtCV(capTrabajo) + peUnit, color: '#dc2626' },
+    { label:'Payback',            value: pbYear || '\u2014', color: '#d97706' },
+  ] : [
     { label:'VAN (8%) c/ tierra', value: fmtCV(npv) + peUnit, color: npv >= 0 ? '#16a34a' : '#dc2626' },
     { label:'Capital de Trabajo', value: fmtCV(capTrabajo) + peUnit, color: '#dc2626' },
     { label:'Capital por Gastar', value: fmtCV(capPorGastar) + peUnit, color: '#d97706' },
