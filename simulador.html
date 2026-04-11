@@ -11669,24 +11669,18 @@ function _renderPE() {
   const capTrabajo = Math.round(Math.abs(Math.min(...capTrabajoSrc, 0)));
   const capPorGastar = Math.round(Math.abs(Math.min(...flujoCajaFuturoAcum, 0)));
 
-  // ── VAN Residual por año (sobre resultadoNeg, sin tierra) ──
+  // ── Flujo base para VAN (usado por VAN principal Y VAN Residual) ──
+  // Por construcción: vanResidual[0] === VAN principal (ambos descuentan el
+  // mismo numerador desde t=0). Antes eran distintos: el principal usaba
+  // flujoCajaFuturo−tierra y el residual usaba resultadoNeg (incluye sunk),
+  // generando una diferencia confusa de ~2-3 MUSD.
   const vanRate = 0.08;
-  const vanResidual = W.map((_,t) => {
-    let v = 0;
-    for (let i = t; i < W.length; i++) v += resultadoNeg[i] / Math.pow(1 + vanRate, i - t);
-    return v;
-  });
-
-  // ── VAN ──
-  // En modos sanitarios: VAN sobre flujoCajaFuturo puro (sin restar tierra, es otro negocio)
-  // En otros modos: flujoCajaFuturo - tierra
-  let npv = 0;
+  let vanBaseFlow;
   if (isAnySanMode) {
-    // VAN del negocio sanitario: descontar el flujo de caja futuro directamente
-    for (let i = 0; i < W.length; i++) {
-      npv += flujoCajaFuturo[i] / Math.pow(1 + vanRate, i);
-    }
+    // Modos sanitarios: flujo puro (no hay tierra que restar, es otro negocio)
+    vanBaseFlow = flujoCajaFuturo.slice();
   } else {
+    // Modos venta tierra: flujoCajaFuturo menos ingresos de tierra (y menos IFC si aplica)
     const tierraZonesVAN = isOnlyPDUC ? [...PDUC_HAB] : (isFull ? ALL_HAB : AUDP);
     const totalTierraVAN = W.map(y => {
       let t = tierraZonesVAN.reduce((s,z) => s + gv(tierraByZone[z],y), 0);
@@ -11701,11 +11695,25 @@ function _renderPE() {
         if (idx >= 0) tierraIFCvan[idx] = Math.round(ifcTC * pct);
       }
     }
-    for (let i = 0; i < W.length; i++) {
-      const flujoVAN_i = flujoCajaFuturo[i] - totalTierraVAN[i] - tierraIFCvan[i];
-      npv += flujoVAN_i / Math.pow(1 + vanRate, i);
-    }
+    vanBaseFlow = W.map((_,i) => flujoCajaFuturo[i] - totalTierraVAN[i] - tierraIFCvan[i]);
   }
+
+  // ── VAN principal = VP del flujo base desde t=0 ──
+  let npv = 0;
+  for (let i = 0; i < W.length; i++) {
+    npv += vanBaseFlow[i] / Math.pow(1 + vanRate, i);
+  }
+
+  // ── VAN Residual por año ──
+  // vanResidual[t] = VP del flujo base desde el año t en adelante, descontado a t.
+  // Por definición: vanResidual[0] === npv (VAN principal).
+  // Interpretación: "si entrara al proyecto en el año t, qué VAN obtengo de los
+  // flujos restantes desde ahí hacia adelante".
+  const vanResidual = W.map((_,t) => {
+    let v = 0;
+    for (let i = t; i < W.length; i++) v += vanBaseFlow[i] / Math.pow(1 + vanRate, i - t);
+    return v;
+  });
 
   // ── TIR (solo para modos sanitarios: descontar flujoCajaFuturo) ──
   // Edge case: si no hay flujos negativos, TIR es infinita (→ null, mostramos '—')
