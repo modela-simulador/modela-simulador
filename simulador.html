@@ -1107,6 +1107,8 @@
     #pe-san-venta-toggle:checked~#pe-san-slider{transform:translateX(16px)}
     #pe-ifc-toggle:checked+span{background:#2563eb}
     #pe-ifc-toggle:checked~#pe-ifc-slider{transform:translateX(16px)}
+    #pe-prc-toggle:checked+span{background:#7c3aed}
+    #pe-prc-toggle:checked~#pe-prc-slider{transform:translateX(16px)}
 
     /* ══════════════════════════════════════════════════════════
        MOBILE RESPONSIVE (max-width: 768px)
@@ -1875,6 +1877,14 @@
               <input type="checkbox" id="pe-ifc-toggle" style="opacity:0;width:0;height:0" onchange="peIFC=this.checked;renderPrimerasEtapas()">
               <span style="position:absolute;inset:0;background:#475569;border-radius:10px;transition:background .2s"></span>
               <span style="position:absolute;top:2px;left:2px;width:16px;height:16px;background:#fff;border-radius:50%;transition:transform .2s" id="pe-ifc-slider"></span>
+            </label>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px" title="Nuevo PRC 2035: libera suelo otros usos AUDP (25% de Ha DS19+Deptos vendidas) a 4,5 UF/m²">
+            <label style="font-size:11px;font-weight:700;color:#e2e8f0;text-transform:uppercase;letter-spacing:0.4px;white-space:nowrap">PRC</label>
+            <label style="position:relative;display:inline-block;width:36px;height:20px;cursor:pointer">
+              <input type="checkbox" id="pe-prc-toggle" style="opacity:0;width:0;height:0" onchange="pePRCOn=this.checked;renderPrimerasEtapas()">
+              <span style="position:absolute;inset:0;background:#475569;border-radius:10px;transition:background .2s"></span>
+              <span style="position:absolute;top:2px;left:2px;width:16px;height:16px;background:#fff;border-radius:50%;transition:transform .2s" id="pe-prc-slider"></span>
             </label>
           </div>
           <div style="flex:1"></div>
@@ -4265,6 +4275,10 @@ function simulate(params) {
   const unitsByProd   = {};
   const opsByProd     = {};
   const opsHistory    = [];
+  // Informative tracker: Ha DS19+Deptos vendidas en AUDP por año
+  // Siempre se calcula (no depende de activePRC) para que Primeras Etapas
+  // pueda ofrecer su propio toggle PRC con timing y precio distintos.
+  const peAudpHaDS19Deptos = {};  // { 'AUDP Batuco': { 2029: 1.33, 2030: 1.25, ... } }
 
   for (const p of Object.keys(PRODUCTS)) {
     revenueByProd[p] = {};
@@ -4576,6 +4590,11 @@ function simulate(params) {
         // Track DS19+Deptos Ha for PRC (AUDPs only, excludes unifam)
         if (activePRC && isAUDPZone && (family === 'ds19' || family === 'depto')) {
           prcHaTracker[zName] = (prcHaTracker[zName] ?? 0) + ha;
+        }
+        // Tracker informativo SIEMPRE activo para Primeras Etapas PRC toggle
+        if (isAUDPZone && (family === 'ds19' || family === 'depto')) {
+          if (!peAudpHaDS19Deptos[zName]) peAudpHaDS19Deptos[zName] = {};
+          peAudpHaDS19Deptos[zName][year] = (peAudpHaDS19Deptos[zName][year] ?? 0) + ha;
         }
 
         // Evolution: 70% of initial stock sold → deactivate this product, unlock next
@@ -5330,7 +5349,8 @@ function simulate(params) {
            factibilizacionByYear, revenueByZone, mitByGroup, mitByItem, factByZone, tierraByZone,
            infraByYear, infraByZone, mantByYear,
            otrosRevByYear, otrosHaByYear, effectiveOtrosHa, effectiveIndHaTotal, effectiveIndMenorHa, effectiveIndMayorHa, extraFromD40,
-           nabSubitems, yearIndustrial, yearIndMayor, nabStartYear, nabInaugYear, zones };
+           nabSubitems, yearIndustrial, yearIndMayor, nabStartYear, nabInaugYear, zones,
+           peAudpHaDS19Deptos };
 }
 
 // ════════════════════════════════════════════════════════════
@@ -10923,6 +10943,7 @@ let peSanVentaOn = false; // toggle venta sanitaria — off by default
 let peCutoffYear = 0; // 0 = hasta termino, else specific year
 let peCurrency = 'UF'; // 'UF' or 'USD'
 let peIFC = false; // toggle IFC (Informe Favorable de Construccion)
+let pePRCOn = false; // toggle PRC 2035: libera suelo otros usos (AUDP) a 4.5 UF/m²
 
 function setPeCurrency(mode) {
   peCurrency = mode;
@@ -11079,6 +11100,9 @@ function _renderPE() {
   const mitByGroup = r.mitByGroup || {};
   const factByZone = r.factByZone || {};
   const tierraByZone = r.tierraByZone || {};
+  // Tracker informativo de Ha DS19+Deptos vendidas en AUDP (por zona/año)
+  // — usado por el toggle PRC 2035 de Primeras Etapas
+  const peAudpHaDS19Deptos = r.peAudpHaDS19Deptos || {};
   const comercializacionByYear = r.comercializacionByYear || {};
   const mantByYear = r.mantByYear || {};
   const sanitariaByYear = r.sanitariaByYear || {};
@@ -11239,6 +11263,55 @@ function _renderPE() {
   const totalComerc = isFull ? W.map(y => gv(comercializacionByYear, y)) : totalIng.map(v => Math.round(v * 0.02));
   const totalMant_a = isOnlyPDUC ? W.map(() => 0) : W.map(y => gv(mantByYear, y));
 
+  // ── PRC 2035: Ingresos por suelo otros usos liberado en AUDP ──
+  // Se activa con el toggle pePRCOn en Primeras Etapas. Independiente del
+  // activePRC del Simulador 1. Lógica:
+  //  - Por cada Ha de DS19+Deptos vendida en AUDP en año Y, se "libera"
+  //    0.25 × Ha como suelo otros usos (mismo factor que el simulador original)
+  //  - Antes de 2035 el suelo queda en backlog (PRC no está activo aún)
+  //  - En 2035 se vende el backlog completo + la liberación del año
+  //  - Desde 2036 en adelante: se vende lo liberado ese año
+  //  - Nunca se vende después del último año con ventas de viviendas
+  //  - Precio fijo: 4,5 UF/m² = 45.000 UF/ha (sin plusvalía)
+  const PRC_START_YEAR = 2035;
+  const PRC_FACTOR = 0.25;
+  const PRC_PRICE_UF_HA = 4.5 * 10000; // 45.000 UF/ha
+  const prcHaYear = W.map(() => 0);
+  const prcIngYear = W.map(() => 0);
+  // PRC 2035 solo aplica a modos que INCLUYEN AUDP (no a Solo PDUC ni sanitarios)
+  const prcApplies = pePRCOn && peMode !== 'onlypduc' && peMode !== 'sanAudp' && peMode !== 'sanPduc';
+  if (prcApplies && peAudpHaDS19Deptos) {
+    // Agrupo Ha DS19+Deptos AUDP por año (suma Batuco + Colina)
+    const audpHaPorAño = {};
+    for (const z of AUDP) {
+      for (const [yr, ha] of Object.entries(peAudpHaDS19Deptos[z] || {})) {
+        const y = parseInt(yr);
+        audpHaPorAño[y] = (audpHaPorAño[y] ?? 0) + ha;
+      }
+    }
+    // Último año con ventas efectivas de viviendas (cualquier DS19+Deptos AUDP)
+    let lastVivYear = -Infinity;
+    for (const y of Object.keys(audpHaPorAño)) {
+      const yi = parseInt(y);
+      if (audpHaPorAño[yi] > 0 && yi > lastVivYear) lastVivYear = yi;
+    }
+    // Backlog de años previos a PRC_START_YEAR (pero ≤ lastVivYear)
+    let backlog = 0;
+    for (const [yr, ha] of Object.entries(audpHaPorAño)) {
+      const y = parseInt(yr);
+      if (y < PRC_START_YEAR) backlog += ha * PRC_FACTOR;
+    }
+    // Distribuir: desde PRC_START_YEAR hasta lastVivYear
+    for (let i = 0; i < W.length; i++) {
+      const y = W[i];
+      if (y < PRC_START_YEAR || y > lastVivYear) continue;
+      let haLib = (audpHaPorAño[y] ?? 0) * PRC_FACTOR;
+      if (y === PRC_START_YEAR) haLib += backlog;  // descarga del backlog
+      prcHaYear[i] = haLib;
+      prcIngYear[i] = haLib * PRC_PRICE_UF_HA;
+    }
+  }
+
   // ── Modos Sanitaria (AUDP/PDUC): zero-ear componentes venta tierra ANTES de subtotales ──
   // El negocio sanitario es independiente del de venta tierra: no tiene ingresos de tierra,
   // ni infra/mitigaciones/comercialización/mantención (esos son del negocio de venta tierra).
@@ -11249,10 +11322,13 @@ function _renderPE() {
       totalMitig[i] = 0;
       totalComerc[i] = 0;
       totalMant_a[i] = 0;
+      prcIngYear[i] = 0;  // PRC tampoco aplica a modos sanitarios
+      prcHaYear[i] = 0;
     }
   }
 
-  const subtotalVT = W.map((_,i) => totalIng[i] - totalInfra[i] - totalMitig[i] - totalComerc[i] - totalMant_a[i]);
+  // subtotalVT incluye el ingreso PRC (otros usos liberados)
+  const subtotalVT = W.map((_,i) => totalIng[i] + prcIngYear[i] - totalInfra[i] - totalMitig[i] - totalComerc[i] - totalMant_a[i]);
   const subtotalVTAcum = cumul(subtotalVT);
 
   // Viviendas recepcionadas
@@ -11579,6 +11655,10 @@ function _renderPE() {
     let r1 = [];
     r1.push(mkP('pe-ing','Ingresos Venta de Tierra',totalIng));
     r1.push(mkCh('pe-ing',ingByZ,1));
+    // Nueva fila: Ingresos Otros Usos PRC (si el toggle está activo y aplica al modo)
+    if (prcApplies) {
+      r1.push(mkR('Ingresos Otros Usos (PRC 2035, 4,5 UF/m\u00b2)', prcIngYear, ''));
+    }
     r1.push(mkP('pe-cos','Costos Operativos',neg(totalCostos)));
     r1.push(mkCh('pe-cos',costosDetail,-1));
     r1.push(mkR('Inversiones Sanitarias', sanInv.map(v => -v), ''));
