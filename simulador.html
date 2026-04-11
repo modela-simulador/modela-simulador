@@ -1829,21 +1829,12 @@
     <div class="un-body">
       <div class="un-chart-scroll" style="padding:20px 24px">
         <div id="pe-static-controls" style="display:flex;flex-wrap:wrap;gap:12px 20px;align-items:center;margin-bottom:14px;padding:12px 16px;background:#0f172a;border:2px solid #7c3aed;border-radius:8px">
-          <div style="display:flex;align-items:center;gap:6px">
-            <label style="font-size:11px;font-weight:700;color:#e2e8f0;text-transform:uppercase;letter-spacing:0.4px;white-space:nowrap">Escenario Ventas</label>
-            <select id="pe-sel-escenario" style="padding:6px 12px;font-size:12px;border:1px solid #475569;border-radius:6px;background:#1e293b;color:#f8fafc;font-weight:500;font-family:inherit;cursor:pointer">
-              <option value="pesimista">Pesimista</option>
-              <option value="esperada" selected>Esperada</option>
-              <option value="optimista">Optimista</option>
-            </select>
-          </div>
-          <div style="display:flex;align-items:center;gap:6px">
-            <label style="font-size:11px;font-weight:700;color:#e2e8f0;text-transform:uppercase;letter-spacing:0.4px;white-space:nowrap">Curva Operadores</label>
-            <select id="pe-sel-ops" style="padding:6px 12px;font-size:12px;border:1px solid #475569;border-radius:6px;background:#1e293b;color:#f8fafc;font-weight:500;font-family:inherit;cursor:pointer">
-              <option value="pesimista">Pesimista</option>
-              <option value="esperada" selected>Esperada</option>
-              <option value="optimista">Optimista</option>
-            </select>
+          <div style="display:flex;align-items:center;gap:6px" title="Velocidad de venta: ajusta ± % la velocidad de todos los productos (DS19, Casas, Deptos, Townhouses). 0% = escenario base. +20% = 20% más rápido (ventas anuales +20%, cap de mercado +20%, inversiones/infra/mitigaciones/sanitaria se adelantan proporcionalmente). Valores negativos ralentizan todo.">
+            <label style="font-size:11px;font-weight:700;color:#e2e8f0;text-transform:uppercase;letter-spacing:0.4px;white-space:nowrap">Velocidad Venta</label>
+            <input id="pe-velocidad-input" type="number" value="0" min="-80" max="200" step="5"
+                   style="width:70px;padding:6px 8px;font-size:12px;border:1px solid #475569;border-radius:4px;background:#1e293b;color:#f8fafc;font-family:inherit;text-align:right"
+                   onchange="peVelocidadPct=parseFloat(this.value)||0; if(typeof peResimulate==='function') peResimulate(); renderPrimerasEtapas();">
+            <span style="font-size:10px;color:#94a3b8">% base</span>
           </div>
           <div style="width:1px;height:20px;background:#475569"></div>
           <div style="display:flex;align-items:center;gap:6px">
@@ -4202,9 +4193,15 @@ function simulate(params) {
 
   // ── Cap de absorción anual de viviendas (regla de mercado por escenario) ──
   // Solo superable en optimista. Valor base = restricción de capacidad de absorción del mercado.
-  const MAX_ANNUAL_UNITS = opsEscenario === 'optimista' ? 1200
-                         : opsEscenario === 'pesimista' ?  700
-                         :                                 900;
+  // Puede ser sobrescrito por params.maxAnnualUnitsOverride (usado por el
+  // control "Velocidad de venta" de Primeras Etapas para escalar el cap
+  // consistentemente con velMult — si el mercado va X% más rápido, también
+  // se asume que su capacidad de absorción máxima sube X%).
+  const MAX_ANNUAL_UNITS = params.maxAnnualUnitsOverride != null
+    ? params.maxAnnualUnitsOverride
+    : (opsEscenario === 'optimista' ? 1200
+      : opsEscenario === 'pesimista' ?  700
+      :                                 900);
 
   // ── Derived policy values ──
   const vivMult             = activeMasVivienda ? 1.33 : 1.0;
@@ -10952,6 +10949,7 @@ let peCurrency = 'UF'; // 'UF' or 'USD'
 let peIFC = false; // toggle IFC (Informe Favorable de Construccion)
 let pePRCOn = false; // toggle PRC 2035: libera suelo otros usos (AUDP) a 4.5 UF/m²
 let pePlusvalia = 1; // plusvalía base anual % (default 1, se aplica en re-simulación + PRC)
+let peVelocidadPct = 0; // Velocidad de venta ajuste % (default 0 = baseline esperada)
 
 function setPeCurrency(mode) {
   peCurrency = mode;
@@ -11019,12 +11017,19 @@ let peResults = null; // PE-specific simulation results
 
 function peResimulate() {
   if (!peBaseParams) return;
-  const peEsc = document.getElementById('pe-sel-escenario').value;
-  const peOps = document.getElementById('pe-sel-ops').value;
-  // Clone base params and override only velocity + operators + plusvalía PE
+  // ── Control unificado de velocidad ─────────────────────────────────
+  // peVelocidadPct ajusta ± % la velocidad de venta respecto al baseline
+  // "esperada". 0% = baseline puro. +20% = todos los productos venden 20%
+  // más rápido y el cap de absorción anual sube 20% para no estrangular
+  // el efecto. Las inversiones (infra, mitigaciones, planta sanitaria)
+  // se adelantan solas porque están triggered por umbrales de cumViv.
+  // Valores negativos ralentizan todo (venta + cap) y por ende retrasan
+  // inversiones y flujos operacionales.
+  const velFactor = 1 + (peVelocidadPct || 0) / 100;
   const p = Object.assign({}, peBaseParams);
-  p.velMult = VEL_MULT[peEsc] ?? 1.0;
-  p.opsEscenario = peOps;
+  p.velMult = velFactor;
+  p.opsEscenario = 'esperada'; // baseline fijo: la velocidad es el único dial
+  p.maxAnnualUnitsOverride = 900 * velFactor;
   // Override plusvalía con el valor del input de PE (default 1%).
   // Esto afecta: tickets de viviendas (DS19, Casas, Deptos, Townhouses)
   // de todas las zonas AUDP y PDUC, ya compuesto desde zoneStart.
@@ -11036,12 +11041,11 @@ function openPrimerasEtapas() {
   document.getElementById('pe-overlay').style.display = 'flex';
   // Capture base params from current sidebar state (once per open)
   peBaseParams = peGetBaseParams();
-  // Sync PE controls with sidebar
-  const peEsc = document.getElementById('pe-sel-escenario');
-  const peOps = document.getElementById('pe-sel-ops');
-  if (peEsc) peEsc.value = document.getElementById('escenario').value;
-  if (peOps) peOps.value = document.getElementById('escenario-ops').value;
-  // Sincronizar el input de plusvalía PE con la variable global
+  // Sincronizar los inputs de PE con las variables globales.
+  // Velocidad de venta: dial unificado que reemplaza los viejos selectores
+  // de escenario y curva de operadores.
+  const peVel = document.getElementById('pe-velocidad-input');
+  if (peVel) peVel.value = String(peVelocidadPct);
   const peP = document.getElementById('pe-plusvalia-input');
   if (peP) peP.value = String(pePlusvalia);
   // Re-simular siempre con el plusBase PE (pePlusvalia) en vez de usar
@@ -11049,21 +11053,6 @@ function openPrimerasEtapas() {
   // flujos de PE reflejen la plusvalía propia desde el primer render.
   peResults = lastResults;
   peResimulate();
-  // Wire handlers once
-  if (!peEsc._wired) {
-    peEsc._wired = true;
-    peEsc.addEventListener('change', function() {
-      peResimulate();
-      renderPrimerasEtapas();
-    });
-  }
-  if (!peOps._wired) {
-    peOps._wired = true;
-    peOps.addEventListener('change', function() {
-      peResimulate();
-      renderPrimerasEtapas();
-    });
-  }
   // Cutoff year selector — populate options dynamically
   const peCorte = document.getElementById('pe-sel-corte');
   if (peCorte && !peCorte._wired) {
