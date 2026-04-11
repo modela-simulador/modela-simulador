@@ -11290,7 +11290,7 @@ function _renderPE() {
   // PRC 2035 solo aplica a modos que INCLUYEN AUDP (no a Solo PDUC ni sanitarios)
   const prcApplies = pePRCOn && peMode !== 'onlypduc' && peMode !== 'sanAudp' && peMode !== 'sanPduc';
   if (prcApplies && peAudpHaDS19Deptos) {
-    // 1. Total de Ha "otros usos" disponibles (25% de Ha DS19+Deptos AUDP TOTAL del proyecto)
+    // 1. Total de Ha "otros usos" disponibles (25% de Ha DS19+Deptos AUDP TOTAL)
     let haTotalOtrosUsos = 0;
     for (const z of AUDP) {
       for (const ha of Object.values(peAudpHaDS19Deptos[z] || {})) {
@@ -11299,48 +11299,48 @@ function _renderPE() {
     }
     haTotalOtrosUsos *= PRC_FACTOR;
 
-    // 2. Ventas de viviendas AUDP por año (suma Batuco + Colina, cualquier producto)
-    //    Uso unitsByZone (ventas brutas, no recepciones) porque la absorción
-    //    del suelo sigue al comportamiento comercial, no al de construcción.
-    const vivAUDPporAño = {};
+    // 2. Último año con ventas de viviendas AUDP (fija el terminus del flujo)
     let lastVivYear = -Infinity;
     for (const z of AUDP) {
       for (const [yr, units] of Object.entries(unitsByZone[z] || {})) {
-        const y = parseInt(yr);
         if (units > 0) {
-          vivAUDPporAño[y] = (vivAUDPporAño[y] ?? 0) + units;
+          const y = parseInt(yr);
           if (y > lastVivYear) lastVivYear = y;
         }
       }
     }
 
-    // 3. Ventas de viviendas AUDP en la ventana [2035, lastVivYear]
-    //    Estas son las "ventas post-PRC" que marcan el ritmo de absorción.
-    let sumVivPostPRC = 0;
-    for (const [yr, units] of Object.entries(vivAUDPporAño)) {
-      const y = parseInt(yr);
-      if (y >= PRC_START_YEAR && y <= lastVivYear) sumVivPostPRC += units;
-    }
-
-    // 4. Distribuir haTotalOtrosUsos proporcional al perfil de ventas post-PRC
-    if (sumVivPostPRC > 0 && haTotalOtrosUsos > 0) {
+    // 3. Distribuir haTotalOtrosUsos entre 2035 y lastVivYear usando una
+    //    CAMPANA LOGÍSTICA (derivada de una curva S). Propiedades:
+    //     - Arranque suave (año 2035 tiene baja absorción)
+    //     - Pico centrado en el medio del intervalo
+    //     - Desaceleración al final (termina con las viviendas)
+    //     - Independiente del perfil de ventas de viviendas (el usuario
+    //       lo pidió explícitamente — usamos nuestra propia curva generada)
+    //     - No alarga el flujo: terminus = lastVivYear
+    //
+    //    Fórmula: peso(t) = σ(x) × (1 - σ(x))   donde σ es la sigmoide
+    //             logística y x = k × (t - t_mid).
+    //             k = 4/(n-1) calibra la campana para que los extremos
+    //             del intervalo tengan ~5% de la masa (arranque suave).
+    const n = Math.max(1, lastVivYear - PRC_START_YEAR + 1);
+    if (n > 0 && haTotalOtrosUsos > 0 && lastVivYear >= PRC_START_YEAR) {
+      const tMid = (n - 1) / 2;
+      const k = n > 1 ? 4 / (n - 1) : 1;
+      const weights = [];
+      for (let t = 0; t < n; t++) {
+        const x = k * (t - tMid);
+        const sig = 1 / (1 + Math.exp(-x));
+        weights.push(sig * (1 - sig));  // densidad logística
+      }
+      const totalW = weights.reduce((a, b) => a + b, 0);
       for (let i = 0; i < W.length; i++) {
         const y = W[i];
         if (y < PRC_START_YEAR || y > lastVivYear) continue;
-        const prop = (vivAUDPporAño[y] ?? 0) / sumVivPostPRC;
-        prcHaYear[i] = haTotalOtrosUsos * prop;
-        prcIngYear[i] = Math.round(prcHaYear[i] * PRC_PRICE_UF_HA);
-      }
-    } else if (haTotalOtrosUsos > 0 && lastVivYear >= PRC_START_YEAR) {
-      // Edge case: proyecto sin ventas post-2035 dentro de la ventana — reparto lineal
-      const yearsAvail = W.filter(y => y >= PRC_START_YEAR && y <= lastVivYear).length;
-      if (yearsAvail > 0) {
-        const perYear = haTotalOtrosUsos / yearsAvail;
-        for (let i = 0; i < W.length; i++) {
-          if (W[i] < PRC_START_YEAR || W[i] > lastVivYear) continue;
-          prcHaYear[i] = perYear;
-          prcIngYear[i] = Math.round(perYear * PRC_PRICE_UF_HA);
-        }
+        const t = y - PRC_START_YEAR;
+        const ha = haTotalOtrosUsos * (weights[t] / totalW);
+        prcHaYear[i] = ha;
+        prcIngYear[i] = Math.round(ha * PRC_PRICE_UF_HA);
       }
     }
   }
