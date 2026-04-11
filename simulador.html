@@ -11541,6 +11541,20 @@ function _renderPE() {
           break;
         }
       }
+      // Post-processing: regla del usuario para forzar acortar el
+      // proyecto. Si el último año activo tiene menos de 50 unidades
+      // (un "goteo" sin sentido operativo), lo fusionamos con el año
+      // anterior. Esto puede empujar el año anterior ligeramente por
+      // encima del cap — es un trade-off consciente: preferimos un
+      // pequeño overshoot puntual en el cierre antes que arrastrar un
+      // año flotante con una handful de unidades.
+      const MERGE_THRESHOLD = 50;
+      let lastNz = -1;
+      for (let k = n - 1; k >= 0; k--) if (out[k] > 0) { lastNz = k; break; }
+      if (lastNz > 0 && out[lastNz] < MERGE_THRESHOLD) {
+        out[lastNz - 1] += out[lastNz];
+        out[lastNz] = 0;
+      }
       return out;
     };
     // ── Helper 2: redistributeByUnitOverlap ─────────────────────────
@@ -11851,6 +11865,50 @@ function _renderPE() {
   const chartCos = isSanAudp
     ? W.map((_,i) => -(sanCost[i]+sanInv[i]+factTotal[i]))
     : W.map((_,i) => -(totalInfra[i]+totalMitig[i]+totalComerc[i]+totalMant_a[i]+sanCost[i]+sanInv[i]+factTotal[i]));
+
+  // ── Truncar display al último año con actividad real ───────────────
+  // Bajo reshape + velocidad acelerada, la ventana W se construyó a
+  // partir del lastRecY NATURAL (antes del reshape), lo que puede dejar
+  // columnas vacías en la cola del dashboard porque el reshape acortó
+  // el proyecto. Escaneamos los flujos finales y truncamos W + todos
+  // los arrays W-indexed al último índice con actividad real. Solo
+  // aplica en modo Solo AUDP (el único con reshape activo).
+  //
+  // IMPORTANTE: esto es truncación PURAMENTE COSMÉTICA (de display).
+  // Los totales se preservan porque la consolidación previa ya movió
+  // cualquier residuo a posiciones ≤ lastActive. No inventamos ni
+  // destruimos valor; solo dejamos de renderizar años que son 0 a lo
+  // largo de todos los flujos relevantes.
+  if (_shapeLastSoldIdx >= 0 && peMode === 'audp') {
+    const scanArrs = [haTotal, totalIng, totalInfra, totalMitig, totalComerc, totalMant_a,
+                      sanIng, sanCost, sanInv, subtotalVT, negComb, recTotal, prcIngYear];
+    let lastActive = -1;
+    for (const arr of scanArrs) {
+      if (!arr) continue;
+      for (let i = arr.length - 1; i >= 0; i--) {
+        if (arr[i]) { if (i > lastActive) lastActive = i; break; }
+      }
+    }
+    const newLen = Math.max(1, lastActive + 1);
+    if (newLen < W.length) {
+      const shrinkArr = (a) => { if (a && Array.isArray(a) && a.length > newLen) a.length = newLen; };
+      const shrinkObj = (o) => { if (o) for (const k of Object.keys(o)) shrinkArr(o[k]); };
+      // Ventana de años
+      W.length = newLen;
+      // Arrays W-indexed planos (declarados antes de este punto)
+      [totalIng, totalInfra, totalMitig, totalComerc, totalMant_a, prcIngYear, prcHaYear,
+       subtotalVT, subtotalVTAcum, sanIng, sanCost, sanInv, sanVenta, sanFactFwd,
+       subtotalSan, subtotalSanAcum, negComb, negCombAcum, factTotal,
+       haTotal, haTotalAcum, recTotal, recTotalAcum, recAudpAcum, recFullAcum,
+       chartIng, chartCos].forEach(shrinkArr);
+      // Objetos por zona (ingresos/infra/mit/ha/recepción)
+      shrinkObj(ingByZ);
+      shrinkObj(infraZ);
+      shrinkObj(mitigZ);
+      shrinkObj(haByZ);
+      shrinkObj(recByZ);
+    }
+  }
 
   // DOM builders
   const tgl = document.createElement('div'); tgl.className = 'pe-toggle';
