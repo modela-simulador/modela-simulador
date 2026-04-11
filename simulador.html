@@ -1119,6 +1119,52 @@
     #pe-shape-toggle:checked~#pe-shape-slider{transform:translateX(16px)}
 
     /* ══════════════════════════════════════════════════════════
+       MONTE CARLO OVERLAY — Análisis Probabilístico Solo AUDP
+       ══════════════════════════════════════════════════════════ */
+    .mc-overlay{position:fixed;inset:0;background:rgba(15,23,42,0.65);z-index:9500;display:none;align-items:center;justify-content:center;padding:20px}
+    .mc-window{background:#f8fafc;border-radius:12px;width:min(1300px,96vw);height:min(92vh,880px);display:flex;flex-direction:column;box-shadow:0 20px 50px rgba(15,23,42,0.4);overflow:hidden}
+    .mc-topbar{background:#0f172a;color:#fff;padding:14px 20px;display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid #7c3aed}
+    .mc-topbar h2{font-size:17px;font-weight:700;margin:0;color:#fff}
+    .mc-topbar .mc-subtitle{font-size:11px;color:#94a3b8;margin-left:14px}
+    .mc-topbar .un-close{background:transparent;border:none;color:#f8fafc;font-size:20px;cursor:pointer;padding:4px 8px;border-radius:4px}
+    .mc-topbar .un-close:hover{background:rgba(255,255,255,0.1)}
+    .mc-body{flex:1;display:flex;gap:1px;background:#e2e8f0;overflow:hidden}
+    .mc-config{width:320px;background:#fff;padding:18px 16px;overflow-y:auto;display:flex;flex-direction:column;gap:14px}
+    .mc-results{flex:1;background:#fff;padding:16px 20px;overflow-y:auto;display:flex;flex-direction:column;gap:14px}
+    .mc-section-title{font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.6px;margin-bottom:4px}
+    .mc-field{display:flex;flex-direction:column;gap:4px}
+    .mc-field label{font-size:11px;color:#475569;font-weight:600}
+    .mc-field .mc-field-row{display:flex;align-items:center;gap:6px}
+    .mc-field input[type=number],.mc-field select{flex:1;padding:6px 8px;font-size:12px;border:1px solid #cbd5e1;border-radius:4px;background:#fff;color:#0f172a;font-family:inherit}
+    .mc-field input[type=range]{flex:1}
+    .mc-field .mc-field-val{font-size:11px;color:#0f172a;font-weight:600;font-variant-numeric:tabular-nums;min-width:44px;text-align:right}
+    .mc-field .mc-field-hint{font-size:9px;color:#94a3b8;font-style:italic}
+    .mc-dist-group{background:#f1f5f9;border:1px solid #e2e8f0;border-radius:6px;padding:8px 10px;display:flex;flex-direction:column;gap:6px}
+    .mc-dist-group .mc-dist-title{font-size:10px;font-weight:700;color:#334155;text-transform:uppercase;letter-spacing:0.4px}
+    .mc-dist-group .mc-dist-params{font-size:10px;color:#64748b;line-height:1.3}
+    .mc-run-btn{padding:10px 16px;background:#7c3aed;color:#fff;border:none;border-radius:6px;font-weight:700;font-size:13px;font-family:inherit;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;margin-top:8px}
+    .mc-run-btn:hover{background:#6d28d9}
+    .mc-run-btn:disabled{background:#94a3b8;cursor:not-allowed}
+    .mc-progress{height:6px;background:#e2e8f0;border-radius:3px;overflow:hidden;margin-top:6px}
+    .mc-progress-bar{height:100%;background:linear-gradient(90deg,#7c3aed,#a855f7);transition:width .15s ease;width:0%}
+    .mc-progress-label{font-size:10px;color:#64748b;text-align:center;margin-top:3px;font-variant-numeric:tabular-nums}
+    /* results */
+    .mc-kpi-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+    .mc-kpi{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px 12px}
+    .mc-kpi .mc-kpi-label{font-size:9px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.4px}
+    .mc-kpi .mc-kpi-value{font-size:18px;font-weight:700;color:#0f172a;font-variant-numeric:tabular-nums;margin-top:3px}
+    .mc-kpi .mc-kpi-sub{font-size:9px;color:#94a3b8;margin-top:2px}
+    .mc-kpi.mc-kpi-accent-green .mc-kpi-value{color:#16a34a}
+    .mc-kpi.mc-kpi-accent-blue .mc-kpi-value{color:#2563eb}
+    .mc-kpi.mc-kpi-accent-red .mc-kpi-value{color:#dc2626}
+    .mc-kpi.mc-kpi-accent-amber .mc-kpi-value{color:#d97706}
+    .mc-kpi.mc-kpi-accent-purple .mc-kpi-value{color:#7c3aed}
+    .mc-chart-panel{background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:12px 14px}
+    .mc-chart-title{font-size:11px;font-weight:700;color:#0f172a;margin-bottom:6px}
+    .mc-chart-sub{font-size:9px;color:#94a3b8;margin-bottom:8px}
+    .mc-empty{color:#94a3b8;text-align:center;font-size:12px;font-style:italic;padding:40px 20px}
+
+    /* ══════════════════════════════════════════════════════════
        MOBILE RESPONSIVE (max-width: 768px)
        ══════════════════════════════════════════════════════════ */
     .mobile-hamburger {
@@ -1921,11 +1967,97 @@
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
             PPT
           </button>
+          <button id="pe-btn-mc" onclick="openMCAnalysis()" title="Análisis Monte Carlo — simulación probabilística con 9 variables correlacionadas" style="padding:6px 14px;font-size:11px;font-weight:600;font-family:inherit;border:1px solid #7c3aed;border-radius:6px;background:#7c3aed;color:#fff;cursor:pointer;display:flex;align-items:center;gap:4px">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M8 12a4 4 0 0 1 8 0m-8 0a4 4 0 0 0 8 0"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/></svg>
+            Análisis MC
+          </button>
         </div>
         <div id="pe-dashboard-container">
           <div style="text-align:center;padding:60px;color:#94a3b8;font-size:14px">
             Ejecuta la simulacion para ver el dashboard
           </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal Análisis Monte Carlo ── -->
+<div id="mc-overlay" class="mc-overlay" onclick="if(event.target===this)closeMCAnalysis()">
+  <div class="mc-window">
+    <div class="mc-topbar">
+      <div style="display:flex;align-items:baseline;gap:10px">
+        <h2>Análisis Monte Carlo — Solo AUDP</h2>
+        <span class="mc-subtitle">Simulación probabilística con 9 variables correlacionadas · n iteraciones configurable</span>
+      </div>
+      <button class="un-close" onclick="closeMCAnalysis()">&#10005;</button>
+    </div>
+    <div class="mc-body">
+      <!-- ── Config column ── -->
+      <div class="mc-config">
+        <div class="mc-section-title">Parámetros de simulación</div>
+
+        <div class="mc-field">
+          <label for="mc-iterations">Nº iteraciones</label>
+          <select id="mc-iterations">
+            <option value="500">500 (rápido · ~6 s)</option>
+            <option value="1000">1.000 (~11 s)</option>
+            <option value="2000">2.000 (~22 s)</option>
+            <option value="3000" selected>3.000 (recomendado · ~32 s)</option>
+            <option value="5000">5.000 (robusto · ~55 s)</option>
+          </select>
+          <span class="mc-field-hint">stderr ≈ σ/√n · más iters → más precisión</span>
+        </div>
+
+        <div class="mc-field">
+          <label for="mc-seed">Seed (reproducibilidad)</label>
+          <input id="mc-seed" type="number" value="42" min="1" max="999999" step="1">
+          <span class="mc-field-hint">Mismo seed + mismos inputs → mismo resultado</span>
+        </div>
+
+        <div class="mc-section-title" style="margin-top:10px">Distribuciones (editables)</div>
+
+        <div class="mc-dist-group">
+          <div class="mc-dist-title">Velocidad venta</div>
+          <div class="mc-dist-params">normal μ=0, σ=<input id="mc-vel-sigma" type="number" value="22" min="5" max="50" step="1" style="width:42px;padding:2px 4px;font-size:10px;border:1px solid #cbd5e1;border-radius:3px">%, corte [−60, +80]</div>
+        </div>
+        <div class="mc-dist-group">
+          <div class="mc-dist-title">Plusvalía anual</div>
+          <div class="mc-dist-params">triang [<input id="mc-plusv-lo" type="number" value="0.5" min="0" max="5" step="0.1" style="width:38px;padding:2px 4px;font-size:10px;border:1px solid #cbd5e1;border-radius:3px">, <input id="mc-plusv-mode" type="number" value="2" min="0" max="5" step="0.1" style="width:38px;padding:2px 4px;font-size:10px;border:1px solid #cbd5e1;border-radius:3px">, <input id="mc-plusv-hi" type="number" value="4" min="0" max="8" step="0.1" style="width:38px;padding:2px 4px;font-size:10px;border:1px solid #cbd5e1;border-radius:3px">] %</div>
+        </div>
+        <div class="mc-dist-group">
+          <div class="mc-dist-title">Ticket multiplier</div>
+          <div class="mc-dist-params">normal μ=1, σ=<input id="mc-tm-sigma" type="number" value="8" min="1" max="25" step="1" style="width:38px;padding:2px 4px;font-size:10px;border:1px solid #cbd5e1;border-radius:3px">%</div>
+        </div>
+        <div class="mc-dist-group">
+          <div class="mc-dist-title">PRC aprobado</div>
+          <div class="mc-dist-params">Bernoulli p=<input id="mc-prc-p" type="number" value="0.55" min="0" max="1" step="0.05" style="width:42px;padding:2px 4px;font-size:10px;border:1px solid #cbd5e1;border-radius:3px"></div>
+        </div>
+        <div class="mc-dist-group">
+          <div class="mc-dist-title">Tasa descuento</div>
+          <div class="mc-dist-params">uniforme [<input id="mc-disc-lo" type="number" value="7" min="4" max="12" step="0.5" style="width:38px;padding:2px 4px;font-size:10px;border:1px solid #cbd5e1;border-radius:3px">, <input id="mc-disc-hi" type="number" value="10" min="4" max="15" step="0.5" style="width:38px;padding:2px 4px;font-size:10px;border:1px solid #cbd5e1;border-radius:3px">] %</div>
+        </div>
+        <div class="mc-dist-group">
+          <div class="mc-dist-title">Costos (infra / mit / san)</div>
+          <div class="mc-dist-params">triang fijos: infra 0.95-1-1.30 · mit 0.90-1-1.35 · san 0.95-1-1.25 · crisis discreta (45%/30%/25%)</div>
+        </div>
+
+        <button class="mc-run-btn" id="mc-run-btn" onclick="runMCAnalysis()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          Ejecutar Monte Carlo
+        </button>
+        <div class="mc-progress" id="mc-progress" style="display:none">
+          <div class="mc-progress-bar" id="mc-progress-bar"></div>
+        </div>
+        <div class="mc-progress-label" id="mc-progress-label" style="display:none">0 / 0 · 0%</div>
+      </div>
+
+      <!-- ── Results column ── -->
+      <div class="mc-results" id="mc-results">
+        <div class="mc-empty">
+          Configura los parámetros en el panel izquierdo y pulsa <b>Ejecutar Monte Carlo</b> para correr la simulación.
+          <br><br>
+          El análisis corre <b>peResimulate + renderPrimerasEtapas</b> N veces con inputs sampleados de las distribuciones marginales, muestreo correlacionado via Cholesky, y aplica multipliers post-hoc sobre los flujos antes de descontar a la tasa sampleada. Fuente de verdad: el simulador Solo AUDP con cadencia ON (cap/floor).
         </div>
       </div>
     </div>
@@ -11134,6 +11266,569 @@ function closePrimerasEtapas() {
   document.getElementById('pe-overlay').style.display = 'none';
   if (peChart) { peChart.destroy(); peChart = null; }
 }
+
+// ═════════════════════════════════════════════════════════════════════
+// MONTE CARLO — Análisis Probabilístico Solo AUDP
+// ═════════════════════════════════════════════════════════════════════
+// Motor embebido: PRNG seedeable (mulberry32), muestreo correlacionado via
+// Cholesky 6x6, distribuciones marginales (normal truncada, triangular,
+// Bernoulli, discreta, uniforme). Corre peResimulate + renderPrimerasEtapas
+// por iteración, extrae flujos del DOM, aplica multipliers post-hoc y
+// computa NPV a la tasa sampleada. Renderizado en vanilla Canvas.
+
+const MC = (function(){
+  function mulberry32(seed){
+    let a = seed >>> 0;
+    return function(){
+      a = (a + 0x6D2B79F5) >>> 0;
+      let t = a;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  function gauss(rng){
+    let u = 0, v = 0;
+    while (u === 0) u = rng();
+    while (v === 0) v = rng();
+    return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+  }
+  function erf(x){
+    const a1=0.254829592,a2=-0.284496736,a3=1.421413741,a4=-1.453152027,a5=1.061405429,p=0.3275911;
+    const sign = x < 0 ? -1 : 1;
+    x = Math.abs(x);
+    const t = 1.0 / (1.0 + p * x);
+    const y = 1.0 - (((((a5*t + a4)*t) + a3)*t + a2)*t + a1)*t * Math.exp(-x*x);
+    return sign * y;
+  }
+  const phi = (z) => 0.5 * (1 + erf(z / Math.SQRT2));
+  function cholesky(A){
+    const n = A.length;
+    const L = Array.from({length:n}, () => new Array(n).fill(0));
+    for (let i = 0; i < n; i++){
+      for (let j = 0; j <= i; j++){
+        let s = 0;
+        for (let k = 0; k < j; k++) s += L[i][k] * L[j][k];
+        L[i][j] = (i === j)
+          ? Math.sqrt(Math.max(A[i][i] - s, 1e-12))
+          : (A[i][j] - s) / (L[j][j] || 1e-12);
+      }
+    }
+    return L;
+  }
+  function npv(flows, rate){
+    let v = 0;
+    for (let t = 0; t < flows.length; t++) v += flows[t] / Math.pow(1 + rate, t);
+    return v;
+  }
+  const CORR = [
+    [1.00, 0.55, 0.45, -0.20, -0.15, 0.00],
+    [0.55, 1.00, 0.40, -0.10, -0.10, 0.00],
+    [0.45, 0.40, 1.00, -0.10, -0.10, 0.00],
+    [-0.20,-0.10,-0.10, 1.00,  0.55, 0.30],
+    [-0.15,-0.10,-0.10, 0.55,  1.00, 0.20],
+    [0.00, 0.00, 0.00, 0.30,  0.20, 1.00],
+  ];
+  const L_CHOL = cholesky(CORR);
+  function sampleCorrelated(rng){
+    const z = [gauss(rng),gauss(rng),gauss(rng),gauss(rng),gauss(rng),gauss(rng)];
+    const c = [0,0,0,0,0,0];
+    for (let i = 0; i < 6; i++)
+      for (let j = 0; j <= i; j++) c[i] += L_CHOL[i][j] * z[j];
+    return c;
+  }
+  function triangularCDF(u, a, m, b){
+    const fc = (m - a) / (b - a);
+    return u < fc
+      ? a + Math.sqrt(u * (b - a) * (m - a))
+      : b - Math.sqrt((1 - u) * (b - a) * (b - m));
+  }
+  function sampleOne(rng, cfg){
+    const c = sampleCorrelated(rng);
+    const u = c.map(phi);
+    const vel   = Math.max(-60, Math.min(80, (cfg.velSigma || 22) * c[0]));
+    const plusv = triangularCDF(u[1], cfg.plusvA, cfg.plusvMode, cfg.plusvB);
+    const tm    = 1.0 + (cfg.tmSigma / 100) * c[2];
+    const im    = triangularCDF(u[3], 0.95, 1.00, 1.30);
+    const mm    = triangularCDF(u[4], 0.90, 1.00, 1.35);
+    const sm    = triangularCDF(u[5], 0.95, 1.00, 1.25);
+    const prcOn = rng() < cfg.prcP;
+    const cU = rng();
+    let crisisOn = false, crisisYears = 7;
+    if (cU < 0.45) crisisOn = false;
+    else if (cU < 0.75) { crisisOn = true; crisisYears = 3; }
+    else                { crisisOn = true; crisisYears = 7; }
+    const discRate = (cfg.discLo + (cfg.discHi - cfg.discLo) * rng()) / 100;
+
+    peVelocidadPct = vel;
+    pePlusvalia    = plusv;
+    pePRCOn        = prcOn;
+    policyState.crisis = crisisOn;
+    const ccEl = document.getElementById('crisis-cycle');
+    if (ccEl) ccEl.value = String(crisisYears);
+    peResimulate();
+    renderPrimerasEtapas();
+
+    const parseCell = (td) => {
+      const t = td.textContent.trim().replace(/\./g, '').replace(/,/g, '.');
+      return t === '\u2014' || t === '' ? 0 : (parseFloat(t) || 0);
+    };
+    const rows = [...document.querySelectorAll('#pe-overlay .pe-tbl tr')];
+    const cleanLabel = (r) => (r.firstChild?.textContent?.trim() || '').replace(/^[\u25B6\u25BC]\s*/, '');
+    const grab = (pred) => {
+      for (const r of rows) {
+        if (pred(cleanLabel(r))) return [...r.querySelectorAll('td')].slice(1, -1).map(parseCell);
+      }
+      return null;
+    };
+    const tbl = document.querySelector('#pe-overlay .pe-tbl');
+    if (!tbl) return { inputs: {}, outputs: { vanPrinc: 0, _err: 'no_table' } };
+    const years = [...tbl.querySelectorAll('thead th')].slice(1, -1).map(th => parseInt(th.textContent));
+    const n = years.length;
+
+    const totalIng   = grab(l => l === 'Ingresos Venta de Tierra') || new Array(n).fill(0);
+    const prcIng     = grab(l => /Otros Usos.*PRC/.test(l)) || new Array(n).fill(0);
+    const totalInfra = grab(l => l === 'Infraestructura') || new Array(n).fill(0);
+    const totalMitig = grab(l => l === 'Mitigaciones') || new Array(n).fill(0);
+    const totalComerc= grab(l => /^Comercializacion/.test(l)) || new Array(n).fill(0);
+    const totalMant  = grab(l => l === 'Mantencion') || new Array(n).fill(0);
+    const sanInv     = grab(l => l === 'Inversiones Sanitarias') || new Array(n).fill(0);
+    const factPG     = grab(l => /Factibilizacion por Gastar/.test(l)) || new Array(n).fill(0);
+
+    const AUDP_ZONES = ['AUDP Batuco', 'AUDP Colina'];
+    const tierra = years.map(y => AUDP_ZONES.reduce((s, z) => {
+      const byY = peResults?.tierraByZone?.[z] || {};
+      return s + (byY[y] || 0);
+    }, 0));
+
+    const fcfMod = new Array(n).fill(0);
+    for (let i = 0; i < n; i++) {
+      fcfMod[i] = (totalIng[i]||0) * tm
+                + (prcIng[i]||0) * tm
+                + (totalInfra[i]||0) * im
+                + (totalMitig[i]||0) * mm
+                + (totalComerc[i]||0)
+                + (totalMant[i]||0)
+                + (sanInv[i]||0) * sm
+                + (factPG[i]||0)
+                - tierra[i];
+    }
+    const vanPrinc = npv(fcfMod, discRate);
+    const fcfSan = sanInv.map(v => (v||0) * sm);
+    const vanSan = npv(fcfSan, discRate);
+
+    let firstIng = -1, lastIng = -1;
+    for (let i = 0; i < n; i++) {
+      if ((totalIng[i]||0) > 0) { if (firstIng < 0) firstIng = i; lastIng = i; }
+    }
+    const anosVenta = firstIng >= 0 ? (lastIng - firstIng + 1) : 0;
+
+    let acum = 0, minAcum = 0, minIdx = -1;
+    const acums = [];
+    for (let i = 0; i < n; i++) {
+      acum += fcfMod[i];
+      acums.push(acum);
+      if (acum < minAcum) { minAcum = acum; minIdx = i; }
+    }
+    let paybackYear = null;
+    for (let i = Math.max(1, minIdx+1); i < n; i++) {
+      if (acums[i] > 0) { paybackYear = years[i]; break; }
+    }
+
+    return {
+      inputs: { vel, plusv, tm, im, mm, sm, prcOn: prcOn?1:0, crisisOn: crisisOn?1:0, discRate },
+      outputs: {
+        vanPrinc, vanSan, anosVenta,
+        capTrabajo: -minAcum,
+        fcfTotal: acum,
+        paybackYear: paybackYear || (years[n-1]+1),
+      }
+    };
+  }
+
+  function snapshotState(){
+    return {
+      vel: peVelocidadPct, plusv: pePlusvalia, prc: pePRCOn,
+      crisis: policyState.crisis,
+      crisisCycle: document.getElementById('crisis-cycle')?.value || '7',
+    };
+  }
+  function restoreState(s){
+    peVelocidadPct = s.vel;
+    pePlusvalia    = s.plusv;
+    pePRCOn        = s.prc;
+    policyState.crisis = s.crisis;
+    const cc = document.getElementById('crisis-cycle');
+    if (cc) cc.value = s.crisisCycle;
+    peResimulate();
+    renderPrimerasEtapas();
+  }
+
+  function metrics(arr){
+    const s = [...arr].sort((a,b)=>a-b);
+    const n = s.length;
+    const q = (p) => s[Math.max(0, Math.floor(p * (n-1)))];
+    const mean = arr.reduce((a,b)=>a+b, 0) / n;
+    const variance = arr.reduce((a,b)=>a+(b-mean)**2, 0) / (n-1);
+    const std = Math.sqrt(variance);
+    const p5 = q(0.05), p10 = q(0.10), p50 = q(0.50), p90 = q(0.90), p95 = q(0.95);
+    const below5 = arr.filter(v => v <= p5);
+    const cvar5 = below5.length ? below5.reduce((a,b)=>a+b,0) / below5.length : p5;
+    const pLoss = arr.filter(v => v < 0).length / n;
+    const below_mean = arr.filter(v => v < mean);
+    const sdDown = below_mean.length
+      ? Math.sqrt(below_mean.reduce((a,b)=>a+(b-mean)**2, 0) / below_mean.length)
+      : 0;
+    const sortino = sdDown > 0 ? mean / sdDown : Infinity;
+    return { n, mean, std, p5, p10, p50, p90, p95, min: s[0], max: s[n-1],
+             var5: p5, cvar5, pLoss, sortino, stderr: std / Math.sqrt(n) };
+  }
+
+  function rankCorr(x, y){
+    const n = x.length;
+    const rx = Array.from({length:n}, (_,i)=>i).sort((a,b)=>x[a]-x[b]);
+    const ry = Array.from({length:n}, (_,i)=>i).sort((a,b)=>y[a]-y[b]);
+    const rankX = new Array(n), rankY = new Array(n);
+    for (let i=0;i<n;i++){ rankX[rx[i]]=i; rankY[ry[i]]=i; }
+    let mx=0, my=0;
+    for (let i=0;i<n;i++){ mx += rankX[i]; my += rankY[i]; }
+    mx /= n; my /= n;
+    let num=0, dx=0, dy=0;
+    for (let i=0;i<n;i++){
+      const a = rankX[i]-mx, b = rankY[i]-my;
+      num += a*b; dx += a*a; dy += b*b;
+    }
+    return num / Math.sqrt(dx*dy || 1);
+  }
+  function computeTornado(results){
+    const van = results.map(r => r.outputs.vanPrinc);
+    const vars_ = ['vel','plusv','tm','im','mm','sm','prcOn','crisisOn','discRate'];
+    const labels = {
+      vel:'Velocidad venta', plusv:'Plusval\u00eda anual', tm:'Ticket multiplier',
+      im:'Costo infraestructura', mm:'Costo mitigaciones', sm:'Costo sanitaria CAPEX',
+      prcOn:'PRC aprobado', crisisOn:'Crisis en horizonte', discRate:'Tasa descuento',
+    };
+    const rhos = {};
+    for (const k of vars_) {
+      const x = results.map(r => r.inputs[k]);
+      rhos[k] = rankCorr(x, van);
+    }
+    const sum = vars_.reduce((s,k) => s + rhos[k]**2, 0);
+    return vars_
+      .map(k => ({ var:k, label:labels[k], rho:rhos[k], contrib: rhos[k]**2 / sum * 100 }))
+      .sort((a,b) => b.contrib - a.contrib);
+  }
+
+  function drawHistogram(canvas, vans, baseline){
+    const ctx = canvas.getContext('2d');
+    const dpr = window.devicePixelRatio || 1;
+    const W = canvas.clientWidth, H = canvas.clientHeight;
+    canvas.width = W * dpr; canvas.height = H * dpr;
+    ctx.scale(dpr, dpr);
+    ctx.clearRect(0, 0, W, H);
+    const ml = 40, mr = 16, mt = 12, mb = 26;
+    const plotW = W - ml - mr;
+    const plotH = H - mt - mb;
+    const nBins = 45;
+    const vMin = Math.min(...vans), vMax = Math.max(...vans);
+    const bw = (vMax - vMin) / nBins || 1;
+    const counts = new Array(nBins).fill(0);
+    for (const v of vans) {
+      const bi = Math.min(nBins - 1, Math.max(0, Math.floor((v - vMin) / bw)));
+      counts[bi]++;
+    }
+    const maxC = Math.max(...counts);
+    const sorted = [...vans].sort((a,b)=>a-b);
+    const p5 = sorted[Math.floor(0.05*(sorted.length-1))];
+    const p95 = sorted[Math.floor(0.95*(sorted.length-1))];
+    const p50 = sorted[Math.floor(0.50*(sorted.length-1))];
+    for (let i = 0; i < nBins; i++) {
+      const x = ml + (i / nBins) * plotW;
+      const binStart = vMin + i * bw;
+      const h = (counts[i] / maxC) * plotH;
+      const color = binStart < p5 ? '#FCA5A5' : binStart > p95 ? '#86EFAC' : '#E2E8F0';
+      ctx.fillStyle = color;
+      ctx.fillRect(x, mt + plotH - h, plotW / nBins - 1, h);
+    }
+    ctx.strokeStyle = '#94A3B8'; ctx.lineWidth = 0.8;
+    ctx.beginPath();
+    ctx.moveTo(ml, mt); ctx.lineTo(ml, mt + plotH); ctx.lineTo(ml + plotW, mt + plotH);
+    ctx.stroke();
+    function vline(val, color, label){
+      if (val < vMin || val > vMax) return;
+      const x = ml + ((val - vMin) / (vMax - vMin)) * plotW;
+      ctx.strokeStyle = color; ctx.lineWidth = 1.4;
+      ctx.setLineDash([4, 3]);
+      ctx.beginPath(); ctx.moveTo(x, mt); ctx.lineTo(x, mt + plotH); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = color; ctx.font = 'bold 9px Arial';
+      ctx.fillText(label, x + 3, mt + 11);
+    }
+    vline(p5, '#DC2626', 'P5');
+    vline(p50, '#334155', 'P50');
+    vline(p95, '#16A34A', 'P95');
+    if (baseline) vline(baseline, '#2563EB', 'Baseline');
+    ctx.fillStyle = '#475569'; ctx.font = '9px Arial';
+    const ticks = 5;
+    for (let i = 0; i <= ticks; i++) {
+      const val = vMin + (i / ticks) * (vMax - vMin);
+      const x = ml + (i / ticks) * plotW;
+      const label = Math.round(val / 1000).toLocaleString('es-CL') + 'k';
+      ctx.textAlign = 'center';
+      ctx.fillText(label, x, mt + plotH + 14);
+    }
+    ctx.textAlign = 'start';
+  }
+
+  function drawTornado(canvas, tornado){
+    const ctx = canvas.getContext('2d');
+    const dpr = window.devicePixelRatio || 1;
+    const W = canvas.clientWidth, H = canvas.clientHeight;
+    canvas.width = W * dpr; canvas.height = H * dpr;
+    ctx.scale(dpr, dpr);
+    ctx.clearRect(0, 0, W, H);
+    const ml = 150, mr = 70, mt = 6, mb = 8;
+    const plotW = W - ml - mr;
+    const plotH = H - mt - mb;
+    const n = tornado.length;
+    const rowH = plotH / n;
+    const center = ml + plotW / 2;
+    ctx.strokeStyle = '#334155'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(center, mt); ctx.lineTo(center, mt + plotH); ctx.stroke();
+    ctx.font = '10px Arial';
+    for (let i = 0; i < n; i++) {
+      const t = tornado[i];
+      const y = mt + i * rowH + rowH * 0.18;
+      const barH = rowH * 0.64;
+      const rho = Math.max(-1, Math.min(1, t.rho));
+      const barW = Math.abs(rho) * (plotW / 2);
+      const color = rho > 0 ? '#16A34A' : '#DC2626';
+      ctx.fillStyle = color;
+      if (rho > 0) ctx.fillRect(center, y, barW, barH);
+      else         ctx.fillRect(center - barW, y, barW, barH);
+      ctx.fillStyle = '#0F172A'; ctx.textAlign = 'right'; ctx.font = '600 10px Arial';
+      ctx.fillText(t.label, ml - 6, y + barH * 0.7);
+      ctx.fillStyle = '#0F172A'; ctx.font = 'bold 9px Arial';
+      const rhoTxt = (rho >= 0 ? '+' : '') + rho.toFixed(2);
+      if (rho > 0) {
+        ctx.textAlign = 'left';
+        ctx.fillText('\u03c1=' + rhoTxt, center + barW + 3, y + barH * 0.7);
+      } else {
+        ctx.textAlign = 'right';
+        ctx.fillText('\u03c1=' + rhoTxt, center - barW - 3, y + barH * 0.7);
+      }
+      ctx.fillStyle = '#475569'; ctx.textAlign = 'right'; ctx.font = 'bold 10px Arial';
+      ctx.fillText(t.contrib.toFixed(1) + '%', W - 4, y + barH * 0.7);
+    }
+    ctx.textAlign = 'start';
+  }
+
+  return {
+    mulberry32, sampleOne, snapshotState, restoreState,
+    metrics, computeTornado, drawHistogram, drawTornado,
+  };
+})();
+
+// ═════════════════════════════════════════════════════════════════════
+// MC UI controllers — sin innerHTML (DOM programático para evitar XSS)
+// ═════════════════════════════════════════════════════════════════════
+let __mcRunning = false;
+let __mcResults = null;
+
+function openMCAnalysis(){
+  if (!peBaseParams) {
+    alert('Primero abre Primeras Etapas y corre la simulaci\u00f3n (Ejecutar).');
+    return;
+  }
+  document.getElementById('mc-overlay').style.display = 'flex';
+}
+
+function closeMCAnalysis(){
+  if (__mcRunning) {
+    if (!confirm('Hay una simulaci\u00f3n en curso. \u00bfCerrar de todas formas?')) return;
+    __mcRunning = false;
+  }
+  document.getElementById('mc-overlay').style.display = 'none';
+}
+
+// Helper DOM-building sin innerHTML
+function _mcEl(tag, cls, text){
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text != null) e.textContent = text;
+  return e;
+}
+
+function runMCAnalysis(){
+  if (__mcRunning) return;
+  __mcRunning = true;
+
+  const cfg = {
+    N: parseInt(document.getElementById('mc-iterations').value) || 3000,
+    seed: parseInt(document.getElementById('mc-seed').value) || 42,
+    velSigma: parseFloat(document.getElementById('mc-vel-sigma').value) || 22,
+    plusvA: parseFloat(document.getElementById('mc-plusv-lo').value) || 0.5,
+    plusvMode: parseFloat(document.getElementById('mc-plusv-mode').value) || 2,
+    plusvB: parseFloat(document.getElementById('mc-plusv-hi').value) || 4,
+    tmSigma: parseFloat(document.getElementById('mc-tm-sigma').value) || 8,
+    prcP: parseFloat(document.getElementById('mc-prc-p').value) || 0.55,
+    discLo: parseFloat(document.getElementById('mc-disc-lo').value) || 7,
+    discHi: parseFloat(document.getElementById('mc-disc-hi').value) || 10,
+  };
+
+  document.getElementById('mc-run-btn').disabled = true;
+  document.getElementById('mc-progress').style.display = 'block';
+  document.getElementById('mc-progress-label').style.display = 'block';
+  const progBar = document.getElementById('mc-progress-bar');
+  const progLbl = document.getElementById('mc-progress-label');
+  progBar.style.width = '0%';
+
+  const resultsEl = document.getElementById('mc-results');
+  resultsEl.textContent = '';
+  resultsEl.appendChild(_mcEl('div', 'mc-empty', 'Ejecutando Monte Carlo\u2026'));
+
+  peMode = 'audp';
+  peShapeOn = true;
+  const shapeT = document.getElementById('pe-shape-toggle');
+  if (shapeT) shapeT.checked = true;
+
+  const snapshot = MC.snapshotState();
+  const rng = MC.mulberry32(cfg.seed);
+  const results = [];
+  const BATCH = 50;
+  const tStart = performance.now();
+
+  function runBatch(){
+    if (!__mcRunning) {
+      MC.restoreState(snapshot);
+      document.getElementById('mc-run-btn').disabled = false;
+      return;
+    }
+    const endIdx = Math.min(results.length + BATCH, cfg.N);
+    for (let i = results.length; i < endIdx; i++) {
+      try {
+        results.push(MC.sampleOne(rng, cfg));
+      } catch(e) {
+        console.error('MC sample error:', e);
+        results.push({ inputs:{}, outputs:{vanPrinc:0,_err:e.message} });
+      }
+    }
+    const pct = (results.length / cfg.N * 100).toFixed(0);
+    progBar.style.width = pct + '%';
+    progLbl.textContent = results.length + ' / ' + cfg.N + ' \u00b7 ' + pct + '%';
+
+    if (results.length < cfg.N) {
+      setTimeout(runBatch, 0);
+    } else {
+      const elapsed = (performance.now() - tStart) / 1000;
+      progLbl.textContent = cfg.N + ' iteraciones completadas en ' + elapsed.toFixed(1) + ' s';
+      __mcRunning = false;
+      __mcResults = results;
+      document.getElementById('mc-run-btn').disabled = false;
+      MC.restoreState(snapshot);
+      renderMCResults(results, cfg);
+    }
+  }
+  setTimeout(runBatch, 10);
+}
+
+function _mcKpiCard(parent, label, value, sub, accent){
+  const card = _mcEl('div', 'mc-kpi' + (accent ? ' mc-kpi-accent-' + accent : ''));
+  card.appendChild(_mcEl('div', 'mc-kpi-label', label));
+  card.appendChild(_mcEl('div', 'mc-kpi-value', value));
+  if (sub) card.appendChild(_mcEl('div', 'mc-kpi-sub', sub));
+  parent.appendChild(card);
+}
+
+function renderMCResults(results, cfg){
+  const ok = results.filter(r => !r.outputs._err);
+  const vans = ok.map(r => r.outputs.vanPrinc);
+  const anos = ok.map(r => r.outputs.anosVenta);
+  const caps = ok.map(r => r.outputs.capTrabajo).sort((a,b)=>a-b);
+  const m = MC.metrics(vans);
+  const tornado = MC.computeTornado(ok);
+
+  const fmt = (v) => {
+    if (!isFinite(v)) return '\u2014';
+    const abs = Math.abs(v);
+    if (abs >= 1000) return Math.round(v / 1000).toString().replace('-', '\u2212') + 'k UF';
+    return Math.round(v).toString() + ' UF';
+  };
+  const fmtPct = (v, d) => (v * 100).toFixed(d || 1).replace('.', ',') + '%';
+
+  const resultsEl = document.getElementById('mc-results');
+  resultsEl.textContent = '';
+
+  // KPI strip
+  const strip = _mcEl('div', 'mc-kpi-strip');
+  _mcKpiCard(strip, 'E[VAN] Principal', fmt(m.mean),
+             '\u03c3 = ' + fmt(m.std) + ' \u00b7 stderr \u00b1' + fmt(m.stderr), 'blue');
+  _mcKpiCard(strip, 'Banda P10\u2013P90', fmt(m.p10) + ' \u2013 ' + fmt(m.p90),
+             'amplitud ' + fmt(m.p90 - m.p10) + ' (80% conf.)');
+  _mcKpiCard(strip, 'VaR 5% / CVaR 5%', fmt(m.var5) + ' / ' + fmt(m.cvar5),
+             'umbral / promedio peor 5%', 'red');
+  _mcKpiCard(strip, 'P(VAN < 0)', fmtPct(m.pLoss, 2),
+             'Sortino: ' + (isFinite(m.sortino) ? m.sortino.toFixed(2).replace('.', ',') : '\u221e'),
+             m.pLoss < 0.05 ? 'green' : 'red');
+  resultsEl.appendChild(strip);
+
+  // Histograma
+  const histPanel = _mcEl('div', 'mc-chart-panel');
+  histPanel.appendChild(_mcEl('div', 'mc-chart-title', 'Distribuci\u00f3n del VAN c/tierra'));
+  histPanel.appendChild(_mcEl('div', 'mc-chart-sub',
+    'n = ' + ok.length.toLocaleString('es-CL') + ' iteraciones \u00b7 rango ' + fmt(m.min) + ' a ' + fmt(m.max)));
+  const histCv = _mcEl('canvas');
+  histCv.id = 'mc-hist-canvas';
+  histCv.style.width = '100%';
+  histCv.style.height = '200px';
+  histPanel.appendChild(histCv);
+  resultsEl.appendChild(histPanel);
+
+  // Tornado
+  const tornPanel = _mcEl('div', 'mc-chart-panel');
+  tornPanel.appendChild(_mcEl('div', 'mc-chart-title', 'Tornado \u2014 Contribuci\u00f3n a la varianza del VAN'));
+  const top3 = tornado[0].contrib + tornado[1].contrib + tornado[2].contrib;
+  tornPanel.appendChild(_mcEl('div', 'mc-chart-sub',
+    'correlaci\u00f3n de Spearman por variable \u00b7 top 3 = ' + top3.toFixed(0) + '% de la varianza'));
+  const tornCv = _mcEl('canvas');
+  tornCv.id = 'mc-tornado-canvas';
+  tornCv.style.width = '100%';
+  tornCv.style.height = '240px';
+  tornPanel.appendChild(tornCv);
+  resultsEl.appendChild(tornPanel);
+
+  // Resumen estadístico
+  const resPanel = _mcEl('div', 'mc-chart-panel');
+  resPanel.appendChild(_mcEl('div', 'mc-chart-title', 'Resumen estad\u00edstico'));
+  const grid = _mcEl('div');
+  grid.style.cssText = 'display:grid;grid-template-columns:repeat(3,1fr);gap:12px;font-size:11px;color:#475569;margin-top:6px';
+  function addBlock(title, lines){
+    const col = _mcEl('div');
+    const b = _mcEl('b', null, title);
+    col.appendChild(b);
+    col.appendChild(_mcEl('br'));
+    lines.forEach((ln, i) => {
+      col.appendChild(document.createTextNode(ln));
+      if (i < lines.length - 1) col.appendChild(_mcEl('br'));
+    });
+    grid.appendChild(col);
+  }
+  const anosMed = Math.round(anos.reduce((a,b)=>a+b,0)/anos.length);
+  const anosMax = Math.max.apply(null, anos);
+  const capsMed = caps[Math.floor(caps.length/2)];
+  const capsP95 = caps[Math.floor(0.95*(caps.length-1))];
+  addBlock('A\u00f1os venta', ['mediana: ' + anosMed, 'max: ' + anosMax]);
+  addBlock('Max drawdown', ['mediana: ' + fmt(capsMed), 'P95: ' + fmt(capsP95)]);
+  addBlock('Configuraci\u00f3n', ['seed: ' + cfg.seed, '9 variables \u00b7 Cholesky 6\u00d76']);
+  resPanel.appendChild(grid);
+  resultsEl.appendChild(resPanel);
+
+  requestAnimationFrame(() => {
+    if (histCv) MC.drawHistogram(histCv, vans, 556827);
+    if (tornCv) MC.drawTornado(tornCv, tornado);
+  });
+}
+// ═════════════════════════════════════════════════════════════════════
 
 function renderPrimerasEtapas() {
   try { _renderPE(); } catch(e) {
