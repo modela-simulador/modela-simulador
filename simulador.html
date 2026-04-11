@@ -1056,25 +1056,31 @@
        Requires .pe-tbl to have width:auto (not 100%) to avoid an infinite
        sizing loop where the table tries to fill a parent that sizes to the
        table's content. */
-    .pe-section{margin-bottom:20px;box-sizing:border-box;width:max-content;min-width:100%}
+    /* padding+border transparente iguala el x de arranque de TODAS las tablas,
+       incluida la tarjeta FCF (que agrega su borde naranja por encima). Sin
+       esto, la sección con border:2px+padding:12px 14px desplaza su tabla
+       interior 16px respecto al resto y rompe el alineamiento vertical. */
+    .pe-section{margin-bottom:20px;box-sizing:border-box;width:max-content;min-width:100%;padding:12px 14px;border:2px solid transparent;border-radius:10px}
     .pe-section-hdr{display:flex;align-items:center;gap:8px;margin-bottom:6px;padding-bottom:5px;border-bottom:1px solid #e2e8f0}
     .pe-badge{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;padding:2px 7px;border-radius:4px}
     .pe-badge-green{background:#f0fdf4;color:#16a34a}.pe-badge-blue{background:#eff6ff;color:#2563eb}
     .pe-badge-purple{background:#f5f3ff;color:#7c3aed}.pe-badge-amber{background:#fffbeb;color:#d97706}
     .pe-badge-red{background:#fef2f2;color:#dc2626}.pe-badge-gray{background:#f1f5f9;color:#475569}
     .pe-section-hdr h3{font-size:13px;font-weight:600;margin:0}
-    /* width:auto + table-layout:fixed → la tabla se dimensiona a la suma de
-       los anchos de columna (76px + primera columna 230px). Así no hay loop
-       con .pe-section{width:max-content}. */
-    .pe-tbl{width:auto;border-collapse:separate;border-spacing:0;font-size:13px;table-layout:fixed}
+    /* El width de cada .pe-tbl se fija inline desde JS (mkT) como
+       230 + 76 × N_años + 100, y mkT() también inserta un <colgroup>
+       con los mismos anchos por columna. Esto garantiza que TODAS las
+       tablas de PE (Indicadores, Negocio Venta, FCF, Factibilización,
+       Resumen) tengan columnas alineadas vertical año-a-año. */
+    .pe-tbl{border-collapse:separate;border-spacing:0;font-size:13px;table-layout:fixed}
     /* Sticky thead: in tables, sticky must go on the <th> with explicit background.
        Use translateZ(0) on the section to create a containing block for sticky scroll calcs. */
     .pe-tbl thead tr th{position:sticky;top:0;z-index:5;background:#f8fafc;
       box-shadow:0 2px 4px -2px rgba(15,23,42,0.15),inset 0 -2px 0 #e2e8f0}
-    .pe-tbl th{text-align:right;padding:6px 8px;font-weight:600;color:#64748b;font-size:12px;white-space:nowrap;width:76px}
-    .pe-tbl th:first-child{text-align:left;width:230px;left:0;z-index:6;background:#f8fafc}
-    .pe-tbl td{text-align:right;padding:5px 8px;font-variant-numeric:tabular-nums;white-space:nowrap;border-bottom:1px solid #f1f5f9;width:76px;overflow:hidden;background:#fff}
-    .pe-tbl td:first-child{text-align:left;color:#64748b;width:230px;position:sticky;left:0;z-index:2;background:#fff;box-shadow:2px 0 4px -2px rgba(15,23,42,0.08)}
+    .pe-tbl th{text-align:right;padding:6px 8px;font-weight:600;color:#64748b;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .pe-tbl th:first-child{text-align:left;left:0;z-index:6;background:#f8fafc}
+    .pe-tbl td{text-align:right;padding:5px 8px;font-variant-numeric:tabular-nums;white-space:nowrap;border-bottom:1px solid #f1f5f9;overflow:hidden;background:#fff}
+    .pe-tbl td:first-child{text-align:left;color:#64748b;position:sticky;left:0;z-index:2;background:#fff;box-shadow:2px 0 4px -2px rgba(15,23,42,0.08);text-overflow:ellipsis}
     .pe-tbl tr.pe-acum td:first-child{background:#faf7ff}
     .pe-tbl tr.pe-sub td:first-child{background:#f1f5f9}
     .pe-tbl tr.pe-total td:first-child{background:#fffbeb}
@@ -11597,7 +11603,9 @@ function _renderPE() {
     const fmt = fn || fmtUF;
     const isAcum = cls && cls.indexOf('pe-acum') >= 0;
     const tr = document.createElement('tr'); if (cls) tr.className = cls;
-    const td0 = document.createElement('td'); td0.textContent = label; tr.appendChild(td0);
+    // title= para que el label completo se vea al hover cuando el ellipsis
+    // trunca en la primera columna fija de 230px.
+    const td0 = document.createElement('td'); td0.textContent = label; td0.title = label; tr.appendChild(td0);
     data.forEach(v => {
       const td = document.createElement('td'); td.textContent = fmt(v);
       td.className = v > 0 ? (fmt === fmtUF ? 'pe-pos' : 'pe-phys') : v < 0 ? 'pe-neg' : 'pe-zero';
@@ -11608,7 +11616,7 @@ function _renderPE() {
   }
   function mkP(id, label, data) {
     const tr = document.createElement('tr'); tr.className = 'pe-parent'; tr.dataset.group = id;
-    const td0 = document.createElement('td');
+    const td0 = document.createElement('td'); td0.title = label;
     const ch = document.createElement('span'); ch.className = 'pe-chev'; ch.textContent = '\u25B6';
     td0.appendChild(ch); td0.appendChild(document.createTextNode(' ' + label)); tr.appendChild(td0);
     data.forEach(v => { const td = document.createElement('td'); td.textContent = fmtUF(v); td.className = v > 0 ? 'pe-pos' : v < 0 ? 'pe-neg' : 'pe-zero'; tr.appendChild(td); });
@@ -11626,7 +11634,7 @@ function _renderPE() {
       if (d.every(v => v === 0)) return;
       const tr = document.createElement('tr'); tr.className = 'pe-child'; tr.dataset.pep = pid;
       if (peExpanded[pid]) tr.classList.add('visible');
-      const td0 = document.createElement('td'); td0.textContent = k; tr.appendChild(td0);
+      const td0 = document.createElement('td'); td0.textContent = k; td0.title = k; tr.appendChild(td0);
       d.forEach(v => { const td = document.createElement('td'); td.textContent = fmtUF(v); td.className = v > 0 ? 'pe-pos' : v < 0 ? 'pe-neg' : 'pe-zero'; tr.appendChild(td); });
       addTotalCell(tr, d, fmtUF);
       f.appendChild(tr);
@@ -11640,10 +11648,28 @@ function _renderPE() {
     const h3 = document.createElement('h3'); h3.textContent = title;
     h.appendChild(b); h.appendChild(h3); s.appendChild(h); return s;
   }
+  // Anchos fijos de columna (px) — SON LA FUENTE DE VERDAD DE ALINEAMIENTO.
+  // Todas las tablas de PE usan el mismo <colgroup> para que "2026" caiga
+  // en el mismo x en cada tabla, facilitando el análisis vertical año a año.
+  const PE_COL_CONCEPTO = 230;
+  const PE_COL_YEAR     = 76;
+  const PE_COL_TOTAL    = 100;
   function mkT(rows) {
     // No wrapper con overflow: rompe position:sticky del thead.
     // El scroll horizontal lo maneja .un-chart-scroll (contenedor padre con overflow:auto).
-    const t = document.createElement('table'); t.className = 'pe-tbl'; t.appendChild(mkTh());
+    const t = document.createElement('table'); t.className = 'pe-tbl';
+    // width fijo + table-layout:fixed + colgroup explicit = render predecible.
+    // Sin el width explícito, el navegador colapsa el <col style="width:..."> al
+    // min-content del contenido y cada tabla negocia su propio ancho.
+    t.style.width = (PE_COL_CONCEPTO + PE_COL_YEAR * W.length + PE_COL_TOTAL) + 'px';
+    const cg = document.createElement('colgroup');
+    const c0 = document.createElement('col'); c0.style.width = PE_COL_CONCEPTO + 'px'; cg.appendChild(c0);
+    for (let i = 0; i < W.length; i++) {
+      const c = document.createElement('col'); c.style.width = PE_COL_YEAR + 'px'; cg.appendChild(c);
+    }
+    const cT = document.createElement('col'); cT.style.width = PE_COL_TOTAL + 'px'; cg.appendChild(cT);
+    t.appendChild(cg);
+    t.appendChild(mkTh());
     const tb = document.createElement('tbody'); rows.forEach(r => tb.appendChild(r)); t.appendChild(tb);
     return t;
   }
