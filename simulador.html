@@ -11041,6 +11041,14 @@ function openPrimerasEtapas() {
   document.getElementById('pe-overlay').style.display = 'flex';
   // Capture base params from current sidebar state (once per open)
   peBaseParams = peGetBaseParams();
+  // ── Sync pePlusvalia desde el sidebar al abrir ──────────────────────
+  // "Default" en PE debe significar "lo mismo que el simulador principal".
+  // Antes pePlusvalia quedaba clavado en 1% mientras el sidebar usaba 2%,
+  // bajando silenciosamente el VAN de Solo AUDP ~12%. Ahora cada vez que
+  // se abre PE heredamos la plusvalía del sidebar; el usuario puede
+  // seguir iterando dentro de la sesión de PE con el input.
+  const sidebarPlus = parseFloat(document.getElementById('plusvalia-base').value);
+  if (!isNaN(sidebarPlus)) pePlusvalia = sidebarPlus;
   // Sincronizar los inputs de PE con las variables globales.
   // Velocidad de venta: dial unificado que reemplaza los viejos selectores
   // de escenario y curva de operadores.
