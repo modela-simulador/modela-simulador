@@ -11483,6 +11483,11 @@ function _renderPE() {
   // combina con los flujos PDUC antes de extender.
   // Closure exportada a scope outer para reutilizar en haByZ más abajo
   let _shapeRedist = null;
+  // Último índice de W con reshape sold > 0 — expuesto para que el bloque
+  // de sanitaria (más abajo) pueda consolidar sus propias colas en el
+  // mismo punto temporal sin tener que recomputar lastRshIdx.
+  // -1 = reshape no aplicó. Vive en timeline SOLD; para recepción se suma LAG.
+  let _shapeLastSoldIdx = -1;
   // ── Cap escala con velocidad ────────────────────────────────────────
   // Regla de negocio: si la velocidad de venta aumenta, el cap de
   // absorción del mercado también. Un mercado 20% más rápido significa
@@ -11573,6 +11578,25 @@ function _renderPE() {
       return out;
     };
 
+    // ── Helper 3: consolidateTail ───────────────────────────────────
+    // Colas pequeñas: los lumps lumpy del simulador (mitigaciones 55/45,
+    // sanitaria 55/45, overshoot de infra) a veces estampan valores en
+    // años naturales MÁS ALLÁ del último año con ventas del reshape.
+    // El redistribute los dejaba "pineados" en su año natural via el
+    // fallback para sunk costs — pero para tails post-reshape no tiene
+    // sentido mantenerlos flotando (el proyecto ya terminó ahí).
+    //
+    // Esta función pasa por el array y suma todo lo que esté en
+    // posiciones > lastIdx al valor de lastIdx, dejando el resto en 0.
+    // Así las colas se "juntan con el último monto grande" (regla
+    // explícita del usuario). Muta el array in-place y devuelve nada.
+    const consolidateTail = (arr, lastIdx) => {
+      if (lastIdx < 0 || lastIdx >= arr.length - 1) return;
+      for (let i = lastIdx + 1; i < arr.length; i++) {
+        if (arr[i]) { arr[lastIdx] += arr[i]; arr[i] = 0; }
+      }
+    };
+
     // ── 1. Perfil natural de ventas AUDP (sin LAG) en W ─────────────
     const natSold = W.map(y => AUDP.reduce((s,z) => s + (unitsByZone[z]?.[y] ?? 0), 0));
     const totalSold = natSold.reduce((a,b)=>a+b, 0);
@@ -11582,6 +11606,14 @@ function _renderPE() {
       const redist = arr => redistributeByUnitOverlap(arr, natSold, reshSold);
       _shapeRedist = redist; // expose para reutilizar en haByZ más abajo
 
+      // Capturar lastRshIdx = última posición con reshape sold > 0
+      // (normalmente el año residual de la curva cap+floor). Es la
+      // "ancla" donde se consolidan todas las colas. Se expone al
+      // scope outer para que el bloque de sanitaria lo use más abajo.
+      for (let k = reshSold.length - 1; k >= 0; k--) {
+        if ((reshSold[k]||0) > 0) { _shapeLastSoldIdx = k; break; }
+      }
+
       // 3. Redistribuir flujos tied-to-sales
       totalIng    = redist(totalIng);
       totalInfra  = redist(totalInfra);
@@ -11590,6 +11622,17 @@ function _renderPE() {
       prcIngYear  = redist(prcIngYear);
       // Comercialización es 2% de ingresos → recomputar desde el reshape
       totalComerc = totalIng.map(v => Math.round(v * 0.02));
+
+      // 3b. Consolidar colas post-reshape en el último año activo.
+      // Esto captura los residuales del pin-a-año-natural del
+      // redistribute para años fuente con natSales=0 que caían más
+      // allá del fin del proyecto (típicamente 2044/2045 en Solo AUDP).
+      consolidateTail(totalIng,    _shapeLastSoldIdx);
+      consolidateTail(totalInfra,  _shapeLastSoldIdx);
+      consolidateTail(totalMitig,  _shapeLastSoldIdx);
+      consolidateTail(totalMant_a, _shapeLastSoldIdx);
+      consolidateTail(prcIngYear,  _shapeLastSoldIdx);
+      consolidateTail(totalComerc, _shapeLastSoldIdx);
 
       // 4. Reconstruir viviendas recepcionadas per-zona preservando el
       //    split Batuco/Colina natural en cada año (con LAG=2).
@@ -11680,6 +11723,26 @@ function _renderPE() {
     sanCost = ops.cost;
     sanInv = calcSanInv(useAcum);
   }
+  // ── Consolidar colas de sanitaria en el último año del reshape ──
+  // calcSanInv() estampa plantas con split 55/45 → 45% spillover al año
+  // siguiente. Si ese siguiente año cae MÁS ALLÁ del fin del reshape
+  // (porque el último trigger pasó justo en el año residual), el 45%
+  // queda flotando en un año donde ya no hay actividad. Mismo problema
+  // con sanIng/sanCost que dependen del recAudpAcum. Traemos todo
+  // esos residuales al último año activo del reshape en timeline de
+  // recepción (= sold idx + LAG).
+  if (_shapeLastSoldIdx >= 0 && peMode === 'audp') {
+    const _shapeLastRecIdx = _shapeLastSoldIdx + LAG;
+    const tailRec = (arr) => {
+      if (_shapeLastRecIdx < 0 || _shapeLastRecIdx >= arr.length - 1) return;
+      for (let i = _shapeLastRecIdx + 1; i < arr.length; i++) {
+        if (arr[i]) { arr[_shapeLastRecIdx] += arr[i]; arr[i] = 0; }
+      }
+    };
+    tailRec(sanIng);
+    tailRec(sanCost);
+    tailRec(sanInv);
+  }
   // Venta sanitaria: solo si toggle está activo, se calcula en el último año de la ventana
   const sanVenta = W.map(() => 0);
   let sanVentaVal = 0;
@@ -11765,6 +11828,19 @@ function _renderPE() {
   if (_shapeRedist) {
     for (const z of haZones) {
       if (AUDP.includes(z)) haByZ[z] = _shapeRedist(haByZ[z]);
+    }
+    // Consolidar la cola de haByZ en el último año activo del reshape
+    // (mismo tratamiento que mitigaciones/infra: las Ha residuales que
+    // el natural estampa más allá del fin del proyecto se traen al
+    // último año con actividad).
+    if (_shapeLastSoldIdx >= 0) {
+      for (const z of haZones) {
+        if (!AUDP.includes(z)) continue;
+        const arr = haByZ[z];
+        for (let i = _shapeLastSoldIdx + 1; i < arr.length; i++) {
+          if (arr[i]) { arr[_shapeLastSoldIdx] += arr[i]; arr[i] = 0; }
+        }
+      }
     }
   }
   let haTotal = W.map((_,i) => Object.values(haByZ).reduce((s,a) => s + a[i], 0));
