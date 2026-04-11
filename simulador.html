@@ -11264,15 +11264,24 @@ function _renderPE() {
   const totalMant_a = isOnlyPDUC ? W.map(() => 0) : W.map(y => gv(mantByYear, y));
 
   // ── PRC 2035: Ingresos por suelo otros usos liberado en AUDP ──
-  // Se activa con el toggle pePRCOn en Primeras Etapas. Independiente del
-  // activePRC del Simulador 1. Lógica:
-  //  - Por cada Ha de DS19+Deptos vendida en AUDP en año Y, se "libera"
-  //    0.25 × Ha como suelo otros usos (mismo factor que el simulador original)
-  //  - Antes de 2035 el suelo queda en backlog (PRC no está activo aún)
-  //  - En 2035 se vende el backlog completo + la liberación del año
-  //  - Desde 2036 en adelante: se vende lo liberado ese año
-  //  - Nunca se vende después del último año con ventas de viviendas
-  //  - Precio fijo: 4,5 UF/m² = 45.000 UF/ha (sin plusvalía)
+  //
+  // Concepto: el Nuevo PRC activa en 2035 y libera suelo "otros usos" dentro
+  // de las AUDP Batuco y Colina. El total disponible equivale al 25% de las
+  // Ha de DS19+Deptos vendidas en las AUDP durante todo el proyecto.
+  //
+  // Distribución: el suelo se COMERCIALIZA en paralelo con las viviendas
+  // desde 2035 hasta el último año con ventas AUDP. NO se acumula como
+  // backlog y NO se vende "de golpe" en 2035 — se absorbe al ritmo natural
+  // del mercado, que es proporcional a las ventas de viviendas AUDP de
+  // cada año (más residentes → más demanda por otros usos).
+  //
+  // Propiedades:
+  //  - Si se aceleran las ventas de viviendas → el perfil de otros usos
+  //    también se acelera (heredada automáticamente)
+  //  - Si las ventas terminan antes → otros usos termina antes también
+  //  - Sin picos artificiales: sigue la forma suave de la curva de ventas
+  //
+  // Precio fijo: 4,5 UF/m² = 45.000 UF/ha (sin plusvalía)
   const PRC_START_YEAR = 2035;
   const PRC_FACTOR = 0.25;
   const PRC_PRICE_UF_HA = 4.5 * 10000; // 45.000 UF/ha
@@ -11281,34 +11290,58 @@ function _renderPE() {
   // PRC 2035 solo aplica a modos que INCLUYEN AUDP (no a Solo PDUC ni sanitarios)
   const prcApplies = pePRCOn && peMode !== 'onlypduc' && peMode !== 'sanAudp' && peMode !== 'sanPduc';
   if (prcApplies && peAudpHaDS19Deptos) {
-    // Agrupo Ha DS19+Deptos AUDP por año (suma Batuco + Colina)
-    const audpHaPorAño = {};
+    // 1. Total de Ha "otros usos" disponibles (25% de Ha DS19+Deptos AUDP TOTAL del proyecto)
+    let haTotalOtrosUsos = 0;
     for (const z of AUDP) {
-      for (const [yr, ha] of Object.entries(peAudpHaDS19Deptos[z] || {})) {
-        const y = parseInt(yr);
-        audpHaPorAño[y] = (audpHaPorAño[y] ?? 0) + ha;
+      for (const ha of Object.values(peAudpHaDS19Deptos[z] || {})) {
+        haTotalOtrosUsos += ha;
       }
     }
-    // Último año con ventas efectivas de viviendas (cualquier DS19+Deptos AUDP)
+    haTotalOtrosUsos *= PRC_FACTOR;
+
+    // 2. Ventas de viviendas AUDP por año (suma Batuco + Colina, cualquier producto)
+    //    Uso unitsByZone (ventas brutas, no recepciones) porque la absorción
+    //    del suelo sigue al comportamiento comercial, no al de construcción.
+    const vivAUDPporAño = {};
     let lastVivYear = -Infinity;
-    for (const y of Object.keys(audpHaPorAño)) {
-      const yi = parseInt(y);
-      if (audpHaPorAño[yi] > 0 && yi > lastVivYear) lastVivYear = yi;
+    for (const z of AUDP) {
+      for (const [yr, units] of Object.entries(unitsByZone[z] || {})) {
+        const y = parseInt(yr);
+        if (units > 0) {
+          vivAUDPporAño[y] = (vivAUDPporAño[y] ?? 0) + units;
+          if (y > lastVivYear) lastVivYear = y;
+        }
+      }
     }
-    // Backlog de años previos a PRC_START_YEAR (pero ≤ lastVivYear)
-    let backlog = 0;
-    for (const [yr, ha] of Object.entries(audpHaPorAño)) {
+
+    // 3. Ventas de viviendas AUDP en la ventana [2035, lastVivYear]
+    //    Estas son las "ventas post-PRC" que marcan el ritmo de absorción.
+    let sumVivPostPRC = 0;
+    for (const [yr, units] of Object.entries(vivAUDPporAño)) {
       const y = parseInt(yr);
-      if (y < PRC_START_YEAR) backlog += ha * PRC_FACTOR;
+      if (y >= PRC_START_YEAR && y <= lastVivYear) sumVivPostPRC += units;
     }
-    // Distribuir: desde PRC_START_YEAR hasta lastVivYear
-    for (let i = 0; i < W.length; i++) {
-      const y = W[i];
-      if (y < PRC_START_YEAR || y > lastVivYear) continue;
-      let haLib = (audpHaPorAño[y] ?? 0) * PRC_FACTOR;
-      if (y === PRC_START_YEAR) haLib += backlog;  // descarga del backlog
-      prcHaYear[i] = haLib;
-      prcIngYear[i] = haLib * PRC_PRICE_UF_HA;
+
+    // 4. Distribuir haTotalOtrosUsos proporcional al perfil de ventas post-PRC
+    if (sumVivPostPRC > 0 && haTotalOtrosUsos > 0) {
+      for (let i = 0; i < W.length; i++) {
+        const y = W[i];
+        if (y < PRC_START_YEAR || y > lastVivYear) continue;
+        const prop = (vivAUDPporAño[y] ?? 0) / sumVivPostPRC;
+        prcHaYear[i] = haTotalOtrosUsos * prop;
+        prcIngYear[i] = Math.round(prcHaYear[i] * PRC_PRICE_UF_HA);
+      }
+    } else if (haTotalOtrosUsos > 0 && lastVivYear >= PRC_START_YEAR) {
+      // Edge case: proyecto sin ventas post-2035 dentro de la ventana — reparto lineal
+      const yearsAvail = W.filter(y => y >= PRC_START_YEAR && y <= lastVivYear).length;
+      if (yearsAvail > 0) {
+        const perYear = haTotalOtrosUsos / yearsAvail;
+        for (let i = 0; i < W.length; i++) {
+          if (W[i] < PRC_START_YEAR || W[i] > lastVivYear) continue;
+          prcHaYear[i] = perYear;
+          prcIngYear[i] = Math.round(perYear * PRC_PRICE_UF_HA);
+        }
+      }
     }
   }
 
