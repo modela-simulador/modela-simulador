@@ -1845,7 +1845,7 @@
             <span style="font-size:10px;color:#94a3b8">% base</span>
           </div>
           <div style="width:1px;height:20px;background:#475569"></div>
-          <div style="display:flex;align-items:center;gap:6px" title="Cadencia de ventas Solo AUDP: redistribuye la curva natural con un techo (max por año) y un piso (min por año salvo año residual final). Corta la cola larga del tail y limita el pico sobreestimado. Solo aplica a modo Solo AUDP.">
+          <div style="display:flex;align-items:center;gap:6px" title="Cadencia de ventas Solo AUDP: redistribuye la curva natural con un techo (max por año) y un piso (min por año salvo año residual final). Corta la cola larga del tail y limita el pico sobreestimado. IMPORTANTE: el max escala con la velocidad de venta — si velocidad +20%, el cap efectivo pasa a 500×1.20=600; si -20%, a 400. El min NO escala (mínimo operativo fijo). Solo aplica a modo Solo AUDP.">
             <label style="font-size:11px;font-weight:700;color:#e2e8f0;text-transform:uppercase;letter-spacing:0.4px;white-space:nowrap">Cadencia</label>
             <label style="display:flex;align-items:center;gap:3px;font-size:10px;color:#94a3b8">max
               <input id="pe-shape-cap" type="number" value="500" min="100" max="2000" step="50"
@@ -11483,8 +11483,18 @@ function _renderPE() {
   // combina con los flujos PDUC antes de extender.
   // Closure exportada a scope outer para reutilizar en haByZ más abajo
   let _shapeRedist = null;
+  // ── Cap escala con velocidad ────────────────────────────────────────
+  // Regla de negocio: si la velocidad de venta aumenta, el cap de
+  // absorción del mercado también. Un mercado 20% más rápido significa
+  // que el techo físico de venta anual es 20% más alto. Si va 20% más
+  // lento, el techo baja 20%. El floor NO escala porque representa el
+  // mínimo operativo del desarrollador (costo fijo base), no la
+  // capacidad del mercado.
+  const _shapeVelFactor = 1 + (peVelocidadPct || 0) / 100;
+  const _shapeCapEff = Math.round(peShapeCap * _shapeVelFactor);
+  const _shapeFloorEff = peShapeFloor;
   const _shapeActive = peShapeOn && peMode === 'audp'
-    && peShapeCap > 0 && peShapeFloor >= 0 && peShapeFloor < peShapeCap;
+    && _shapeCapEff > 0 && _shapeFloorEff >= 0 && _shapeFloorEff < _shapeCapEff;
   if (_shapeActive) {
     // ── Helper 1: reshapeCapFloor ───────────────────────────────────
     // Toma la curva natural y produce una curva del mismo total con
@@ -11568,7 +11578,7 @@ function _renderPE() {
     const totalSold = natSold.reduce((a,b)=>a+b, 0);
     if (totalSold > 0) {
       // 2. Curva reshape
-      const reshSold = reshapeCapFloor(natSold, peShapeCap, peShapeFloor);
+      const reshSold = reshapeCapFloor(natSold, _shapeCapEff, _shapeFloorEff);
       const redist = arr => redistributeByUnitOverlap(arr, natSold, reshSold);
       _shapeRedist = redist; // expose para reutilizar en haByZ más abajo
 
