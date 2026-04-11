@@ -1115,6 +1115,8 @@
     #pe-ifc-toggle:checked~#pe-ifc-slider{transform:translateX(16px)}
     #pe-prc-toggle:checked+span{background:#7c3aed}
     #pe-prc-toggle:checked~#pe-prc-slider{transform:translateX(16px)}
+    #pe-shape-toggle:checked+span{background:#0ea5e9}
+    #pe-shape-toggle:checked~#pe-shape-slider{transform:translateX(16px)}
 
     /* ══════════════════════════════════════════════════════════
        MOBILE RESPONSIVE (max-width: 768px)
@@ -1841,6 +1843,25 @@
                    style="width:70px;padding:6px 8px;font-size:12px;border:1px solid #475569;border-radius:4px;background:#1e293b;color:#f8fafc;font-family:inherit;text-align:right"
                    onchange="peVelocidadPct=parseFloat(this.value)||0; if(typeof peResimulate==='function') peResimulate(); renderPrimerasEtapas();">
             <span style="font-size:10px;color:#94a3b8">% base</span>
+          </div>
+          <div style="width:1px;height:20px;background:#475569"></div>
+          <div style="display:flex;align-items:center;gap:6px" title="Cadencia de ventas Solo AUDP: redistribuye la curva natural con un techo (max por año) y un piso (min por año salvo año residual final). Corta la cola larga del tail y limita el pico sobreestimado. Solo aplica a modo Solo AUDP.">
+            <label style="font-size:11px;font-weight:700;color:#e2e8f0;text-transform:uppercase;letter-spacing:0.4px;white-space:nowrap">Cadencia</label>
+            <label style="display:flex;align-items:center;gap:3px;font-size:10px;color:#94a3b8">max
+              <input id="pe-shape-cap" type="number" value="500" min="100" max="2000" step="50"
+                     style="width:58px;padding:4px 6px;font-size:12px;border:1px solid #475569;border-radius:4px;background:#1e293b;color:#f8fafc;font-family:inherit;text-align:right"
+                     onchange="peShapeCap=parseInt(this.value)||0; renderPrimerasEtapas();">
+            </label>
+            <label style="display:flex;align-items:center;gap:3px;font-size:10px;color:#94a3b8">min
+              <input id="pe-shape-floor" type="number" value="300" min="0" max="2000" step="50"
+                     style="width:58px;padding:4px 6px;font-size:12px;border:1px solid #475569;border-radius:4px;background:#1e293b;color:#f8fafc;font-family:inherit;text-align:right"
+                     onchange="peShapeFloor=parseInt(this.value)||0; renderPrimerasEtapas();">
+            </label>
+            <label style="position:relative;display:inline-block;width:36px;height:20px;cursor:pointer">
+              <input type="checkbox" id="pe-shape-toggle" style="opacity:0;width:0;height:0" checked onchange="peShapeOn=this.checked;renderPrimerasEtapas()">
+              <span style="position:absolute;inset:0;background:#475569;border-radius:10px;transition:background .2s"></span>
+              <span style="position:absolute;top:2px;left:2px;width:16px;height:16px;background:#fff;border-radius:50%;transition:transform .2s" id="pe-shape-slider"></span>
+            </label>
           </div>
           <div style="width:1px;height:20px;background:#475569"></div>
           <div style="display:flex;align-items:center;gap:6px">
@@ -10956,6 +10977,16 @@ let peIFC = false; // toggle IFC (Informe Favorable de Construccion)
 let pePRCOn = false; // toggle PRC 2035: libera suelo otros usos (AUDP) a 4.5 UF/m²
 let pePlusvalia = 1; // plusvalía base anual % (default 1, se aplica en re-simulación + PRC)
 let peVelocidadPct = 0; // Velocidad de venta ajuste % (default 0 = baseline esperada)
+// ── Cadencia AUDP (reshape cap + floor) ───────────────────────────────
+// Redistribuye la curva natural de ventas AUDP en "Solo AUDP" para que:
+//   - ningún año venda más que peShapeCap (límite de absorción del mercado)
+//   - ningún año venda menos que peShapeFloor, excepto un único año
+//     residual al final (si el saldo restante < floor)
+// El total de unidades SE PRESERVA — solo cambia la distribución temporal,
+// y por construcción acorta la cola larga del tail natural.
+let peShapeOn    = true; // toggle reshape (default on en Solo AUDP)
+let peShapeCap   = 500;  // cap máx por año
+let peShapeFloor = 300;  // floor mín por año (salvo residual)
 
 function setPeCurrency(mode) {
   peCurrency = mode;
@@ -11062,6 +11093,12 @@ function openPrimerasEtapas() {
   if (peVel) peVel.value = String(peVelocidadPct);
   const peP = document.getElementById('pe-plusvalia-input');
   if (peP) peP.value = String(pePlusvalia);
+  const peShC = document.getElementById('pe-shape-cap');
+  if (peShC) peShC.value = String(peShapeCap);
+  const peShF = document.getElementById('pe-shape-floor');
+  if (peShF) peShF.value = String(peShapeFloor);
+  const peShT = document.getElementById('pe-shape-toggle');
+  if (peShT) peShT.checked = !!peShapeOn;
   // Re-simular siempre con el plusBase PE (pePlusvalia) en vez de usar
   // lastResults que vino con el plusBase del sidebar. Garantiza que los
   // flujos de PE reflejen la plusvalía propia desde el primer render.
@@ -11263,12 +11300,12 @@ function _renderPE() {
     }
   }
   const allIngKeys = Object.keys(ingByZ);
-  const totalIng = W.map((_,i) => allIngKeys.reduce((s,z) => s + ingByZ[z][i], 0));
+  let totalIng = W.map((_,i) => allIngKeys.reduce((s,z) => s + ingByZ[z][i], 0));
 
   // Infraestructura
   const infraZ = {};
   for (const z of activeInfraZones) infraZ[z] = W.map(y => gv(infraByZone[z],y));
-  const totalInfra = W.map((_,i) => Object.values(infraZ).reduce((s,a) => s + a[i], 0));
+  let totalInfra = W.map((_,i) => Object.values(infraZ).reduce((s,a) => s + a[i], 0));
 
   // Mitigaciones
   const mitigZ = {};
@@ -11278,11 +11315,11 @@ function _renderPE() {
     const orig = mitigZ['PDUC'].slice();
     mitigZ['PDUC'] = W.map((_,i) => i >= 2 ? orig[i-2] : 0);
   }
-  const totalMitig = W.map((_,i) => Object.values(mitigZ).reduce((s,a) => s + a[i], 0));
+  let totalMitig = W.map((_,i) => Object.values(mitigZ).reduce((s,a) => s + a[i], 0));
 
   // Comercializacion y Mantencion
-  const totalComerc = isFull ? W.map(y => gv(comercializacionByYear, y)) : totalIng.map(v => Math.round(v * 0.02));
-  const totalMant_a = isOnlyPDUC ? W.map(() => 0) : W.map(y => gv(mantByYear, y));
+  let totalComerc = isFull ? W.map(y => gv(comercializacionByYear, y)) : totalIng.map(v => Math.round(v * 0.02));
+  let totalMant_a = isOnlyPDUC ? W.map(() => 0) : W.map(y => gv(mantByYear, y));
 
   // ── PRC 2035: Ingresos por suelo otros usos liberado en AUDP ──
   //
@@ -11310,7 +11347,7 @@ function _renderPE() {
   // expresado como decimal). Se compone anualmente desde 2035.
   const PRC_PLUSVALIA_RATE = (pePlusvalia || 0) / 100;
   const prcHaYear = W.map(() => 0);
-  const prcIngYear = W.map(() => 0);
+  let prcIngYear = W.map(() => 0);
   // PRC 2035 solo aplica a modos que INCLUYEN AUDP (no a Solo PDUC ni sanitarios)
   const prcApplies = pePRCOn && peMode !== 'onlypduc' && peMode !== 'sanAudp' && peMode !== 'sanPduc';
   if (prcApplies && peAudpHaDS19Deptos) {
@@ -11388,8 +11425,8 @@ function _renderPE() {
   }
 
   // subtotalVT incluye el ingreso PRC (otros usos liberados)
-  const subtotalVT = W.map((_,i) => totalIng[i] + prcIngYear[i] - totalInfra[i] - totalMitig[i] - totalComerc[i] - totalMant_a[i]);
-  const subtotalVTAcum = cumul(subtotalVT);
+  let subtotalVT = W.map((_,i) => totalIng[i] + prcIngYear[i] - totalInfra[i] - totalMitig[i] - totalComerc[i] - totalMant_a[i]);
+  let subtotalVTAcum = cumul(subtotalVT);
 
   // Viviendas recepcionadas
   // En modo sanPduc queremos mostrar viviendas PDUC (G + 4.0), no AUDP.
@@ -11408,13 +11445,168 @@ function _renderPE() {
       pendiente -= quitar;
     }
   }
-  const recTotal = W.map((_,i) => Object.values(recByZ).reduce((s,a) => s + a[i], 0));
-  const recTotalAcum = cumul(recTotal);
+  let recTotal = W.map((_,i) => Object.values(recByZ).reduce((s,a) => s + a[i], 0));
+  let recTotalAcum = cumul(recTotal);
 
   // For sanitaria: always need full + audp-only viviendas acumuladas
   // Sanitaria usa viviendas SIN reduccion IFC (la planta atiende todas las viviendas del territorio)
   const recFullAcum = cumul(W.map(y => ALL_HAB.reduce((s,z) => s + (unitsByZone[z]?.[y-LAG]??0), 0)));
-  const recAudpAcum = cumul(W.map(y => AUDP.reduce((s,z) => s + (unitsByZone[z]?.[y-LAG]??0), 0)));
+  let recAudpAcum = cumul(W.map(y => AUDP.reduce((s,z) => s + (unitsByZone[z]?.[y-LAG]??0), 0)));
+
+  // ═══════════════════════════════════════════════════════════════════
+  // PE SOLO AUDP — RESHAPE CAP + FLOOR (Cadencia)
+  // ═══════════════════════════════════════════════════════════════════
+  // Problema: la situación base Solo AUDP muestra un pico natural ~644
+  // viviendas/año y una cola larga que termina con años de 27 unidades.
+  // Eso no refleja la cadencia real: un desarrollador no va a operar el
+  // negocio con menos de ~300 uds/año (sería operativamente inviable)
+  // ni con picos por encima de ~500 (límite de absorción de mercado).
+  //
+  // Solución: redistribuir la curva natural de ventas AUDP con DOS
+  // restricciones duras (configurables por el usuario en el toolbar):
+  //   - cap   = techo de ventas anuales (default 500)
+  //   - floor = piso de ventas anuales (default 300), excepto UN año
+  //             residual al final cuando el saldo restante < floor
+  //
+  // Propiedades del reshape:
+  //   - Total de viviendas SE PRESERVA exactamente (solo timing cambia)
+  //   - Project se ACORTA: la cola se consolida en un plateau al piso
+  //   - Los flujos tied-to-sales (ingresos, infra, mitigaciones, mant,
+  //     PRC) se redistribuyen con un algoritmo de "overlap unitario"
+  //     que preserva el valor por unidad del timeline natural
+  //   - Los costos sanitarios se recomputan desde el recAudpAcum nuevo
+  //     (ya que son funciones de cumViv), por lo que heredan el reshape
+  //     automáticamente via calcSanOp/calcSanInv más abajo
+  //
+  // Solo se aplica en modo peMode === 'audp' (Solo AUDP). Para otros
+  // modos (sanAudp, pduc, full, etc.) hay que pensar bien cómo se
+  // combina con los flujos PDUC antes de extender.
+  // Closure exportada a scope outer para reutilizar en haByZ más abajo
+  let _shapeRedist = null;
+  const _shapeActive = peShapeOn && peMode === 'audp'
+    && peShapeCap > 0 && peShapeFloor >= 0 && peShapeFloor < peShapeCap;
+  if (_shapeActive) {
+    // ── Helper 1: reshapeCapFloor ───────────────────────────────────
+    // Toma la curva natural y produce una curva del mismo total con
+    // cap/floor aplicados. Algoritmo:
+    //   Phase 1 (ramp-up hasta el peak): deja la curva natural (capada)
+    //   Phase 2 (post-peak): cada año = max(natural_capado, floor)
+    //   Exception: si el saldo restante < floor, el SIGUIENTE año
+    //              absorbe TODO el saldo como residual y el proyecto
+    //              termina ahí (nada después).
+    const reshapeCapFloor = (natural, cap, floor) => {
+      const n = natural.length;
+      const total = natural.reduce((a,b)=>a+b, 0);
+      if (total <= 0) return natural.slice();
+      const out = new Array(n).fill(0);
+      // Encontrar el peak de la curva capada — desde ahí se activa el floor
+      const capped = natural.map(v => Math.min(v, cap));
+      let peakIdx = 0;
+      for (let i = 1; i < n; i++) if (capped[i] > capped[peakIdx]) peakIdx = i;
+      let remaining = total;
+      let i = 0;
+      // Phase 1: ramp-up hasta peak inclusive → respeta curva natural capada
+      while (i <= peakIdx && remaining > 0 && i < n) {
+        const t = Math.min(capped[i], remaining);
+        out[i] = t; remaining -= t; i++;
+      }
+      // Phase 2: post-peak → enforce floor
+      while (i < n && remaining > 0) {
+        const nat = Math.min(natural[i] || 0, cap);
+        const target = Math.min(Math.max(nat, floor), remaining);
+        out[i] = target;
+        remaining -= target;
+        i++;
+        // Residual exception: si el saldo no alcanza para otro año
+        // completo a floor, el próximo año absorbe todo y paramos.
+        if (remaining > 0 && remaining < floor && i < n) {
+          out[i] = remaining;
+          remaining = 0;
+          i++;
+          break;
+        }
+      }
+      return out;
+    };
+    // ── Helper 2: redistributeByUnitOverlap ─────────────────────────
+    // Dado un flujo (p.ej. ingresos), la curva natural de ventas y la
+    // curva reshapeada, devuelve una nueva serie del flujo tal que:
+    //   - el total se preserva
+    //   - cada "unidad" de venta arrastra su valor-por-unidad del año
+    //     natural al año reshapeado donde cae
+    // Implementación: mapear posiciones en el espacio acumulado de
+    // unidades vendidas. Para el año destino i, los units en el rango
+    // [rshCum[i-1], rshCum[i]] vienen de años naturales que cruzan ese
+    // mismo rango. La contribución de cada año fuente j es:
+    //   (flow[j] / salesNatural[j]) × overlap(destRange, natRange[j])
+    // Caso especial: si natural[j]=0 pero flow[j]!=0 (p.ej. sunk cost
+    // pre-proyecto), se pinea al mismo año destino (no se mueve).
+    const redistributeByUnitOverlap = (flow, natSales, reshSales) => {
+      const n = flow.length;
+      const out = new Array(n).fill(0);
+      const natCum = [0]; for (let k = 0; k < n; k++) natCum.push(natCum[k] + (natSales[k]||0));
+      const rshCum = [0]; for (let k = 0; k < n; k++) rshCum.push(rshCum[k] + (reshSales[k]||0));
+      for (let i = 0; i < n; i++) {
+        const lo = rshCum[i], hi = rshCum[i+1];
+        for (let j = 0; j < n; j++) {
+          const sLo = natCum[j], sHi = natCum[j+1];
+          if (sHi <= sLo) {
+            // Año fuente sin ventas: pinear sunk cost al mismo i==j
+            if (i === j && flow[j]) out[i] += flow[j];
+            continue;
+          }
+          if (hi <= lo) continue;
+          const overlap = Math.max(0, Math.min(hi, sHi) - Math.max(lo, sLo));
+          if (overlap > 0) out[i] += (flow[j] / (sHi - sLo)) * overlap;
+        }
+      }
+      return out;
+    };
+
+    // ── 1. Perfil natural de ventas AUDP (sin LAG) en W ─────────────
+    const natSold = W.map(y => AUDP.reduce((s,z) => s + (unitsByZone[z]?.[y] ?? 0), 0));
+    const totalSold = natSold.reduce((a,b)=>a+b, 0);
+    if (totalSold > 0) {
+      // 2. Curva reshape
+      const reshSold = reshapeCapFloor(natSold, peShapeCap, peShapeFloor);
+      const redist = arr => redistributeByUnitOverlap(arr, natSold, reshSold);
+      _shapeRedist = redist; // expose para reutilizar en haByZ más abajo
+
+      // 3. Redistribuir flujos tied-to-sales
+      totalIng    = redist(totalIng);
+      totalInfra  = redist(totalInfra);
+      totalMitig  = redist(totalMitig);
+      totalMant_a = redist(totalMant_a);
+      prcIngYear  = redist(prcIngYear);
+      // Comercialización es 2% de ingresos → recomputar desde el reshape
+      totalComerc = totalIng.map(v => Math.round(v * 0.02));
+
+      // 4. Reconstruir viviendas recepcionadas per-zona preservando el
+      //    split Batuco/Colina natural en cada año (con LAG=2).
+      const reshPerZone = {};
+      for (const z of AUDP) reshPerZone[z] = new Array(W.length).fill(0);
+      for (let i = 0; i < W.length; i++) {
+        if (natSold[i] > 0) {
+          for (const z of AUDP) {
+            const zn = unitsByZone[z]?.[W[i]] ?? 0;
+            reshPerZone[z][i] = reshSold[i] * (zn / natSold[i]);
+          }
+        }
+      }
+      for (const z of AUDP) {
+        recByZ[z] = W.map((_, i) => (i >= LAG ? Math.round(reshPerZone[z][i - LAG] || 0) : 0));
+      }
+      recTotal     = W.map((_, i) => AUDP.reduce((s, z) => s + (recByZ[z][i] || 0), 0));
+      recTotalAcum = cumul(recTotal);
+      // Solo AUDP → recAudpAcum = recTotalAcum (reshape aplica a AUDP)
+      recAudpAcum  = recTotalAcum.slice();
+
+      // 5. Recomputar subtotalVT con flujos ya reshape
+      subtotalVT     = W.map((_, i) =>
+        totalIng[i] + prcIngYear[i] - totalInfra[i] - totalMitig[i] - totalComerc[i] - totalMant_a[i]);
+      subtotalVTAcum = cumul(subtotalVT);
+    }
+  }
 
   // Helper: calculate sanInv with 55/45 split from a given recAcum array
   function calcSanInv(recAcum) {
@@ -11555,8 +11747,18 @@ function _renderPE() {
     haByZ['Industrial'] = W.map(y => gv(industrialHaByYear, y));
     haByZ['Otros Usos D4.0'] = W.map(y => gv(otrosHaByYear, y));
   }
-  const haTotal = W.map((_,i) => Object.values(haByZ).reduce((s,a) => s + a[i], 0));
-  const haTotalAcum = cumul(haTotal);
+  // Cadencia reshape: aplicar también a las Ha por zona (AUDP) para que
+  // la curva de lotes vendidos siga la misma redistribución que las
+  // viviendas vendidas. Sin esto, "Ha Vendidas" mostraría el pico natural
+  // 6,96 Ha en año 2034 mientras que "Viviendas Recepcionadas" ya está
+  // reshapeada a 500 — generando inconsistencia visual.
+  if (_shapeRedist) {
+    for (const z of haZones) {
+      if (AUDP.includes(z)) haByZ[z] = _shapeRedist(haByZ[z]);
+    }
+  }
+  let haTotal = W.map((_,i) => Object.values(haByZ).reduce((s,a) => s + a[i], 0));
+  let haTotalAcum = cumul(haTotal);
 
   const chartIng = W.map((_,i) => totalIng[i] + sanIng[i] + sanVenta[i]);
   // Si estamos en sanAudp, pago desarrollador cancela inversiones — incluimos ambos para visual
