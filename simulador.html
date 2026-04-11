@@ -1887,6 +1887,13 @@
               <span style="position:absolute;top:2px;left:2px;width:16px;height:16px;background:#fff;border-radius:50%;transition:transform .2s" id="pe-prc-slider"></span>
             </label>
           </div>
+          <div style="display:flex;align-items:center;gap:6px" title="Plusvalía base anual %. Aplica a los tickets de viviendas (re-simula) y al precio de los Otros Usos del PRC (compuesto desde 2035).">
+            <label style="font-size:11px;font-weight:700;color:#e2e8f0;text-transform:uppercase;letter-spacing:0.4px;white-space:nowrap">Plusvalía</label>
+            <input id="pe-plusvalia-input" type="number" value="1" min="0" max="20" step="0.1"
+                   style="width:58px;padding:4px 6px;font-size:12px;border:1px solid #475569;border-radius:4px;background:#1e293b;color:#f8fafc;font-family:inherit;text-align:right"
+                   onchange="pePlusvalia=parseFloat(this.value)||0; if(typeof peResimulate==='function') peResimulate(); renderPrimerasEtapas();">
+            <span style="font-size:10px;color:#94a3b8">% anual</span>
+          </div>
           <div style="flex:1"></div>
           <button id="pe-btn-xlsx" onclick="downloadPEXlsx()" style="padding:6px 14px;font-size:11px;font-weight:600;font-family:inherit;border:1px solid #475569;border-radius:6px;background:#1e293b;color:#f8fafc;cursor:pointer;display:flex;align-items:center;gap:4px">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
@@ -10944,6 +10951,7 @@ let peCutoffYear = 0; // 0 = hasta termino, else specific year
 let peCurrency = 'UF'; // 'UF' or 'USD'
 let peIFC = false; // toggle IFC (Informe Favorable de Construccion)
 let pePRCOn = false; // toggle PRC 2035: libera suelo otros usos (AUDP) a 4.5 UF/m²
+let pePlusvalia = 1; // plusvalía base anual % (default 1, se aplica en re-simulación + PRC)
 
 function setPeCurrency(mode) {
   peCurrency = mode;
@@ -11013,10 +11021,14 @@ function peResimulate() {
   if (!peBaseParams) return;
   const peEsc = document.getElementById('pe-sel-escenario').value;
   const peOps = document.getElementById('pe-sel-ops').value;
-  // Clone base params and override only velocity + operators
+  // Clone base params and override only velocity + operators + plusvalía PE
   const p = Object.assign({}, peBaseParams);
   p.velMult = VEL_MULT[peEsc] ?? 1.0;
   p.opsEscenario = peOps;
+  // Override plusvalía con el valor del input de PE (default 1%).
+  // Esto afecta: tickets de viviendas (DS19, Casas, Deptos, Townhouses)
+  // de todas las zonas AUDP y PDUC, ya compuesto desde zoneStart.
+  p.plusBase = pePlusvalia;
   peResults = simulate(p);
 }
 
@@ -11029,8 +11041,14 @@ function openPrimerasEtapas() {
   const peOps = document.getElementById('pe-sel-ops');
   if (peEsc) peEsc.value = document.getElementById('escenario').value;
   if (peOps) peOps.value = document.getElementById('escenario-ops').value;
-  // Use lastResults as initial PE results (no re-simulation needed)
+  // Sincronizar el input de plusvalía PE con la variable global
+  const peP = document.getElementById('pe-plusvalia-input');
+  if (peP) peP.value = String(pePlusvalia);
+  // Re-simular siempre con el plusBase PE (pePlusvalia) en vez de usar
+  // lastResults que vino con el plusBase del sidebar. Garantiza que los
+  // flujos de PE reflejen la plusvalía propia desde el primer render.
   peResults = lastResults;
+  peResimulate();
   // Wire handlers once
   if (!peEsc._wired) {
     peEsc._wired = true;
@@ -11284,7 +11302,10 @@ function _renderPE() {
   // Precio fijo: 4,5 UF/m² = 45.000 UF/ha (sin plusvalía)
   const PRC_START_YEAR = 2035;
   const PRC_FACTOR = 0.25;
-  const PRC_PRICE_UF_HA = 4.5 * 10000; // 45.000 UF/ha
+  const PRC_PRICE_UF_HA_BASE = 4.5 * 10000; // 45.000 UF/ha (precio base en 2035)
+  // Tasa de plusvalía aplicada al precio PRC (mismo valor que el input PE,
+  // expresado como decimal). Se compone anualmente desde 2035.
+  const PRC_PLUSVALIA_RATE = (pePlusvalia || 0) / 100;
   const prcHaYear = W.map(() => 0);
   const prcIngYear = W.map(() => 0);
   // PRC 2035 solo aplica a modos que INCLUYEN AUDP (no a Solo PDUC ni sanitarios)
@@ -11339,8 +11360,11 @@ function _renderPE() {
         if (y < PRC_START_YEAR || y > lastVivYear) continue;
         const t = y - PRC_START_YEAR;
         const ha = haTotalOtrosUsos * (weights[t] / totalW);
+        // Precio con plusvalía compuesta desde 2035 (análogo a getAdjustedTicket
+        // del simulador 1, con zoneStart = PRC_START_YEAR = 2035).
+        const priceThisYear = PRC_PRICE_UF_HA_BASE * Math.pow(1 + PRC_PLUSVALIA_RATE, t);
         prcHaYear[i] = ha;
-        prcIngYear[i] = Math.round(ha * PRC_PRICE_UF_HA);
+        prcIngYear[i] = Math.round(ha * priceThisYear);
       }
     }
   }
@@ -11690,7 +11714,10 @@ function _renderPE() {
     r1.push(mkCh('pe-ing',ingByZ,1));
     // Nueva fila: Ingresos Otros Usos PRC (si el toggle está activo y aplica al modo)
     if (prcApplies) {
-      r1.push(mkR('Ingresos Otros Usos (PRC 2035, 4,5 UF/m\u00b2)', prcIngYear, ''));
+      const prcLbl = pePlusvalia > 0
+        ? `Ingresos Otros Usos (PRC 2035, 4,5 UF/m\u00b2 + ${pePlusvalia.toString().replace('.', ',')}% anual)`
+        : 'Ingresos Otros Usos (PRC 2035, 4,5 UF/m\u00b2)';
+      r1.push(mkR(prcLbl, prcIngYear, ''));
     }
     r1.push(mkP('pe-cos','Costos Operativos',neg(totalCostos)));
     r1.push(mkCh('pe-cos',costosDetail,-1));
