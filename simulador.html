@@ -11810,57 +11810,134 @@ function renderMCResults(results, cfg){
   resPanel.appendChild(grid);
   resultsEl.appendChild(resPanel);
 
-  // ── Conclusiones automáticas ──
+  // ── Conclusiones ejecutivas (nivel directorio) ──
+  // Redacción estratégica dinámica: cada bullet adapta su mensaje según
+  // los datos reales del MC, pero mantiene tono ejecutivo-comercial.
+  // Evita jerga estadística, sobreafirmaciones y frases genéricas.
+
   const concPanel = _mcEl('div', 'mc-chart-panel');
   concPanel.style.borderLeft = '4px solid #7c3aed';
   concPanel.appendChild(_mcEl('div', 'mc-chart-title', 'Conclusiones'));
 
   const conclusions = [];
 
-  // 1. Viabilidad general
-  if (m.pLoss < 0.05) {
-    conclusions.push('✅ El proyecto es robusto: solo el ' + fmtPct(m.pLoss, 1) + ' de los escenarios presenta VAN negativo (< 5% umbral de aceptación).');
-  } else if (m.pLoss < 0.15) {
-    conclusions.push('⚠️ Riesgo moderado: el ' + fmtPct(m.pLoss, 1) + ' de los escenarios presenta VAN negativo. Se recomienda reforzar las variables más sensibles.');
+  // ── 1. Creación de valor + tail risk ──
+  // Combina VAN esperado, P(loss) y CVaR en un solo bullet estratégico
+  if (m.pLoss < 0.02) {
+    conclusions.push(
+      'El proyecto genera un VAN esperado de ' + fmt(m.mean) +
+      ' con un perfil de riesgo favorable: solo el ' + fmtPct(m.pLoss, 1) +
+      ' de los escenarios resulta en destrucción de valor.' +
+      (m.cvar5 > 0
+        ? ' Incluso en la cola adversa (CVaR 5%), el retorno promedio se mantiene positivo en ' + fmt(m.cvar5) + '.'
+        : ' Sin embargo, en la cola adversa el promedio alcanza ' + fmt(m.cvar5) + ', lo que exige atención a la estructura de protección.')
+    );
+  } else if (m.pLoss < 0.10) {
+    conclusions.push(
+      'El proyecto genera un VAN esperado de ' + fmt(m.mean) +
+      ', con un ' + fmtPct(m.pLoss, 1) + ' de escenarios en terreno negativo.' +
+      (m.cvar5 > 0
+        ? ' El promedio del peor 5% se mantiene positivo (' + fmt(m.cvar5) + '), lo que limita la exposición a pérdidas severas.'
+        : ' El promedio del peor 5% alcanza ' + fmt(m.cvar5) + ', señalando riesgo material en escenarios de cola que debe mitigarse activamente.')
+    );
   } else {
-    conclusions.push('🔴 Riesgo alto: el ' + fmtPct(m.pLoss, 1) + ' de los escenarios presenta VAN negativo. El proyecto requiere revisión estructural.');
+    conclusions.push(
+      'El VAN esperado es ' + fmt(m.mean) +
+      ', pero el ' + fmtPct(m.pLoss, 1) + ' de probabilidad de resultado negativo y un CVaR 5% de ' + fmt(m.cvar5) +
+      ' indican un perfil de riesgo que requiere revisión estructural antes de comprometer capital.'
+    );
   }
 
-  // 2. VAN esperado
-  conclusions.push('El VAN esperado es ' + fmt(m.mean) + ' con una banda de confianza 80% entre ' + fmt(m.p10) + ' y ' + fmt(m.p90) + '.');
+  // ── 2. Banda de confianza como espacio de gestión ──
+  conclusions.push(
+    'La banda de confianza del 80% sitúa el valor del proyecto entre ' + fmt(m.p10) + ' y ' + fmt(m.p90) +
+    ', reflejando un rango de captura de valor ' +
+    (m.p10 > 0 ? 'amplio pero consistentemente positivo' : 'que incluye escenarios de estrés') +
+    '. La dispersión no amenaza la viabilidad; marca el espacio de gestión.'
+  );
 
-  // 3. Variable más influyente
-  if (tornado.length > 0) {
-    conclusions.push('La variable más influyente es "' + tornado[0].label + '" (' + tornado[0].contrib.toFixed(0) + '% de la varianza del VAN). ' +
-      (tornado.length > 1 ? 'Le sigue "' + tornado[1].label + '" (' + tornado[1].contrib.toFixed(0) + '%).' : ''));
+  // ── 3. Drivers: captura de valor > control de costos ──
+  // Identifica las top 3 variables y calcula su contribución combinada
+  if (tornado.length >= 3) {
+    const top3Sum = tornado[0].contrib + tornado[1].contrib + tornado[2].contrib;
+    // Clasificar si los top drivers son comerciales o de costo
+    const comercialVars = new Set(['vel', 'plusv', 'tm']);
+    const top3AreCom = tornado.slice(0, 3).filter(t => comercialVars.has(t.var)).length;
+
+    if (top3AreCom >= 2) {
+      conclusions.push(
+        'El ' + top3Sum.toFixed(0) + '% de la varianza del VAN se concentra en tres variables comerciales' +
+        ' \u2014' + tornado[0].label.toLowerCase() + ', ' + tornado[1].label.toLowerCase() + ' y ' + tornado[2].label.toLowerCase() +
+        '\u2014 lo que desplaza el foco de riesgo desde la contención de costos hacia la estrategia de posicionamiento, pricing y ritmo de comercialización.'
+      );
+    } else {
+      conclusions.push(
+        'Los principales drivers de varianza son ' + tornado[0].label.toLowerCase() + ' (' + tornado[0].contrib.toFixed(0) + '%), ' +
+        tornado[1].label.toLowerCase() + ' (' + tornado[1].contrib.toFixed(0) + '%) y ' +
+        tornado[2].label.toLowerCase() + ' (' + tornado[2].contrib.toFixed(0) + '%). ' +
+        'La gestión debe balancear captura de valor comercial con control de costos de ejecución.'
+      );
+    }
   }
 
-  // 4. Capital de trabajo
-  conclusions.push('El capital de trabajo máximo (drawdown) en el escenario P95 es ' + fmt(capsP95) + ', lo que define el requerimiento de equity o financiamiento puente.');
-
-  // 5. Años de venta
-  conclusions.push('La duración de ventas mediana es ' + anosMed + ' años, con un máximo de ' + anosMax + ' años en los escenarios más adversos.');
-
-  // 6. CVaR (tail risk)
-  if (m.cvar5 < 0) {
-    conclusions.push('⚠️ El CVaR 5% (promedio del peor 5%) es ' + fmt(m.cvar5) + ', indicando pérdidas significativas en escenarios de cola.');
+  // ── 4. Temporalidad: el riesgo real ──
+  if (anosMax > anosMed * 2) {
+    conclusions.push(
+      'El desafío central no es si el proyecto crea valor, sino a qué velocidad lo monetiza. Con una mediana de ' +
+      anosMed + ' años de venta y escenarios que se extienden hasta ' + anosMax +
+      ' años, la estructura de financiamiento y la capacidad de sostener caja en horizontes largos son determinantes de la rentabilidad efectiva.'
+    );
   } else {
-    conclusions.push('✅ Incluso en el peor 5% de escenarios, el VAN promedio se mantiene positivo (' + fmt(m.cvar5) + ').');
+    conclusions.push(
+      'La duración de ventas presenta una mediana de ' + anosMed + ' años con un máximo de ' + anosMax +
+      ' años. La dispersión acotada reduce el riesgo de extensión, aunque la estrategia de financiamiento debe contemplar la cola superior.'
+    );
   }
 
-  // 7. Sortino ratio
-  if (isFinite(m.sortino)) {
-    const sortinoLabel = m.sortino > 2 ? 'excelente' : m.sortino > 1 ? 'aceptable' : 'bajo';
-    conclusions.push('El ratio Sortino es ' + m.sortino.toFixed(2).replace('.', ',') + ' (' + sortinoLabel + '), que mide el retorno ajustado por riesgo a la baja.');
+  // ── 5. Capital de trabajo como dimensionamiento de equity ──
+  conclusions.push(
+    'El requerimiento máximo de capital de trabajo alcanza ' + fmt(capsP95) + ' en el percentil 95' +
+    (capsMed > 0 ? ' (mediana ' + fmt(capsMed) + ')' : '') +
+    ', lo que define el piso de equity o financiamiento puente necesario para sostener el proyecto en escenarios de absorción lenta sin comprometer su ejecución.'
+  );
+
+  // ── 6. Sortino + lectura de cierre ──
+  // Identifica la contribución regulatoria (PRC, crisis) para la frase de cierre
+  const regulatoryVars = new Set(['prcOn', 'crisisOn']);
+  const regContrib = tornado.filter(t => regulatoryVars.has(t.var)).reduce((s, t) => s + t.contrib, 0);
+
+  if (isFinite(m.sortino) && m.sortino > 1.5) {
+    conclusions.push(
+      'El ratio Sortino de ' + m.sortino.toFixed(2).replace('.', ',') +
+      ' confirma un retorno ajustado por riesgo a la baja sólido: el proyecto compensa ampliamente la volatilidad negativa.' +
+      (regContrib < 10
+        ? ' La aprobación regulatoria y los escenarios de crisis contribuyen marginalmente (' + regContrib.toFixed(0) + '%) a la varianza; importan como condiciones habilitantes, pero no definen el resultado económico.'
+        : '')
+    );
+  } else if (isFinite(m.sortino)) {
+    conclusions.push(
+      'El ratio Sortino de ' + m.sortino.toFixed(2).replace('.', ',') +
+      ' indica que la compensación por riesgo a la baja es ' + (m.sortino > 1 ? 'aceptable' : 'limitada') +
+      ', lo que refuerza la necesidad de gestionar activamente las variables comerciales para proteger el retorno.'
+    );
   }
 
+  // ── Render de los bullets ──
   const list = _mcEl('div');
-  list.style.cssText = 'font-size:12px;color:#334155;line-height:1.7';
-  conclusions.forEach(c => {
-    const p = _mcEl('div');
-    p.style.cssText = 'padding:4px 0;border-bottom:1px solid #f1f5f9';
-    p.textContent = c;
-    list.appendChild(p);
+  list.style.cssText = 'font-size:12px;color:#334155;line-height:1.8';
+  conclusions.forEach((c, idx) => {
+    const row = _mcEl('div');
+    row.style.cssText = 'display:flex;gap:10px;padding:8px 0;border-bottom:1px solid #e2e8f0';
+    // Número del bullet (estilo de directorio, no "Conclusión 1")
+    const num = _mcEl('span');
+    num.style.cssText = 'flex:0 0 22px;width:22px;height:22px;background:#7c3aed;color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;margin-top:1px';
+    num.textContent = String(idx + 1);
+    row.appendChild(num);
+    const txt = _mcEl('span');
+    txt.style.cssText = 'flex:1';
+    txt.textContent = c;
+    row.appendChild(txt);
+    list.appendChild(row);
   });
   concPanel.appendChild(list);
   resultsEl.appendChild(concPanel);
