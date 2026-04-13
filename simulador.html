@@ -2024,6 +2024,23 @@
           <div class="mc-dist-params">triang fijos: infra 0.95-1-1.30 · mit 0.90-1-1.35 · san 0.95-1-1.25 · crisis discreta (45%/30%/25%)</div>
         </div>
 
+        <!-- Distribuciones sanitarias (visibles solo en modos sanAudp/sanPduc) -->
+        <div id="mc-san-distributions" style="display:none;border-top:1px solid #e2e8f0;padding-top:8px;margin-top:8px">
+          <div class="mc-section-title" style="color:#16a34a">Variables Sanitarias</div>
+          <div class="mc-dist-group">
+            <div class="mc-dist-title">Ingresos operacionales</div>
+            <div class="mc-dist-params">triang [<input id="mc-san-rev-lo" type="number" value="0.85" min="0.5" max="1" step="0.05" style="width:38px;padding:2px 4px;font-size:10px;border:1px solid #cbd5e1;border-radius:3px">, <input id="mc-san-rev-mode" type="number" value="1" min="0.7" max="1.2" step="0.05" style="width:38px;padding:2px 4px;font-size:10px;border:1px solid #cbd5e1;border-radius:3px">, <input id="mc-san-rev-hi" type="number" value="1.15" min="1" max="1.5" step="0.05" style="width:38px;padding:2px 4px;font-size:10px;border:1px solid #cbd5e1;border-radius:3px">]</div>
+          </div>
+          <div class="mc-dist-group">
+            <div class="mc-dist-title">Costos operacionales</div>
+            <div class="mc-dist-params">triang [<input id="mc-san-cost-lo" type="number" value="0.9" min="0.5" max="1" step="0.05" style="width:38px;padding:2px 4px;font-size:10px;border:1px solid #cbd5e1;border-radius:3px">, <input id="mc-san-cost-mode" type="number" value="1" min="0.7" max="1.3" step="0.05" style="width:38px;padding:2px 4px;font-size:10px;border:1px solid #cbd5e1;border-radius:3px">, <input id="mc-san-cost-hi" type="number" value="1.3" min="1" max="2" step="0.05" style="width:38px;padding:2px 4px;font-size:10px;border:1px solid #cbd5e1;border-radius:3px">]</div>
+          </div>
+          <div class="mc-dist-group">
+            <div class="mc-dist-title">Precio venta sanitaria</div>
+            <div class="mc-dist-params">triang [<input id="mc-san-sale-lo" type="number" value="0.7" min="0.3" max="1" step="0.05" style="width:38px;padding:2px 4px;font-size:10px;border:1px solid #cbd5e1;border-radius:3px">, <input id="mc-san-sale-mode" type="number" value="1" min="0.5" max="1.5" step="0.05" style="width:38px;padding:2px 4px;font-size:10px;border:1px solid #cbd5e1;border-radius:3px">, <input id="mc-san-sale-hi" type="number" value="1.3" min="1" max="2" step="0.05" style="width:38px;padding:2px 4px;font-size:10px;border:1px solid #cbd5e1;border-radius:3px">]</div>
+          </div>
+        </div>
+
         <div style="display:flex;gap:8px;margin-top:8px">
           <button class="mc-run-btn" id="mc-run-btn" onclick="runMCAnalysis()" style="flex:1">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
@@ -11348,6 +11365,12 @@ const MC = (function(){
     else                { crisisOn = true; crisisYears = 7; }
     const discRate = (cfg.discLo + (cfg.discHi - cfg.discLo) * rng()) / 100;
 
+    // Multiplicadores sanitarios (solo usados en modos sanAudp/sanPduc)
+    // Distribuciones triangulares independientes (no correlacionadas con Cholesky)
+    const sanRevMult  = triangularCDF(rng(), cfg.sanRevLo  || 0.85, cfg.sanRevMode  || 1.00, cfg.sanRevHi  || 1.15);
+    const sanCostMult = triangularCDF(rng(), cfg.sanCostLo || 0.90, cfg.sanCostMode || 1.00, cfg.sanCostHi || 1.30);
+    const sanSaleMult = triangularCDF(rng(), cfg.sanSaleLo || 0.70, cfg.sanSaleMode || 1.00, cfg.sanSaleHi || 1.30);
+
     peVelocidadPct = vel;
     pePlusvalia    = plusv;
     pePRCOn        = prcOn;
@@ -11374,49 +11397,92 @@ const MC = (function(){
     const years = [...tbl.querySelectorAll('thead th')].slice(1, -1).map(th => parseInt(th.textContent));
     const n = years.length;
 
-    const totalIng   = grab(l => l === 'Ingresos Venta de Tierra') || new Array(n).fill(0);
-    const prcIng     = grab(l => /Otros Usos.*PRC/.test(l)) || new Array(n).fill(0);
-    const totalInfra = grab(l => l === 'Infraestructura') || new Array(n).fill(0);
-    const totalMitig = grab(l => l === 'Mitigaciones') || new Array(n).fill(0);
-    const totalComerc= grab(l => /^Comercializacion/.test(l)) || new Array(n).fill(0);
-    const totalMant  = grab(l => l === 'Mantencion') || new Array(n).fill(0);
-    const sanInv     = grab(l => l === 'Inversiones Sanitarias') || new Array(n).fill(0);
-    const factPG     = grab(l => /Factibilizacion por Gastar/.test(l)) || new Array(n).fill(0);
+    // ── Lectura de filas: bifurcación por modo ──
+    // Modos sanitaria (sanAudp, sanPduc): las filas de venta de tierra
+    // están en cero. Los drivers son: ingresos operacionales, costos
+    // operacionales, venta sanitaria, inversiones. Se leen filas distintas
+    // y se aplican multiplicadores distintos.
+    const _isSanMode = peMode === 'sanAudp' || peMode === 'sanPduc';
 
-    // Zonas de tierra según peMode activo (replica lógica de activeTierraZones
-    // en _renderPE). Para modos sanitaria, usamos las mismas zonas base.
-    const _AUDP = ['AUDP Batuco', 'AUDP Colina'];
-    const _PDUC = ['Distrito G', 'Distrito 4.0'];
-    const _ALL  = [..._AUDP, ..._PDUC];
-    const tierraZones = (peMode === 'onlypduc' || peMode === 'sanPduc') ? _PDUC
-                      : (peMode === 'full' || peMode === 'pduc') ? _ALL
-                      : _AUDP;  // audp, sanAudp, default
-    const tierra = years.map(y => tierraZones.reduce((s, z) => {
-      const byY = peResults?.tierraByZone?.[z] || {};
-      return s + (byY[y] || 0);
-    }, 0));
+    let fcfMod, vanPrinc, vanSan, anosVenta;
 
-    const fcfMod = new Array(n).fill(0);
-    for (let i = 0; i < n; i++) {
-      fcfMod[i] = (totalIng[i]||0) * tm
-                + (prcIng[i]||0) * tm
-                + (totalInfra[i]||0) * im
-                + (totalMitig[i]||0) * mm
-                + (totalComerc[i]||0)
-                + (totalMant[i]||0)
-                + (sanInv[i]||0) * sm
-                + (factPG[i]||0)
-                - tierra[i];
+    if (_isSanMode) {
+      // ── SANITARIA: leer filas del negocio sanitario ──
+      const sanIngOp  = grab(l => l === 'Ingresos Operacionales') || new Array(n).fill(0);
+      const sanCostOp = grab(l => l === 'Costos Operacionales') || new Array(n).fill(0);
+      const sanInvCap = grab(l => l === 'Inversiones Sanitarias') || new Array(n).fill(0);
+      const sanVenta  = grab(l => /^Venta Sanitaria/.test(l)) || new Array(n).fill(0);
+      const sanFact   = grab(l => /Factibilizacion/.test(l)) || new Array(n).fill(0);
+
+      // Multiplicadores sanitarios sampleados arriba
+      const srm = sanRevMult;
+      const scm = sanCostMult;
+      const ssm = sanSaleMult;
+
+      fcfMod = new Array(n).fill(0);
+      for (let i = 0; i < n; i++) {
+        fcfMod[i] = (sanIngOp[i]||0) * srm
+                  + (sanCostOp[i]||0) * scm    // ya viene con signo negativo de la tabla
+                  + (sanVenta[i]||0) * ssm
+                  + (sanInvCap[i]||0) * sm      // CAPEX sanitario usa sm existente
+                  + (sanFact[i]||0);
+      }
+      vanPrinc = npv(fcfMod, discRate);
+      vanSan = vanPrinc;  // en modo sanitaria, todo ES sanitario
+
+      // Años de actividad: buscar primer/último año con ingresos op > 0
+      let firstIng = -1, lastIng = -1;
+      for (let i = 0; i < n; i++) {
+        if ((sanIngOp[i]||0) > 0 || (sanVenta[i]||0) > 0) {
+          if (firstIng < 0) firstIng = i; lastIng = i;
+        }
+      }
+      anosVenta = firstIng >= 0 ? (lastIng - firstIng + 1) : 0;
+
+    } else {
+      // ── VENTA DE TIERRA: lectura original ──
+      const totalIng   = grab(l => l === 'Ingresos Venta de Tierra') || new Array(n).fill(0);
+      const prcIng     = grab(l => /Otros Usos.*PRC/.test(l)) || new Array(n).fill(0);
+      const totalInfra = grab(l => l === 'Infraestructura') || new Array(n).fill(0);
+      const totalMitig = grab(l => l === 'Mitigaciones') || new Array(n).fill(0);
+      const totalComerc= grab(l => /^Comercializacion/.test(l)) || new Array(n).fill(0);
+      const totalMant  = grab(l => l === 'Mantencion') || new Array(n).fill(0);
+      const sanInv     = grab(l => l === 'Inversiones Sanitarias') || new Array(n).fill(0);
+      const factPG     = grab(l => /Factibilizacion por Gastar/.test(l)) || new Array(n).fill(0);
+
+      const _AUDP = ['AUDP Batuco', 'AUDP Colina'];
+      const _PDUC = ['Distrito G', 'Distrito 4.0'];
+      const _ALL  = [..._AUDP, ..._PDUC];
+      const tierraZones = (peMode === 'onlypduc') ? _PDUC
+                        : (peMode === 'full' || peMode === 'pduc') ? _ALL
+                        : _AUDP;
+      const tierra = years.map(y => tierraZones.reduce((s, z) => {
+        const byY = peResults?.tierraByZone?.[z] || {};
+        return s + (byY[y] || 0);
+      }, 0));
+
+      fcfMod = new Array(n).fill(0);
+      for (let i = 0; i < n; i++) {
+        fcfMod[i] = (totalIng[i]||0) * tm
+                  + (prcIng[i]||0) * tm
+                  + (totalInfra[i]||0) * im
+                  + (totalMitig[i]||0) * mm
+                  + (totalComerc[i]||0)
+                  + (totalMant[i]||0)
+                  + (sanInv[i]||0) * sm
+                  + (factPG[i]||0)
+                  - tierra[i];
+      }
+      vanPrinc = npv(fcfMod, discRate);
+      const fcfSan = sanInv.map(v => (v||0) * sm);
+      vanSan = npv(fcfSan, discRate);
+
+      let firstIng = -1, lastIng = -1;
+      for (let i = 0; i < n; i++) {
+        if ((totalIng[i]||0) > 0) { if (firstIng < 0) firstIng = i; lastIng = i; }
+      }
+      anosVenta = firstIng >= 0 ? (lastIng - firstIng + 1) : 0;
     }
-    const vanPrinc = npv(fcfMod, discRate);
-    const fcfSan = sanInv.map(v => (v||0) * sm);
-    const vanSan = npv(fcfSan, discRate);
-
-    let firstIng = -1, lastIng = -1;
-    for (let i = 0; i < n; i++) {
-      if ((totalIng[i]||0) > 0) { if (firstIng < 0) firstIng = i; lastIng = i; }
-    }
-    const anosVenta = firstIng >= 0 ? (lastIng - firstIng + 1) : 0;
 
     let acum = 0, minAcum = 0, minIdx = -1;
     const acums = [];
@@ -11431,7 +11497,8 @@ const MC = (function(){
     }
 
     return {
-      inputs: { vel, plusv, tm, im, mm, sm, prcOn: prcOn?1:0, crisisOn: crisisOn?1:0, discRate },
+      inputs: { vel, plusv, tm, im, mm, sm, prcOn: prcOn?1:0, crisisOn: crisisOn?1:0, discRate,
+                sanRevMult, sanCostMult, sanSaleMult },
       outputs: {
         vanPrinc, vanSan, anosVenta,
         capTrabajo: -minAcum,
@@ -11500,20 +11567,30 @@ const MC = (function(){
   }
   function computeTornado(results){
     const van = results.map(r => r.outputs.vanPrinc);
-    const vars_ = ['vel','plusv','tm','im','mm','sm','prcOn','crisisOn','discRate'];
+    // Variables expandidas: incluye las 3 sanitarias + las 9 originales.
+    // computeTornado filtra automáticamente las que tienen varianza ~0
+    // (ej: sanRevMult en modo venta tierra siempre vale ~1 → rho ≈ 0).
+    const vars_ = ['vel','plusv','tm','im','mm','sm','prcOn','crisisOn','discRate',
+                   'sanRevMult','sanCostMult','sanSaleMult'];
     const labels = {
       vel:'Velocidad venta', plusv:'Plusval\u00eda anual', tm:'Ticket multiplier',
       im:'Costo infraestructura', mm:'Costo mitigaciones', sm:'Costo sanitaria CAPEX',
       prcOn:'PRC aprobado', crisisOn:'Crisis en horizonte', discRate:'Tasa descuento',
+      sanRevMult:'Ingresos op. sanitaria', sanCostMult:'Costos op. sanitaria',
+      sanSaleMult:'Venta sanitaria',
     };
     const rhos = {};
     for (const k of vars_) {
       const x = results.map(r => r.inputs[k]);
+      // Si la variable no tiene varianza (todos iguales), skip
+      const xMin = Math.min.apply(null, x), xMax = Math.max.apply(null, x);
+      if (xMax - xMin < 1e-9) { rhos[k] = 0; continue; }
       rhos[k] = rankCorr(x, van);
     }
-    const sum = vars_.reduce((s,k) => s + rhos[k]**2, 0);
+    const sum = vars_.reduce((s,k) => s + rhos[k]**2, 0) || 1;
     return vars_
       .map(k => ({ var:k, label:labels[k], rho:rhos[k], contrib: rhos[k]**2 / sum * 100 }))
+      .filter(t => t.contrib > 0.1)  // quitar variables con contribución despreciable
       .sort((a,b) => b.contrib - a.contrib);
   }
 
@@ -11652,6 +11729,9 @@ function openMCAnalysis(){
   const modeLabel = MC_MODE_LABELS[peMode] || peMode;
   const titleEl = document.getElementById('mc-title');
   if (titleEl) titleEl.textContent = 'An\u00e1lisis Monte Carlo \u2014 ' + modeLabel;
+  // Mostrar/ocultar distribuciones sanitarias según modo
+  const sanDist = document.getElementById('mc-san-distributions');
+  if (sanDist) sanDist.style.display = (peMode === 'sanAudp' || peMode === 'sanPduc') ? 'block' : 'none';
   document.getElementById('mc-overlay').style.display = 'flex';
 }
 
@@ -11687,6 +11767,16 @@ function runMCAnalysis(){
     prcP: parseFloat(document.getElementById('mc-prc-p').value) || 0.55,
     discLo: parseFloat(document.getElementById('mc-disc-lo').value) || 7,
     discHi: parseFloat(document.getElementById('mc-disc-hi').value) || 10,
+    // Distribuciones sanitarias (leídas del panel, con defaults)
+    sanRevLo: parseFloat(document.getElementById('mc-san-rev-lo')?.value) || 0.85,
+    sanRevMode: parseFloat(document.getElementById('mc-san-rev-mode')?.value) || 1.0,
+    sanRevHi: parseFloat(document.getElementById('mc-san-rev-hi')?.value) || 1.15,
+    sanCostLo: parseFloat(document.getElementById('mc-san-cost-lo')?.value) || 0.90,
+    sanCostMode: parseFloat(document.getElementById('mc-san-cost-mode')?.value) || 1.0,
+    sanCostHi: parseFloat(document.getElementById('mc-san-cost-hi')?.value) || 1.30,
+    sanSaleLo: parseFloat(document.getElementById('mc-san-sale-lo')?.value) || 0.70,
+    sanSaleMode: parseFloat(document.getElementById('mc-san-sale-mode')?.value) || 1.0,
+    sanSaleHi: parseFloat(document.getElementById('mc-san-sale-hi')?.value) || 1.30,
   };
 
   document.getElementById('mc-run-btn').disabled = true;
@@ -12160,6 +12250,16 @@ function resetMCDefaults(){
     'mc-prc-p': '0.55',
     'mc-disc-lo': '7',
     'mc-disc-hi': '10',
+    // Sanitarias
+    'mc-san-rev-lo': '0.85',
+    'mc-san-rev-mode': '1',
+    'mc-san-rev-hi': '1.15',
+    'mc-san-cost-lo': '0.9',
+    'mc-san-cost-mode': '1',
+    'mc-san-cost-hi': '1.3',
+    'mc-san-sale-lo': '0.7',
+    'mc-san-sale-mode': '1',
+    'mc-san-sale-hi': '1.3',
   };
   for (const [id, val] of Object.entries(defaults)) {
     const el = document.getElementById(id);
