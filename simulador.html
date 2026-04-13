@@ -1884,30 +1884,11 @@
       <div class="un-chart-scroll" style="padding:20px 24px">
         <div id="pe-static-controls" style="display:flex;flex-wrap:wrap;gap:12px 20px;align-items:center;margin-bottom:14px;padding:12px 16px;background:#0f172a;border:2px solid #7c3aed;border-radius:8px">
           <div style="display:flex;align-items:center;gap:6px" title="Velocidad de venta: ajusta ± % la velocidad de todos los productos (DS19, Casas, Deptos, Townhouses). 0% = escenario base. +20% = 20% más rápido (ventas anuales +20%, cap de mercado +20%, inversiones/infra/mitigaciones/sanitaria se adelantan proporcionalmente). Valores negativos ralentizan todo.">
-            <label style="font-size:11px;font-weight:700;color:#e2e8f0;text-transform:uppercase;letter-spacing:0.4px;white-space:nowrap">Velocidad Venta</label>
+            <label style="font-size:11px;font-weight:700;color:#e2e8f0;text-transform:uppercase;letter-spacing:0.4px;white-space:nowrap">Velocidad de Venta Mercado</label>
             <input id="pe-velocidad-input" type="number" value="0" min="-80" max="200" step="5"
                    style="width:70px;padding:6px 8px;font-size:12px;border:1px solid #475569;border-radius:4px;background:#1e293b;color:#f8fafc;font-family:inherit;text-align:right"
                    onchange="peVelocidadPct=parseFloat(this.value)||0; if(typeof peResimulate==='function') peResimulate(); renderPrimerasEtapas();">
             <span style="font-size:10px;color:#94a3b8">% base</span>
-          </div>
-          <div style="width:1px;height:20px;background:#475569"></div>
-          <div style="display:flex;align-items:center;gap:6px" title="Cadencia de ventas Solo AUDP: redistribuye la curva natural con un techo (max por año) y un piso (min por año salvo año residual final). Corta la cola larga del tail y limita el pico sobreestimado. IMPORTANTE: el max escala con la velocidad de venta — si velocidad +20%, el cap efectivo pasa a 500×1.20=600; si -20%, a 400. El min NO escala (mínimo operativo fijo). Solo aplica a modo Solo AUDP.">
-            <label style="font-size:11px;font-weight:700;color:#e2e8f0;text-transform:uppercase;letter-spacing:0.4px;white-space:nowrap">Cadencia</label>
-            <label style="display:flex;align-items:center;gap:3px;font-size:10px;color:#94a3b8">max
-              <input id="pe-shape-cap" type="number" value="500" min="100" max="2000" step="50"
-                     style="width:58px;padding:4px 6px;font-size:12px;border:1px solid #475569;border-radius:4px;background:#1e293b;color:#f8fafc;font-family:inherit;text-align:right"
-                     onchange="peShapeCap=parseInt(this.value)||0; renderPrimerasEtapas();">
-            </label>
-            <label style="display:flex;align-items:center;gap:3px;font-size:10px;color:#94a3b8">min
-              <input id="pe-shape-floor" type="number" value="300" min="0" max="2000" step="50"
-                     style="width:58px;padding:4px 6px;font-size:12px;border:1px solid #475569;border-radius:4px;background:#1e293b;color:#f8fafc;font-family:inherit;text-align:right"
-                     onchange="peShapeFloor=parseInt(this.value)||0; renderPrimerasEtapas();">
-            </label>
-            <label style="position:relative;display:inline-block;width:36px;height:20px;cursor:pointer">
-              <input type="checkbox" id="pe-shape-toggle" style="opacity:0;width:0;height:0" checked onchange="peShapeOn=this.checked;renderPrimerasEtapas()">
-              <span style="position:absolute;inset:0;background:#475569;border-radius:10px;transition:background .2s"></span>
-              <span style="position:absolute;top:2px;left:2px;width:16px;height:16px;background:#fff;border-radius:50%;transition:transform .2s" id="pe-shape-slider"></span>
-            </label>
           </div>
           <div style="width:1px;height:20px;background:#475569"></div>
           <div style="display:flex;align-items:center;gap:6px">
@@ -1935,16 +1916,16 @@
             </div>
           </div>
           <div style="width:1px;height:20px;background:#475569"></div>
-          <div style="display:flex;align-items:center;gap:6px">
-            <label style="font-size:11px;font-weight:700;color:#e2e8f0;text-transform:uppercase;letter-spacing:0.4px;white-space:nowrap">IFC</label>
+          <div style="display:flex;align-items:center;gap:6px" title="IFC — Venta anticipada de Superficie Industrial">
+            <label style="font-size:11px;font-weight:700;color:#e2e8f0;text-transform:uppercase;letter-spacing:0.4px;white-space:nowrap;cursor:help">IFC</label>
             <label style="position:relative;display:inline-block;width:36px;height:20px;cursor:pointer">
               <input type="checkbox" id="pe-ifc-toggle" style="opacity:0;width:0;height:0" onchange="peIFC=this.checked;renderPrimerasEtapas()">
               <span style="position:absolute;inset:0;background:#475569;border-radius:10px;transition:background .2s"></span>
               <span style="position:absolute;top:2px;left:2px;width:16px;height:16px;background:#fff;border-radius:50%;transition:transform .2s" id="pe-ifc-slider"></span>
             </label>
           </div>
-          <div style="display:flex;align-items:center;gap:6px" title="Nuevo PRC 2035: libera suelo otros usos AUDP (25% de Ha DS19+Deptos vendidas) a 4,5 UF/m²">
-            <label style="font-size:11px;font-weight:700;color:#e2e8f0;text-transform:uppercase;letter-spacing:0.4px;white-space:nowrap">PRC</label>
+          <div style="display:flex;align-items:center;gap:6px" title="PRC — 6 Pisos en AUDP liberan 25% de suelo de Edificaciones en Altura para otros usos">
+            <label style="font-size:11px;font-weight:700;color:#e2e8f0;text-transform:uppercase;letter-spacing:0.4px;white-space:nowrap;cursor:help">PRC</label>
             <label style="position:relative;display:inline-block;width:36px;height:20px;cursor:pointer">
               <input type="checkbox" id="pe-prc-toggle" style="opacity:0;width:0;height:0" onchange="pePRCOn=this.checked;renderPrimerasEtapas()">
               <span style="position:absolute;inset:0;background:#475569;border-radius:10px;transition:background .2s"></span>
@@ -2042,10 +2023,16 @@
           <div class="mc-dist-params">triang fijos: infra 0.95-1-1.30 · mit 0.90-1-1.35 · san 0.95-1-1.25 · crisis discreta (45%/30%/25%)</div>
         </div>
 
-        <button class="mc-run-btn" id="mc-run-btn" onclick="runMCAnalysis()">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-          Ejecutar Monte Carlo
-        </button>
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <button class="mc-run-btn" id="mc-run-btn" onclick="runMCAnalysis()" style="flex:1">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            Ejecutar Monte Carlo
+          </button>
+          <button class="mc-run-btn" onclick="resetMCDefaults()" style="flex:0 0 auto;background:#475569;font-size:11px;padding:8px 12px" title="Restablecer todos los parámetros a sus valores originales">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 12a9 9 0 0 1 15-6.7L21 2"/><path d="M21 12a9 9 0 0 1-15 6.7L3 22"/></svg>
+            Restablecer
+          </button>
+        </div>
         <div class="mc-progress" id="mc-progress" style="display:none">
           <div class="mc-progress-bar" id="mc-progress-bar"></div>
         </div>
@@ -11823,10 +11810,100 @@ function renderMCResults(results, cfg){
   resPanel.appendChild(grid);
   resultsEl.appendChild(resPanel);
 
+  // ── Conclusiones automáticas ──
+  const concPanel = _mcEl('div', 'mc-chart-panel');
+  concPanel.style.borderLeft = '4px solid #7c3aed';
+  concPanel.appendChild(_mcEl('div', 'mc-chart-title', 'Conclusiones'));
+
+  const conclusions = [];
+
+  // 1. Viabilidad general
+  if (m.pLoss < 0.05) {
+    conclusions.push('✅ El proyecto es robusto: solo el ' + fmtPct(m.pLoss, 1) + ' de los escenarios presenta VAN negativo (< 5% umbral de aceptación).');
+  } else if (m.pLoss < 0.15) {
+    conclusions.push('⚠️ Riesgo moderado: el ' + fmtPct(m.pLoss, 1) + ' de los escenarios presenta VAN negativo. Se recomienda reforzar las variables más sensibles.');
+  } else {
+    conclusions.push('🔴 Riesgo alto: el ' + fmtPct(m.pLoss, 1) + ' de los escenarios presenta VAN negativo. El proyecto requiere revisión estructural.');
+  }
+
+  // 2. VAN esperado
+  conclusions.push('El VAN esperado es ' + fmt(m.mean) + ' con una banda de confianza 80% entre ' + fmt(m.p10) + ' y ' + fmt(m.p90) + '.');
+
+  // 3. Variable más influyente
+  if (tornado.length > 0) {
+    conclusions.push('La variable más influyente es "' + tornado[0].label + '" (' + tornado[0].contrib.toFixed(0) + '% de la varianza del VAN). ' +
+      (tornado.length > 1 ? 'Le sigue "' + tornado[1].label + '" (' + tornado[1].contrib.toFixed(0) + '%).' : ''));
+  }
+
+  // 4. Capital de trabajo
+  conclusions.push('El capital de trabajo máximo (drawdown) en el escenario P95 es ' + fmt(capsP95) + ', lo que define el requerimiento de equity o financiamiento puente.');
+
+  // 5. Años de venta
+  conclusions.push('La duración de ventas mediana es ' + anosMed + ' años, con un máximo de ' + anosMax + ' años en los escenarios más adversos.');
+
+  // 6. CVaR (tail risk)
+  if (m.cvar5 < 0) {
+    conclusions.push('⚠️ El CVaR 5% (promedio del peor 5%) es ' + fmt(m.cvar5) + ', indicando pérdidas significativas en escenarios de cola.');
+  } else {
+    conclusions.push('✅ Incluso en el peor 5% de escenarios, el VAN promedio se mantiene positivo (' + fmt(m.cvar5) + ').');
+  }
+
+  // 7. Sortino ratio
+  if (isFinite(m.sortino)) {
+    const sortinoLabel = m.sortino > 2 ? 'excelente' : m.sortino > 1 ? 'aceptable' : 'bajo';
+    conclusions.push('El ratio Sortino es ' + m.sortino.toFixed(2).replace('.', ',') + ' (' + sortinoLabel + '), que mide el retorno ajustado por riesgo a la baja.');
+  }
+
+  const list = _mcEl('div');
+  list.style.cssText = 'font-size:12px;color:#334155;line-height:1.7';
+  conclusions.forEach(c => {
+    const p = _mcEl('div');
+    p.style.cssText = 'padding:4px 0;border-bottom:1px solid #f1f5f9';
+    p.textContent = c;
+    list.appendChild(p);
+  });
+  concPanel.appendChild(list);
+  resultsEl.appendChild(concPanel);
+
   requestAnimationFrame(() => {
     if (histCv) MC.drawHistogram(histCv, vans, 556827);
     if (tornCv) MC.drawTornado(tornCv, tornado);
   });
+}
+
+// ── Restablecer parámetros Monte Carlo a defaults ──
+function resetMCDefaults(){
+  const defaults = {
+    'mc-iterations': '3000',
+    'mc-seed': '42',
+    'mc-vel-sigma': '22',
+    'mc-plusv-lo': '0.5',
+    'mc-plusv-mode': '2',
+    'mc-plusv-hi': '4',
+    'mc-tm-sigma': '8',
+    'mc-prc-p': '0.55',
+    'mc-disc-lo': '7',
+    'mc-disc-hi': '10',
+  };
+  for (const [id, val] of Object.entries(defaults)) {
+    const el = document.getElementById(id);
+    if (el) {
+      if (el.tagName === 'SELECT') {
+        const opt = el.querySelector('option[value="' + val + '"]');
+        if (opt) { el.value = val; }
+      } else {
+        el.value = val;
+      }
+    }
+  }
+  // Flash visual del botón para confirmar
+  const btn = event?.target?.closest?.('button');
+  if (btn) {
+    const orig = btn.textContent;
+    btn.textContent = '✓ Restablecido';
+    btn.style.background = '#16a34a';
+    setTimeout(() => { btn.textContent = orig; btn.style.background = '#475569'; }, 1200);
+  }
 }
 // ═════════════════════════════════════════════════════════════════════
 
