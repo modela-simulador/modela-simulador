@@ -1968,8 +1968,8 @@
   <div class="mc-window">
     <div class="mc-topbar">
       <div style="display:flex;align-items:baseline;gap:10px">
-        <h2>Análisis Monte Carlo — Solo AUDP</h2>
-        <span class="mc-subtitle">Simulación probabilística con 9 variables correlacionadas · n iteraciones configurable</span>
+        <h2 id="mc-title">Análisis Monte Carlo</h2>
+        <span class="mc-subtitle" id="mc-subtitle">Simulación probabilística con 9 variables correlacionadas · n iteraciones configurable</span>
       </div>
       <button class="un-close" onclick="closeMCAnalysis()">&#10005;</button>
     </div>
@@ -2045,7 +2045,7 @@
         <div class="mc-empty">
           Configura los parámetros en el panel izquierdo y pulsa <b>Ejecutar Monte Carlo</b> para correr la simulación.
           <br><br>
-          El análisis corre <b>peResimulate + renderPrimerasEtapas</b> N veces con inputs sampleados de las distribuciones marginales, muestreo correlacionado via Cholesky, y aplica multipliers post-hoc sobre los flujos antes de descontar a la tasa sampleada. Fuente de verdad: el simulador Solo AUDP con cadencia ON (cap/floor).
+          El análisis corre <b>peResimulate + renderPrimerasEtapas</b> N veces con inputs sampleados de las distribuciones marginales, muestreo correlacionado via Cholesky, y aplica multipliers post-hoc sobre los flujos antes de descontar a la tasa sampleada. Fuente de verdad: el modo activo de Primeras Etapas al momento de ejecutar.
         </div>
       </div>
     </div>
@@ -11383,8 +11383,15 @@ const MC = (function(){
     const sanInv     = grab(l => l === 'Inversiones Sanitarias') || new Array(n).fill(0);
     const factPG     = grab(l => /Factibilizacion por Gastar/.test(l)) || new Array(n).fill(0);
 
-    const AUDP_ZONES = ['AUDP Batuco', 'AUDP Colina'];
-    const tierra = years.map(y => AUDP_ZONES.reduce((s, z) => {
+    // Zonas de tierra según peMode activo (replica lógica de activeTierraZones
+    // en _renderPE). Para modos sanitaria, usamos las mismas zonas base.
+    const _AUDP = ['AUDP Batuco', 'AUDP Colina'];
+    const _PDUC = ['Distrito G', 'Distrito 4.0'];
+    const _ALL  = [..._AUDP, ..._PDUC];
+    const tierraZones = (peMode === 'onlypduc' || peMode === 'sanPduc') ? _PDUC
+                      : (peMode === 'full' || peMode === 'pduc') ? _ALL
+                      : _AUDP;  // audp, sanAudp, default
+    const tierra = years.map(y => tierraZones.reduce((s, z) => {
       const byY = peResults?.tierraByZone?.[z] || {};
       return s + (byY[y] || 0);
     }, 0));
@@ -11439,6 +11446,7 @@ const MC = (function(){
       vel: peVelocidadPct, plusv: pePlusvalia, prc: pePRCOn,
       crisis: policyState.crisis,
       crisisCycle: document.getElementById('crisis-cycle')?.value || '7',
+      mode: peMode, shapeOn: peShapeOn,
     };
   }
   function restoreState(s){
@@ -11448,6 +11456,8 @@ const MC = (function(){
     policyState.crisis = s.crisis;
     const cc = document.getElementById('crisis-cycle');
     if (cc) cc.value = s.crisisCycle;
+    if (s.mode) peMode = s.mode;
+    if (s.shapeOn != null) peShapeOn = s.shapeOn;
     peResimulate();
     renderPrimerasEtapas();
   }
@@ -11622,12 +11632,26 @@ const MC = (function(){
 // ═════════════════════════════════════════════════════════════════════
 let __mcRunning = false;
 let __mcResults = null;
+let __mcMode = null;  // peMode al momento de ejecutar MC (para PPT)
+
+const MC_MODE_LABELS = {
+  'audp': 'Solo AUDP',
+  'sanAudp': 'Sanitaria AUDP',
+  'pduc': 'AUDP + Factib PDUC',
+  'full': 'PDUC Completa',
+  'onlypduc': 'Solo PDUC',
+  'sanPduc': 'Sanitaria PDUC',
+};
 
 function openMCAnalysis(){
   if (!peBaseParams) {
     alert('Primero abre Primeras Etapas y corre la simulaci\u00f3n (Ejecutar).');
     return;
   }
+  // Título dinámico según modo activo
+  const modeLabel = MC_MODE_LABELS[peMode] || peMode;
+  const titleEl = document.getElementById('mc-title');
+  if (titleEl) titleEl.textContent = 'An\u00e1lisis Monte Carlo \u2014 ' + modeLabel;
   document.getElementById('mc-overlay').style.display = 'flex';
 }
 
@@ -11650,6 +11674,7 @@ function _mcEl(tag, cls, text){
 function runMCAnalysis(){
   if (__mcRunning) return;
   __mcRunning = true;
+  __mcMode = peMode;  // guardar modo para que PPT Slide 6 lo use
 
   const cfg = {
     N: parseInt(document.getElementById('mc-iterations').value) || 3000,
@@ -11675,10 +11700,8 @@ function runMCAnalysis(){
   resultsEl.textContent = '';
   resultsEl.appendChild(_mcEl('div', 'mc-empty', 'Ejecutando Monte Carlo\u2026'));
 
-  peMode = 'audp';
-  peShapeOn = true;
-  const shapeT = document.getElementById('pe-shape-toggle');
-  if (shapeT) shapeT.checked = true;
+  // MC usa el peMode activo — no forzamos 'audp'. La cadencia (shape)
+  // se auto-desactiva para modos != 'audp' en _renderPE (línea 12355).
 
   const snapshot = MC.snapshotState();
   const rng = MC.mulberry32(cfg.seed);
@@ -13504,7 +13527,8 @@ async function downloadPEPptx() {
     var s6 = pres.addSlide();
     s6.background = { color: '0F172A' };
     s6.addShape(pres.shapes.RECTANGLE, { x: 0, y: 0, w: 10, h: 0.04, fill: { color: '7C3AED' } });
-    s6.addText('An\u00e1lisis Monte Carlo \u2014 Solo AUDP', { x: 0.6, y: 0.18, w: 8.8, h: 0.38, fontSize: 19, fontFace: 'Arial', bold: true, color: 'FFFFFF', margin: 0 });
+    var mcModeLabel = (typeof MC_MODE_LABELS !== 'undefined' && __mcMode) ? MC_MODE_LABELS[__mcMode] : 'Solo AUDP';
+    s6.addText('An\u00e1lisis Monte Carlo \u2014 ' + mcModeLabel, { x: 0.6, y: 0.18, w: 8.8, h: 0.38, fontSize: 19, fontFace: 'Arial', bold: true, color: 'FFFFFF', margin: 0 });
     s6.addText('Simulaci\u00f3n probabil\u00edstica \u00B7 ' + mcOk.length.toLocaleString('es-CL') + ' iteraciones \u00B7 9 variables correlacionadas', { x: 0.6, y: 0.52, w: 8.8, h: 0.2, fontSize: 9, fontFace: 'Arial', color: '94A3B8', margin: 0 });
 
     // KPI strip (4 cards)
