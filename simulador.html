@@ -1952,6 +1952,10 @@
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M8 12a4 4 0 0 1 8 0m-8 0a4 4 0 0 0 8 0"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/></svg>
             Análisis MC
           </button>
+          <button id="pe-btn-stress" onclick="openStressTest()" title="Stress Test — análisis de capital de trabajo y drawdown · 1.000 iteraciones rápidas" style="padding:6px 14px;font-size:11px;font-weight:600;font-family:inherit;border:1px solid #dc2626;border-radius:6px;background:#dc2626;color:#fff;cursor:pointer;display:flex;align-items:center;gap:4px">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M2 12h20"/><path d="M17 7l-5 5-5-5"/></svg>
+            Stress Test
+          </button>
         </div>
         <div id="pe-dashboard-container">
           <div style="text-align:center;padding:60px;color:#94a3b8;font-size:14px">
@@ -2064,6 +2068,24 @@
           <br><br>
           El análisis corre <b>peResimulate + renderPrimerasEtapas</b> N veces con inputs sampleados de las distribuciones marginales, muestreo correlacionado via Cholesky, y aplica multipliers post-hoc sobre los flujos antes de descontar a la tasa sampleada. Fuente de verdad: el modo activo de Primeras Etapas al momento de ejecutar.
         </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal Stress Test — Capital de Trabajo ── -->
+<div id="stress-overlay" class="mc-overlay" style="display:none" onclick="if(event.target===this)closeStressTest()">
+  <div class="mc-window" style="max-width:960px">
+    <div class="mc-topbar" style="border-bottom-color:#dc2626">
+      <div style="display:flex;align-items:baseline;gap:10px">
+        <h2 id="stress-title">Stress Test — Capital de Trabajo</h2>
+        <span class="mc-subtitle" id="stress-subtitle">1.000 iteraciones</span>
+      </div>
+      <button class="un-close" onclick="closeStressTest()">&#10005;</button>
+    </div>
+    <div class="mc-results" id="stress-results" style="padding:20px 24px">
+      <div class="mc-empty" id="stress-loading">
+        Ejecutando Stress Test...
       </div>
     </div>
   </div>
@@ -12290,6 +12312,406 @@ function resetMCDefaults(){
     setTimeout(() => { btn.textContent = orig; btn.style.background = '#475569'; }, 1200);
   }
 }
+
+// ═════════════════════════════════════════════════════════════════════
+// STRESS TEST — Capital de Trabajo dedicado (1.000 iters rápidas)
+// ═════════════════════════════════════════════════════════════════════
+let __stressRunning = false;
+
+function openStressTest() {
+  if (!peBaseParams) {
+    alert('Primero abre Primeras Etapas y ejecuta la simulación.');
+    return;
+  }
+  const modeLabel = MC_MODE_LABELS[peMode] || peMode;
+  var titleEl = document.getElementById('stress-title');
+  if (titleEl) titleEl.textContent = 'Stress Test \u2014 Capital de Trabajo \u00b7 ' + modeLabel;
+
+  document.getElementById('stress-overlay').style.display = 'flex';
+  var resultsEl = document.getElementById('stress-results');
+  while (resultsEl.firstChild) resultsEl.removeChild(resultsEl.firstChild);
+  resultsEl.appendChild(_mcEl('div', 'mc-empty', 'Ejecutando Stress Test (1.000 iteraciones)\u2026'));
+
+  // Capturar baseline determinístico ANTES de variar
+  var d = window._peData;
+  var baselineCapTrabajo = 0;
+  var baselinePayback = null;
+  if (d) {
+    var isAnySan = peMode === 'sanAudp' || peMode === 'sanPduc';
+    var src = isAnySan ? (d.flujoCajaFuturoAcum || []) : (d.resultadoNegAcum || []);
+    baselineCapTrabajo = Math.round(Math.abs(Math.min.apply(null, src.concat([0]))));
+    baselinePayback = d.pbYear;
+  }
+
+  // MC rápido: 1.000 iters con defaults fijos
+  __stressRunning = true;
+  var snapshot = MC.snapshotState();
+  var rng = MC.mulberry32(42);
+  var cfg = {
+    N: 1000, seed: 42,
+    velSigma: 22, plusvA: 0.5, plusvMode: 2, plusvB: 4,
+    tmSigma: 8, prcP: 0.55, discLo: 7, discHi: 10,
+    sanRevLo: 0.85, sanRevMode: 1.0, sanRevHi: 1.15,
+    sanCostLo: 0.90, sanCostMode: 1.0, sanCostHi: 1.30,
+    sanSaleLo: 0.70, sanSaleMode: 1.0, sanSaleHi: 1.30,
+  };
+  var results = [];
+  var BATCH = 50;
+
+  function runBatch() {
+    if (!__stressRunning) { MC.restoreState(snapshot); return; }
+    var endIdx = Math.min(results.length + BATCH, cfg.N);
+    for (var i = results.length; i < endIdx; i++) {
+      try { results.push(MC.sampleOne(rng, cfg)); }
+      catch(e) { results.push({ inputs:{}, outputs:{vanPrinc:0, capTrabajo:0, _err:e.message} }); }
+    }
+    var subtEl = document.getElementById('stress-subtitle');
+    if (subtEl) subtEl.textContent = results.length + ' / ' + cfg.N + ' iteraciones';
+    if (results.length < cfg.N) {
+      setTimeout(runBatch, 0);
+    } else {
+      __stressRunning = false;
+      MC.restoreState(snapshot);
+      renderStressResults(results, baselineCapTrabajo, baselinePayback);
+    }
+  }
+  setTimeout(runBatch, 10);
+}
+
+function closeStressTest() {
+  if (__stressRunning) {
+    if (!confirm('Stress Test en curso. \u00bfCerrar?')) return;
+    __stressRunning = false;
+  }
+  document.getElementById('stress-overlay').style.display = 'none';
+}
+
+function renderStressResults(results, baselineCT, baselinePB) {
+  var ok = results.filter(function(r) { return !r.outputs._err; });
+  var caps = ok.map(function(r) { return r.outputs.capTrabajo; }).sort(function(a,b) { return a - b; });
+  var vans = ok.map(function(r) { return r.outputs.vanPrinc; });
+  var anos = ok.map(function(r) { return r.outputs.anosVenta; });
+  var paybacks = ok.map(function(r) { return r.outputs.paybackYear; }).sort(function(a,b) { return a - b; });
+  var n = caps.length;
+
+  var fmt = function(v) {
+    if (!isFinite(v)) return '\u2014';
+    var abs = Math.abs(v);
+    if (abs >= 1000) return Math.round(v / 1000).toString().replace('-', '\u2212') + 'k UF';
+    return Math.round(v).toString() + ' UF';
+  };
+  var pct = function(idx) { return caps[Math.floor(idx * (n - 1))]; };
+  var pctPB = function(idx) { return paybacks[Math.floor(idx * (n - 1))]; };
+
+  var p50 = pct(0.50), p75 = pct(0.75), p90 = pct(0.90), p95 = pct(0.95), p99 = pct(0.99);
+  var capsMean = Math.round(caps.reduce(function(a,b) { return a + b; }, 0) / n);
+  var modeLabel = MC_MODE_LABELS[peMode] || peMode;
+
+  var el = document.getElementById('stress-results');
+  while (el.firstChild) el.removeChild(el.firstChild);
+
+  // ── 1. KPI STRIP ──
+  var strip = _mcEl('div', 'mc-kpi-strip');
+  _mcKpiCard(strip, 'Baseline determin\u00edstico', fmt(baselineCT), 'escenario esperado', 'blue');
+  _mcKpiCard(strip, 'Drawdown Mediana (MC)', fmt(p50), '50% de escenarios', '');
+  _mcKpiCard(strip, 'Drawdown P95', fmt(p95), 'l\u00ednea de cr\u00e9dito recomendada', 'red');
+  _mcKpiCard(strip, 'Drawdown P99', fmt(p99), 'escenario extremo', 'red');
+  el.appendChild(strip);
+
+  // ── 2. HISTOGRAMA DE DRAWDOWNS ──
+  var histPanel = _mcEl('div', 'mc-chart-panel');
+  histPanel.appendChild(_mcEl('div', 'mc-chart-title', 'Distribuci\u00f3n del Capital de Trabajo M\u00e1ximo'));
+  histPanel.appendChild(_mcEl('div', 'mc-chart-sub', n.toLocaleString('es-CL') + ' escenarios \u00b7 rango ' + fmt(caps[0]) + ' a ' + fmt(caps[n-1]) + ' \u00b7 baseline marcado en azul'));
+  var histCv = document.createElement('canvas');
+  histCv.style.cssText = 'width:100%;height:280px';
+  histPanel.appendChild(histCv);
+  el.appendChild(histPanel);
+
+  // ── 3. SCATTER VAN × DRAWDOWN ──
+  var scatPanel = _mcEl('div', 'mc-chart-panel');
+  scatPanel.appendChild(_mcEl('div', 'mc-chart-title', 'VAN vs Capital de Trabajo'));
+  scatPanel.appendChild(_mcEl('div', 'mc-chart-sub', 'Cada punto es un escenario \u00b7 eje X = drawdown \u00b7 eje Y = VAN \u00b7 cuadrante inferior-derecho = zona cr\u00edtica'));
+  var scatCv = document.createElement('canvas');
+  scatCv.style.cssText = 'width:100%;height:300px';
+  scatPanel.appendChild(scatCv);
+  el.appendChild(scatPanel);
+
+  // ── 4. TABLA DE PERCENTILES ──
+  var percPanel = _mcEl('div', 'mc-chart-panel');
+  percPanel.appendChild(_mcEl('div', 'mc-chart-title', 'Tabla de Percentiles'));
+  percPanel.appendChild(_mcEl('div', 'mc-chart-sub', 'Capital de trabajo, payback y a\u00f1os de venta por nivel de confianza'));
+  var tbl = document.createElement('table');
+  tbl.style.cssText = 'width:100%;border-collapse:collapse;font-size:12px;margin-top:8px';
+  // Header
+  var thead = document.createElement('thead');
+  var thRow = document.createElement('tr');
+  ['Percentil', 'Capital Trabajo (UF)', 'Payback', 'A\u00f1os Venta'].forEach(function(h) {
+    var th = document.createElement('th');
+    th.textContent = h;
+    th.style.cssText = 'text-align:left;padding:6px 10px;border-bottom:2px solid #e2e8f0;font-weight:700;color:#475569;font-size:10px;text-transform:uppercase;letter-spacing:0.3px';
+    thRow.appendChild(th);
+  });
+  thead.appendChild(thRow);
+  tbl.appendChild(thead);
+  var tbody = document.createElement('tbody');
+  var perciles = [
+    { label: 'P5 (optimista)', p: 0.05 },
+    { label: 'P10', p: 0.10 },
+    { label: 'P25', p: 0.25 },
+    { label: 'P50 (mediana)', p: 0.50 },
+    { label: 'P75', p: 0.75 },
+    { label: 'P90', p: 0.90 },
+    { label: 'P95 (recomendado)', p: 0.95 },
+    { label: 'P99 (extremo)', p: 0.99 },
+  ];
+  var anosSorted = anos.slice().sort(function(a,b) { return a - b; });
+  perciles.forEach(function(pc) {
+    var tr = document.createElement('tr');
+    var isKey = pc.p === 0.50 || pc.p === 0.95;
+    tr.style.cssText = isKey ? 'background:#f8fafc;font-weight:600' : '';
+    var vals = [
+      pc.label,
+      fmt(pct(pc.p)),
+      pctPB(pc.p) || '\u2014',
+      anosSorted[Math.floor(pc.p * (n - 1))] + ' a\u00f1os',
+    ];
+    vals.forEach(function(v, idx) {
+      var td = document.createElement('td');
+      td.textContent = v;
+      td.style.cssText = 'padding:6px 10px;border-bottom:1px solid #f1f5f9;color:' + (idx === 0 ? '#475569' : '#334155');
+      tr.appendChild(td);
+    });
+    tbody.appendChild(tr);
+  });
+  tbl.appendChild(tbody);
+  percPanel.appendChild(tbl);
+  el.appendChild(percPanel);
+
+  // ── 5. CALCULADORA DE EQUITY ──
+  var eqPanel = _mcEl('div', 'mc-chart-panel');
+  eqPanel.style.borderLeft = '4px solid #16a34a';
+  eqPanel.appendChild(_mcEl('div', 'mc-chart-title', '\u00bfMi equity alcanza?'));
+  var eqDesc = _mcEl('div');
+  eqDesc.style.cssText = 'font-size:11px;color:#475569;margin-bottom:10px';
+  eqDesc.textContent = 'Ingresa tu equity disponible (UF) para ver la probabilidad de que sea suficiente en los ' + n.toLocaleString('es-CL') + ' escenarios simulados.';
+  eqPanel.appendChild(eqDesc);
+  var eqRow = _mcEl('div');
+  eqRow.style.cssText = 'display:flex;align-items:center;gap:12px;flex-wrap:wrap';
+  var eqInput = document.createElement('input');
+  eqInput.type = 'number'; eqInput.placeholder = 'Ej: 200000'; eqInput.min = '0'; eqInput.step = '10000';
+  eqInput.style.cssText = 'width:140px;padding:8px 12px;font-size:14px;font-weight:600;border:2px solid #cbd5e1;border-radius:6px;font-family:inherit;text-align:right';
+  eqRow.appendChild(eqInput);
+  eqRow.appendChild(_mcEl('span', null, 'UF'));
+  eqRow.lastChild.style.cssText = 'font-size:12px;color:#475569';
+  var eqBtn = document.createElement('button');
+  eqBtn.textContent = 'Calcular';
+  eqBtn.style.cssText = 'padding:8px 16px;background:#16a34a;color:#fff;border:none;border-radius:6px;font-weight:700;font-size:12px;font-family:inherit;cursor:pointer';
+  eqRow.appendChild(eqBtn);
+  eqPanel.appendChild(eqRow);
+  var eqResult = _mcEl('div');
+  eqResult.style.cssText = 'margin-top:12px;display:none';
+  eqPanel.appendChild(eqResult);
+
+  eqBtn.addEventListener('click', function() {
+    var equity = parseFloat(eqInput.value);
+    if (!equity || equity <= 0) { eqInput.style.borderColor = '#ef4444'; return; }
+    eqInput.style.borderColor = '#16a34a';
+    var sufficient = 0;
+    for (var i = 0; i < n; i++) { if (caps[i] <= equity) sufficient++; }
+    var prob = sufficient / n;
+    var pctStr = (prob * 100).toFixed(1).replace('.', ',') + '%';
+    var color, icon, msg;
+    if (prob >= 0.95) { color = '#16a34a'; icon = '\u2705'; msg = 'Tu equity de ' + fmt(equity) + ' cubre el ' + pctStr + ' de los escenarios. Holgura s\u00f3lida.'; }
+    else if (prob >= 0.80) { color = '#d97706'; icon = '\u26a0\ufe0f'; msg = 'Tu equity de ' + fmt(equity) + ' cubre el ' + pctStr + '. Existe un ' + ((1-prob)*100).toFixed(0) + '% de requerir financiamiento adicional.'; }
+    else if (prob >= 0.50) { color = '#ea580c'; icon = '\u26a0\ufe0f'; msg = 'Tu equity de ' + fmt(equity) + ' solo cubre el ' + pctStr + '. Riesgo relevante de insuficiencia.'; }
+    else { color = '#dc2626'; icon = '\ud83d\udea8'; msg = 'Tu equity de ' + fmt(equity) + ' cubre apenas el ' + pctStr + '. Insuficiente.'; }
+    eqResult.style.display = 'block';
+    while (eqResult.firstChild) eqResult.removeChild(eqResult.firstChild);
+    var mainMsg = _mcEl('div');
+    mainMsg.style.cssText = 'padding:12px 16px;border:1px solid ' + color + ';border-radius:8px;font-size:13px;color:#1e293b;line-height:1.6';
+    mainMsg.textContent = icon + ' ' + msg;
+    eqResult.appendChild(mainMsg);
+    var refGrid = _mcEl('div');
+    refGrid.style.cssText = 'display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px;font-size:11px';
+    function addRef(label, value, note) {
+      var card = _mcEl('div'); card.style.cssText = 'background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:8px 10px';
+      var lbl = _mcEl('div', null, label); lbl.style.cssText = 'font-size:9px;color:#64748b;text-transform:uppercase;font-weight:700'; card.appendChild(lbl);
+      var val = _mcEl('div', null, value); val.style.cssText = 'font-size:15px;font-weight:700;color:#334155;margin-top:2px'; card.appendChild(val);
+      var nt = _mcEl('div', null, note); nt.style.cssText = 'font-size:9px;color:#94a3b8;margin-top:1px'; card.appendChild(nt);
+      refGrid.appendChild(card);
+    }
+    addRef('Tu equity', fmt(equity), 'input');
+    addRef('Para cubrir P95', fmt(p95), (p95 - equity) > 0 ? 'faltan ' + fmt(p95 - equity) : '\u2705 cubierto');
+    addRef('Para cubrir P99', fmt(p99), (p99 - equity) > 0 ? 'faltan ' + fmt(p99 - equity) : '\u2705 cubierto');
+    eqResult.appendChild(refGrid);
+  });
+  eqInput.addEventListener('keydown', function(e) { if (e.key === 'Enter') eqBtn.click(); });
+  el.appendChild(eqPanel);
+
+  // ── 6. TEXTO EXPLICATIVO ──
+  var explPanel = _mcEl('div', 'mc-chart-panel');
+  explPanel.style.cssText += ';border-left:4px solid #2563eb;background:#f8fafc';
+  explPanel.appendChild(_mcEl('div', 'mc-chart-title', 'C\u00f3mo leer este an\u00e1lisis'));
+  var explText = _mcEl('div');
+  explText.style.cssText = 'font-size:12px;color:#334155;line-height:1.8';
+
+  var bullets = [
+    '\ud83d\udcb0 \u00bfQu\u00e9 es el capital de trabajo? Es el m\u00e1ximo desembolso acumulado que el proyecto necesita antes de generar caja positiva sostenida. Representa la cantidad de equity o financiamiento puente que debes tener comprometido antes de iniciar.',
+    '\ud83d\udcca \u00bfPor qu\u00e9 una distribuci\u00f3n? Porque la velocidad de venta, los costos y el timing son inciertos. El histograma muestra los 1.000 escenarios posibles del drawdown m\u00e1ximo.',
+    '\ud83d\udfe2 El P95 es el benchmark: si capitalizas al nivel del P95 (' + fmt(p95) + '), tienes un 95% de probabilidad de no quedarte sin liquidez en ning\u00fan escenario simulado.',
+    '\ud83d\udd34 El P99 (' + fmt(p99) + ') es el escenario extremo: solo el 1% de los escenarios lo supera. Es relevante para estructuras de deuda con covenants estrictos.',
+    '\ud83d\udcc8 El scatter VAN \u00d7 Drawdown muestra si el riesgo de caja est\u00e1 correlacionado con el riesgo de valor. Si los puntos se agrupan en la esquina inferior-derecha, los escenarios de alto drawdown tambi\u00e9n destruyen valor. Si la nube es dispersa, el drawdown es transitorio.',
+  ];
+
+  // Conclusión automática
+  var concl = 'Para ejecutar ' + modeLabel + ' con un 95% de confianza se necesitan ' + fmt(p95) + ' de capital disponible';
+  if (baselineCT > 0) {
+    var ratio = p95 / baselineCT;
+    concl += ' (' + ratio.toFixed(1).replace('.', ',') + '\u00d7 el baseline determin\u00edstico de ' + fmt(baselineCT) + ')';
+  }
+  concl += '. La mediana es ' + fmt(p50) + ', lo que indica que en la mitad de los escenarios el requerimiento es significativamente menor.';
+  bullets.push('\u2b50 ' + concl);
+
+  bullets.forEach(function(b) {
+    var p = _mcEl('div');
+    p.style.cssText = 'padding:6px 0;border-bottom:1px solid #e2e8f0';
+    p.textContent = b;
+    explText.appendChild(p);
+  });
+  explPanel.appendChild(explText);
+  el.appendChild(explPanel);
+
+  // ── RENDER CHARTS ──
+  requestAnimationFrame(function() {
+    // Histograma de drawdowns
+    _drawStressHistogram(histCv, caps, baselineCT);
+    // Scatter VAN × Drawdown
+    _drawStressScatter(scatCv, ok);
+  });
+}
+
+// ── Histograma de drawdowns con percentiles ──
+function _drawStressHistogram(canvas, caps, baseline) {
+  var ctx = canvas.getContext('2d');
+  var dpr = window.devicePixelRatio || 1;
+  var W = canvas.clientWidth, H = canvas.clientHeight;
+  canvas.width = W * dpr; canvas.height = H * dpr;
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, W, H);
+  var ml = 55, mr = 20, mt = 14, mb = 30;
+  var plotW = W - ml - mr, plotH = H - mt - mb;
+  var n = caps.length;
+  var ddMin = caps[0], ddMax = caps[n - 1];
+  var nBins = 50;
+  var bw = (ddMax - ddMin) / nBins || 1;
+  var counts = new Array(nBins).fill(0);
+  for (var j = 0; j < n; j++) {
+    var bi = Math.min(nBins - 1, Math.max(0, Math.floor((caps[j] - ddMin) / bw)));
+    counts[bi]++;
+  }
+  var maxC = Math.max.apply(null, counts);
+  var p50 = caps[Math.floor(0.50 * (n-1))];
+  var p95 = caps[Math.floor(0.95 * (n-1))];
+  var p99 = caps[Math.floor(0.99 * (n-1))];
+  // Bars
+  for (var k = 0; k < nBins; k++) {
+    var x = ml + (k / nBins) * plotW;
+    var binCenter = ddMin + (k + 0.5) * bw;
+    var h = (counts[k] / maxC) * plotH;
+    ctx.fillStyle = binCenter <= p50 ? '#86EFAC' : binCenter <= p95 ? '#FDE68A' : '#FCA5A5';
+    ctx.fillRect(x, mt + plotH - h, plotW / nBins - 1, h);
+  }
+  // Axes
+  ctx.strokeStyle = '#94A3B8'; ctx.lineWidth = 0.8;
+  ctx.beginPath(); ctx.moveTo(ml, mt); ctx.lineTo(ml, mt + plotH); ctx.lineTo(ml + plotW, mt + plotH); ctx.stroke();
+  // Vertical lines
+  function vl(val, clr, lbl, bottom) {
+    if (val < ddMin || val > ddMax) return;
+    var lx = ml + ((val - ddMin) / (ddMax - ddMin)) * plotW;
+    ctx.strokeStyle = clr; ctx.lineWidth = 1.8; ctx.setLineDash([5, 3]);
+    ctx.beginPath(); ctx.moveTo(lx, mt); ctx.lineTo(lx, mt + plotH); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = clr; ctx.font = 'bold 10px Arial';
+    ctx.fillText(lbl, lx + 3, bottom ? mt + plotH - 6 : mt + 12);
+  }
+  if (baseline > 0) vl(baseline, '#2563EB', 'Baseline ' + Math.round(baseline/1000) + 'k', false);
+  vl(p50, '#475569', 'P50 ' + Math.round(p50/1000) + 'k', false);
+  vl(p95, '#dc2626', 'P95 ' + Math.round(p95/1000) + 'k', true);
+  vl(p99, '#7c3aed', 'P99 ' + Math.round(p99/1000) + 'k', true);
+  // X-axis labels
+  ctx.fillStyle = '#475569'; ctx.font = '9px Arial'; ctx.textAlign = 'center';
+  for (var t = 0; t <= 5; t++) {
+    var tv = ddMin + t * (ddMax - ddMin) / 5;
+    ctx.fillText(Math.round(tv / 1000) + 'k', ml + (t / 5) * plotW, mt + plotH + 16);
+  }
+  ctx.textAlign = 'start';
+  // Y-axis label
+  ctx.save(); ctx.translate(14, mt + plotH / 2); ctx.rotate(-Math.PI / 2);
+  ctx.fillStyle = '#94a3b8'; ctx.font = '9px Arial'; ctx.textAlign = 'center';
+  ctx.fillText('frecuencia', 0, 0); ctx.restore();
+  // Legend
+  ctx.font = '9px Arial';
+  var lx = ml + plotW - 180;
+  [{ c:'#86EFAC', l:'\u2264 P50 (confortable)' }, { c:'#FDE68A', l:'P50\u2013P95 (gestionable)' }, { c:'#FCA5A5', l:'> P95 (estr\u00e9s)' }].forEach(function(lg, i) {
+    ctx.fillStyle = lg.c; ctx.fillRect(lx, mt + 4 + i * 14, 10, 10);
+    ctx.fillStyle = '#475569'; ctx.fillText(lg.l, lx + 14, mt + 12 + i * 14);
+  });
+}
+
+// ── Scatter VAN × Drawdown ──
+function _drawStressScatter(canvas, ok) {
+  var ctx = canvas.getContext('2d');
+  var dpr = window.devicePixelRatio || 1;
+  var W = canvas.clientWidth, H = canvas.clientHeight;
+  canvas.width = W * dpr; canvas.height = H * dpr;
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, W, H);
+  var ml = 60, mr = 20, mt = 14, mb = 35;
+  var plotW = W - ml - mr, plotH = H - mt - mb;
+  var caps = ok.map(function(r) { return r.outputs.capTrabajo; });
+  var vans = ok.map(function(r) { return r.outputs.vanPrinc; });
+  var cMin = Math.min.apply(null, caps), cMax = Math.max.apply(null, caps);
+  var vMin = Math.min.apply(null, vans), vMax = Math.max.apply(null, vans);
+  // Axes
+  ctx.strokeStyle = '#cbd5e1'; ctx.lineWidth = 0.8;
+  ctx.beginPath(); ctx.moveTo(ml, mt); ctx.lineTo(ml, mt + plotH); ctx.lineTo(ml + plotW, mt + plotH); ctx.stroke();
+  // Zero line for VAN
+  if (vMin < 0) {
+    var zeroY = mt + plotH - ((0 - vMin) / (vMax - vMin)) * plotH;
+    ctx.strokeStyle = '#ef4444'; ctx.lineWidth = 1; ctx.setLineDash([4, 4]);
+    ctx.beginPath(); ctx.moveTo(ml, zeroY); ctx.lineTo(ml + plotW, zeroY); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = '#ef4444'; ctx.font = '9px Arial'; ctx.fillText('VAN = 0', ml + 4, zeroY - 4);
+  }
+  // Points
+  for (var i = 0; i < ok.length; i++) {
+    var x = ml + ((caps[i] - cMin) / (cMax - cMin || 1)) * plotW;
+    var y = mt + plotH - ((vans[i] - vMin) / (vMax - vMin || 1)) * plotH;
+    var isStress = caps[i] > caps[Math.floor(0.95 * (ok.length - 1))];
+    ctx.fillStyle = isStress ? 'rgba(220,38,38,0.5)' : (vans[i] < 0 ? 'rgba(234,88,12,0.5)' : 'rgba(34,197,94,0.25)');
+    ctx.beginPath(); ctx.arc(x, y, 2.5, 0, Math.PI * 2); ctx.fill();
+  }
+  // Axis labels
+  ctx.fillStyle = '#475569'; ctx.font = '9px Arial'; ctx.textAlign = 'center';
+  for (var t = 0; t <= 4; t++) {
+    var tv = cMin + t * (cMax - cMin) / 4;
+    ctx.fillText(Math.round(tv / 1000) + 'k', ml + (t / 4) * plotW, mt + plotH + 14);
+  }
+  ctx.fillText('Capital de Trabajo (UF)', ml + plotW / 2, mt + plotH + 28);
+  ctx.textAlign = 'right';
+  for (var t2 = 0; t2 <= 4; t2++) {
+    var tv2 = vMin + t2 * (vMax - vMin) / 4;
+    ctx.fillText(Math.round(tv2 / 1000) + 'k', ml - 4, mt + plotH - (t2 / 4) * plotH + 3);
+  }
+  ctx.save(); ctx.translate(12, mt + plotH / 2); ctx.rotate(-Math.PI / 2);
+  ctx.textAlign = 'center'; ctx.fillText('VAN (UF)', 0, 0); ctx.restore();
+  // Legend
+  ctx.textAlign = 'start'; ctx.font = '9px Arial';
+  var lx = ml + plotW - 140;
+  [{ c:'rgba(34,197,94,0.5)', l:'VAN (+) normal' }, { c:'rgba(220,38,38,0.5)', l:'> P95 drawdown' }, { c:'rgba(234,88,12,0.5)', l:'VAN negativo' }].forEach(function(lg, idx) {
+    ctx.fillStyle = lg.c; ctx.beginPath(); ctx.arc(lx + 5, mt + 8 + idx * 14, 4, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#475569'; ctx.fillText(lg.l, lx + 14, mt + 11 + idx * 14);
+  });
+}
+
 // ═════════════════════════════════════════════════════════════════════
 
 function renderPrimerasEtapas() {
