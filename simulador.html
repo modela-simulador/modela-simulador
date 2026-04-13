@@ -11811,116 +11811,13 @@ function renderMCResults(results, cfg){
   resultsEl.appendChild(resPanel);
 
   // ── Conclusiones ejecutivas (nivel directorio) ──
-  // Redacción estratégica dinámica: cada bullet adapta su mensaje según
-  // los datos reales del MC, pero mantiene tono ejecutivo-comercial.
-  // Evita jerga estadística, sobreafirmaciones y frases genéricas.
+  // Usa la función compartida buildMCConclusions() para generar los 6 bullets.
+  // La misma lógica se reutiliza en el slide PPTX de Monte Carlo.
+  const conclusions = buildMCConclusions(m, tornado, anosMed, anosMax, capsMed, capsP95, fmt);
 
   const concPanel = _mcEl('div', 'mc-chart-panel');
   concPanel.style.borderLeft = '4px solid #7c3aed';
   concPanel.appendChild(_mcEl('div', 'mc-chart-title', 'Conclusiones'));
-
-  const conclusions = [];
-
-  // ── 1. Creación de valor + tail risk ──
-  // Combina VAN esperado, P(loss) y CVaR en un solo bullet estratégico
-  if (m.pLoss < 0.02) {
-    conclusions.push(
-      'El proyecto genera un VAN esperado de ' + fmt(m.mean) +
-      ' con un perfil de riesgo favorable: solo el ' + fmtPct(m.pLoss, 1) +
-      ' de los escenarios resulta en destrucción de valor.' +
-      (m.cvar5 > 0
-        ? ' Incluso en la cola adversa (CVaR 5%), el retorno promedio se mantiene positivo en ' + fmt(m.cvar5) + '.'
-        : ' Sin embargo, en la cola adversa el promedio alcanza ' + fmt(m.cvar5) + ', lo que exige atención a la estructura de protección.')
-    );
-  } else if (m.pLoss < 0.10) {
-    conclusions.push(
-      'El proyecto genera un VAN esperado de ' + fmt(m.mean) +
-      ', con un ' + fmtPct(m.pLoss, 1) + ' de escenarios en terreno negativo.' +
-      (m.cvar5 > 0
-        ? ' El promedio del peor 5% se mantiene positivo (' + fmt(m.cvar5) + '), lo que limita la exposición a pérdidas severas.'
-        : ' El promedio del peor 5% alcanza ' + fmt(m.cvar5) + ', señalando riesgo material en escenarios de cola que debe mitigarse activamente.')
-    );
-  } else {
-    conclusions.push(
-      'El VAN esperado es ' + fmt(m.mean) +
-      ', pero el ' + fmtPct(m.pLoss, 1) + ' de probabilidad de resultado negativo y un CVaR 5% de ' + fmt(m.cvar5) +
-      ' indican un perfil de riesgo que requiere revisión estructural antes de comprometer capital.'
-    );
-  }
-
-  // ── 2. Banda de confianza como espacio de gestión ──
-  conclusions.push(
-    'La banda de confianza del 80% sitúa el valor del proyecto entre ' + fmt(m.p10) + ' y ' + fmt(m.p90) +
-    ', reflejando un rango de captura de valor ' +
-    (m.p10 > 0 ? 'amplio pero consistentemente positivo' : 'que incluye escenarios de estrés') +
-    '. La dispersión no amenaza la viabilidad; marca el espacio de gestión.'
-  );
-
-  // ── 3. Drivers: captura de valor > control de costos ──
-  // Identifica las top 3 variables y calcula su contribución combinada
-  if (tornado.length >= 3) {
-    const top3Sum = tornado[0].contrib + tornado[1].contrib + tornado[2].contrib;
-    // Clasificar si los top drivers son comerciales o de costo
-    const comercialVars = new Set(['vel', 'plusv', 'tm']);
-    const top3AreCom = tornado.slice(0, 3).filter(t => comercialVars.has(t.var)).length;
-
-    if (top3AreCom >= 2) {
-      conclusions.push(
-        'El ' + top3Sum.toFixed(0) + '% de la varianza del VAN se concentra en tres variables comerciales' +
-        ' \u2014' + tornado[0].label.toLowerCase() + ', ' + tornado[1].label.toLowerCase() + ' y ' + tornado[2].label.toLowerCase() +
-        '\u2014 lo que desplaza el foco de riesgo desde la contención de costos hacia la estrategia de posicionamiento, pricing y ritmo de comercialización.'
-      );
-    } else {
-      conclusions.push(
-        'Los principales drivers de varianza son ' + tornado[0].label.toLowerCase() + ' (' + tornado[0].contrib.toFixed(0) + '%), ' +
-        tornado[1].label.toLowerCase() + ' (' + tornado[1].contrib.toFixed(0) + '%) y ' +
-        tornado[2].label.toLowerCase() + ' (' + tornado[2].contrib.toFixed(0) + '%). ' +
-        'La gestión debe balancear captura de valor comercial con control de costos de ejecución.'
-      );
-    }
-  }
-
-  // ── 4. Temporalidad: el riesgo real ──
-  if (anosMax > anosMed * 2) {
-    conclusions.push(
-      'El desafío central no es si el proyecto crea valor, sino a qué velocidad lo monetiza. Con una mediana de ' +
-      anosMed + ' años de venta y escenarios que se extienden hasta ' + anosMax +
-      ' años, la estructura de financiamiento y la capacidad de sostener caja en horizontes largos son determinantes de la rentabilidad efectiva.'
-    );
-  } else {
-    conclusions.push(
-      'La duración de ventas presenta una mediana de ' + anosMed + ' años con un máximo de ' + anosMax +
-      ' años. La dispersión acotada reduce el riesgo de extensión, aunque la estrategia de financiamiento debe contemplar la cola superior.'
-    );
-  }
-
-  // ── 5. Capital de trabajo como dimensionamiento de equity ──
-  conclusions.push(
-    'El requerimiento máximo de capital de trabajo alcanza ' + fmt(capsP95) + ' en el percentil 95' +
-    (capsMed > 0 ? ' (mediana ' + fmt(capsMed) + ')' : '') +
-    ', lo que define el piso de equity o financiamiento puente necesario para sostener el proyecto en escenarios de absorción lenta sin comprometer su ejecución.'
-  );
-
-  // ── 6. Sortino + lectura de cierre ──
-  // Identifica la contribución regulatoria (PRC, crisis) para la frase de cierre
-  const regulatoryVars = new Set(['prcOn', 'crisisOn']);
-  const regContrib = tornado.filter(t => regulatoryVars.has(t.var)).reduce((s, t) => s + t.contrib, 0);
-
-  if (isFinite(m.sortino) && m.sortino > 1.5) {
-    conclusions.push(
-      'El ratio Sortino de ' + m.sortino.toFixed(2).replace('.', ',') +
-      ' confirma un retorno ajustado por riesgo a la baja sólido: el proyecto compensa ampliamente la volatilidad negativa.' +
-      (regContrib < 10
-        ? ' La aprobación regulatoria y los escenarios de crisis contribuyen marginalmente (' + regContrib.toFixed(0) + '%) a la varianza; importan como condiciones habilitantes, pero no definen el resultado económico.'
-        : '')
-    );
-  } else if (isFinite(m.sortino)) {
-    conclusions.push(
-      'El ratio Sortino de ' + m.sortino.toFixed(2).replace('.', ',') +
-      ' indica que la compensación por riesgo a la baja es ' + (m.sortino > 1 ? 'aceptable' : 'limitada') +
-      ', lo que refuerza la necesidad de gestionar activamente las variables comerciales para proteger el retorno.'
-    );
-  }
 
   // ── Render de los bullets ──
   const list = _mcEl('div');
@@ -11946,6 +11843,113 @@ function renderMCResults(results, cfg){
     if (histCv) MC.drawHistogram(histCv, vans, 556827);
     if (tornCv) MC.drawTornado(tornCv, tornado);
   });
+}
+
+// ── Conclusiones ejecutivas — función compartida HTML + PPTX ──
+// Recibe métricas pre-computadas y devuelve array de strings (6 bullets).
+// Usada por renderMCResults (HTML) y downloadPEPptx (PPTX slide MC).
+function buildMCConclusions(m, tornado, anosMed, anosMax, capsMed, capsP95, fmt) {
+  const fmtPct = (v, d) => (v * 100).toFixed(d || 1).replace('.', ',') + '%';
+  const conclusions = [];
+
+  // 1. Creación de valor + tail risk
+  if (m.pLoss < 0.02) {
+    conclusions.push(
+      'El proyecto genera un VAN esperado de ' + fmt(m.mean) +
+      ' con un perfil de riesgo favorable: solo el ' + fmtPct(m.pLoss, 1) +
+      ' de los escenarios resulta en destrucción de valor.' +
+      (m.cvar5 > 0
+        ? ' Incluso en la cola adversa (CVaR 5%), el retorno promedio se mantiene positivo en ' + fmt(m.cvar5) + '.'
+        : ' Sin embargo, en la cola adversa el promedio alcanza ' + fmt(m.cvar5) + ', lo que exige atención a la estructura de protección.')
+    );
+  } else if (m.pLoss < 0.10) {
+    conclusions.push(
+      'El proyecto genera un VAN esperado de ' + fmt(m.mean) +
+      ', con un ' + fmtPct(m.pLoss, 1) + ' de escenarios en terreno negativo.' +
+      (m.cvar5 > 0
+        ? ' El promedio del peor 5% se mantiene positivo (' + fmt(m.cvar5) + '), lo que limita la exposición a pérdidas severas.'
+        : ' El promedio del peor 5% alcanza ' + fmt(m.cvar5) + ', señalando riesgo material en escenarios de cola que debe mitigarse activamente.')
+    );
+  } else {
+    conclusions.push(
+      'El VAN esperado es ' + fmt(m.mean) +
+      ', pero el ' + fmtPct(m.pLoss, 1) + ' de probabilidad de resultado negativo y un CVaR 5% de ' + fmt(m.cvar5) +
+      ' indican un perfil de riesgo que requiere revisión estructural antes de comprometer capital.'
+    );
+  }
+
+  // 2. Banda de confianza como espacio de gestión
+  conclusions.push(
+    'La banda de confianza del 80% sitúa el valor del proyecto entre ' + fmt(m.p10) + ' y ' + fmt(m.p90) +
+    ', reflejando un rango de captura de valor ' +
+    (m.p10 > 0 ? 'amplio pero consistentemente positivo' : 'que incluye escenarios de estrés') +
+    '. La dispersión no amenaza la viabilidad; marca el espacio de gestión.'
+  );
+
+  // 3. Drivers: captura de valor > control de costos
+  if (tornado.length >= 3) {
+    var top3Sum = tornado[0].contrib + tornado[1].contrib + tornado[2].contrib;
+    var comercialVars = {vel:1, plusv:1, tm:1};
+    var top3AreCom = tornado.slice(0, 3).filter(function(t) { return t.var in comercialVars; }).length;
+
+    if (top3AreCom >= 2) {
+      conclusions.push(
+        'El ' + top3Sum.toFixed(0) + '% de la varianza del VAN se concentra en tres variables comerciales' +
+        ' \u2014' + tornado[0].label.toLowerCase() + ', ' + tornado[1].label.toLowerCase() + ' y ' + tornado[2].label.toLowerCase() +
+        '\u2014 lo que desplaza el foco de riesgo desde la contención de costos hacia la estrategia de posicionamiento, pricing y ritmo de comercialización.'
+      );
+    } else {
+      conclusions.push(
+        'Los principales drivers de varianza son ' + tornado[0].label.toLowerCase() + ' (' + tornado[0].contrib.toFixed(0) + '%), ' +
+        tornado[1].label.toLowerCase() + ' (' + tornado[1].contrib.toFixed(0) + '%) y ' +
+        tornado[2].label.toLowerCase() + ' (' + tornado[2].contrib.toFixed(0) + '%). ' +
+        'La gestión debe balancear captura de valor comercial con control de costos de ejecución.'
+      );
+    }
+  }
+
+  // 4. Temporalidad como riesgo real
+  if (anosMax > anosMed * 2) {
+    conclusions.push(
+      'El desafío central no es si el proyecto crea valor, sino a qué velocidad lo monetiza. Con una mediana de ' +
+      anosMed + ' años de venta y escenarios que se extienden hasta ' + anosMax +
+      ' años, la estructura de financiamiento y la capacidad de sostener caja en horizontes largos son determinantes de la rentabilidad efectiva.'
+    );
+  } else {
+    conclusions.push(
+      'La duración de ventas presenta una mediana de ' + anosMed + ' años con un máximo de ' + anosMax +
+      ' años. La dispersión acotada reduce el riesgo de extensión, aunque la estrategia de financiamiento debe contemplar la cola superior.'
+    );
+  }
+
+  // 5. Capital de trabajo como dimensionamiento de equity
+  conclusions.push(
+    'El requerimiento máximo de capital de trabajo alcanza ' + fmt(capsP95) + ' en el percentil 95' +
+    (capsMed > 0 ? ' (mediana ' + fmt(capsMed) + ')' : '') +
+    ', lo que define el piso de equity o financiamiento puente necesario para sostener el proyecto en escenarios de absorción lenta sin comprometer su ejecución.'
+  );
+
+  // 6. Sortino + regulatorio
+  var regulatoryVars = {prcOn:1, crisisOn:1};
+  var regContrib = tornado.filter(function(t) { return t.var in regulatoryVars; }).reduce(function(s, t) { return s + t.contrib; }, 0);
+
+  if (isFinite(m.sortino) && m.sortino > 1.5) {
+    conclusions.push(
+      'El ratio Sortino de ' + m.sortino.toFixed(2).replace('.', ',') +
+      ' confirma un retorno ajustado por riesgo a la baja sólido: el proyecto compensa ampliamente la volatilidad negativa.' +
+      (regContrib < 10
+        ? ' La aprobación regulatoria y los escenarios de crisis contribuyen marginalmente (' + regContrib.toFixed(0) + '%) a la varianza; importan como condiciones habilitantes, pero no definen el resultado económico.'
+        : '')
+    );
+  } else if (isFinite(m.sortino)) {
+    conclusions.push(
+      'El ratio Sortino de ' + m.sortino.toFixed(2).replace('.', ',') +
+      ' indica que la compensación por riesgo a la baja es ' + (m.sortino > 1 ? 'aceptable' : 'limitada') +
+      ', lo que refuerza la necesidad de gestionar activamente las variables comerciales para proteger el retorno.'
+    );
+  }
+
+  return conclusions;
 }
 
 // ── Restablecer parámetros Monte Carlo a defaults ──
@@ -13467,6 +13471,97 @@ async function downloadPEPptx() {
     py += 0.95;
   });
   s5.addText('Escenario Esperado \u00B7 Abril 2026 \u00B7 TC: 1 USD = 900 CLP', { x: 0.6, y: 5.25, w: 8.8, h: 0.15, fontSize: 8, fontFace: 'Arial', color: '64748B', margin: 0 });
+
+  // ── Slide 6: Análisis Monte Carlo (solo si se ejecutó MC) ──
+  if (__mcResults && __mcResults.length > 0) {
+    var mcOk = __mcResults.filter(function(r) { return !r.outputs._err; });
+    var mcVans = mcOk.map(function(r) { return r.outputs.vanPrinc; });
+    var mcAnos = mcOk.map(function(r) { return r.outputs.anosVenta; });
+    var mcCaps = mcOk.map(function(r) { return r.outputs.capTrabajo; }).sort(function(a,b) { return a - b; });
+    var mcM = MC.metrics(mcVans);
+    var mcTornado = MC.computeTornado(mcOk);
+
+    var mcAnosMed = Math.round(mcAnos.reduce(function(a,b) { return a + b; }, 0) / mcAnos.length);
+    var mcAnosMax = Math.max.apply(null, mcAnos);
+    var mcCapsMed = mcCaps[Math.floor(mcCaps.length / 2)];
+    var mcCapsP95 = mcCaps[Math.floor(0.95 * (mcCaps.length - 1))];
+
+    var mcFmt = function(v) {
+      if (!isFinite(v)) return '\u2014';
+      var abs = Math.abs(v);
+      if (abs >= 1000) return Math.round(v / 1000).toString().replace('-', '\u2212') + 'k UF';
+      return Math.round(v).toString() + ' UF';
+    };
+    var mcFmtPct = function(v, d) { return (v * 100).toFixed(d || 1).replace('.', ',') + '%'; };
+
+    var s6 = pres.addSlide();
+    s6.background = { color: '0F172A' };
+    s6.addShape(pres.shapes.RECTANGLE, { x: 0, y: 0, w: 10, h: 0.04, fill: { color: '7C3AED' } });
+    s6.addText('An\u00e1lisis Monte Carlo \u2014 Solo AUDP', { x: 0.6, y: 0.18, w: 8.8, h: 0.38, fontSize: 19, fontFace: 'Arial', bold: true, color: 'FFFFFF', margin: 0 });
+    s6.addText('Simulaci\u00f3n probabil\u00edstica \u00B7 ' + mcOk.length.toLocaleString('es-CL') + ' iteraciones \u00B7 9 variables correlacionadas', { x: 0.6, y: 0.52, w: 8.8, h: 0.2, fontSize: 9, fontFace: 'Arial', color: '94A3B8', margin: 0 });
+
+    // KPI strip (4 cards)
+    var mcKpis = [
+      { l: 'E[VAN] Principal', v: mcFmt(mcM.mean), sub: '\u03C3 = ' + mcFmt(mcM.std), c: '3B82F6' },
+      { l: 'Banda P10\u2013P90', v: mcFmt(mcM.p10) + ' \u2013 ' + mcFmt(mcM.p90), sub: 'amplitud ' + mcFmt(mcM.p90 - mcM.p10), c: '94A3B8' },
+      { l: 'VaR 5% / CVaR 5%', v: mcFmt(mcM.var5) + ' / ' + mcFmt(mcM.cvar5), sub: 'umbral / promedio peor 5%', c: 'EF4444' },
+      { l: 'P(VAN < 0)', v: mcFmtPct(mcM.pLoss, 2), sub: 'Sortino: ' + (isFinite(mcM.sortino) ? mcM.sortino.toFixed(2).replace('.', ',') : '\u221E'), c: mcM.pLoss < 0.05 ? '22C55E' : 'EF4444' },
+    ];
+    mcKpis.forEach(function(k, idx) {
+      var kx = 0.4 + idx * 2.3;
+      s6.addShape(pres.shapes.ROUNDED_RECTANGLE, { x: kx, y: 0.85, w: 2.1, h: 0.65, fill: { color: '1E293B' }, rectRadius: 0.05, line: { color: '334155', width: 0.5 } });
+      s6.addText(k.l, { x: kx + 0.1, y: 0.90, w: 1.9, h: 0.14, fontSize: 7, fontFace: 'Arial', bold: true, color: '94A3B8', margin: 0 });
+      s6.addText(k.v, { x: kx + 0.1, y: 1.06, w: 1.9, h: 0.22, fontSize: 13, fontFace: 'Arial', bold: true, color: k.c, margin: 0 });
+      s6.addText(k.sub, { x: kx + 0.1, y: 1.28, w: 1.9, h: 0.14, fontSize: 7, fontFace: 'Arial', color: '64748B', margin: 0 });
+    });
+
+    // Tornado mini (top 5 drivers como barras horizontales)
+    s6.addText('Drivers de varianza del VAN', { x: 0.6, y: 1.65, w: 4, h: 0.22, fontSize: 10, fontFace: 'Arial', bold: true, color: 'FFFFFF', margin: 0 });
+    var torTop = mcTornado.slice(0, 5);
+    var torMaxContrib = torTop[0] ? torTop[0].contrib : 1;
+    torTop.forEach(function(t, idx) {
+      var ty = 1.92 + idx * 0.30;
+      var barW = Math.max(0.1, (t.contrib / torMaxContrib) * 3.5);
+      var barColor = t.rho > 0 ? '22C55E' : 'EF4444';
+      s6.addText(t.label, { x: 0.6, y: ty, w: 1.8, h: 0.22, fontSize: 8, fontFace: 'Arial', color: '94A3B8', align: 'right', margin: 0 });
+      s6.addShape(pres.shapes.ROUNDED_RECTANGLE, { x: 2.5, y: ty + 0.03, w: barW, h: 0.16, fill: { color: barColor }, rectRadius: 0.02 });
+      s6.addText(t.contrib.toFixed(1) + '%', { x: 2.5 + barW + 0.1, y: ty, w: 0.6, h: 0.22, fontSize: 7, fontFace: 'Arial', color: '64748B', margin: 0 });
+    });
+
+    // Resumen numérico (derecha del tornado)
+    s6.addText('Resumen', { x: 6.2, y: 1.65, w: 3.4, h: 0.22, fontSize: 10, fontFace: 'Arial', bold: true, color: 'FFFFFF', margin: 0 });
+    var mcSumLines = [
+      'A\u00f1os de venta: mediana ' + mcAnosMed + ', m\u00e1x ' + mcAnosMax,
+      'Max drawdown P95: ' + mcFmt(mcCapsP95),
+      'Max drawdown mediana: ' + mcFmt(mcCapsMed),
+      'stderr: \u00B1' + mcFmt(mcM.stderr),
+    ];
+    mcSumLines.forEach(function(ln, idx) {
+      s6.addText(ln, { x: 6.2, y: 1.92 + idx * 0.26, w: 3.4, h: 0.20, fontSize: 8, fontFace: 'Arial', color: '94A3B8', margin: 0 });
+    });
+
+    // Separador
+    s6.addShape(pres.shapes.LINE, { x: 0.6, y: 3.55, w: 8.8, h: 0, line: { color: '334155', width: 0.5 } });
+
+    // Conclusiones ejecutivas (6 bullets)
+    s6.addText('Conclusiones', { x: 0.6, y: 3.65, w: 8.8, h: 0.28, fontSize: 13, fontFace: 'Arial', bold: true, color: 'FFFFFF', margin: 0 });
+    s6.addShape(pres.shapes.LINE, { x: 0.6, y: 3.96, w: 1.0, h: 0, line: { color: '7C3AED', width: 2.5 } });
+
+    var mcConclusions = buildMCConclusions(mcM, mcTornado, mcAnosMed, mcAnosMax, mcCapsMed, mcCapsP95, mcFmt);
+    var cY = 4.06;
+    mcConclusions.forEach(function(c, idx) {
+      // Número en círculo morado
+      s6.addShape(pres.shapes.OVAL, { x: 0.6, y: cY + 0.02, w: 0.18, h: 0.18, fill: { color: '7C3AED' } });
+      s6.addText(String(idx + 1), { x: 0.6, y: cY + 0.02, w: 0.18, h: 0.18, fontSize: 7, fontFace: 'Arial', bold: true, color: 'FFFFFF', align: 'center', valign: 'middle', margin: 0 });
+      // Texto del bullet — font size adaptativo según largo
+      var bFS = c.length > 200 ? 7 : 8;
+      s6.addText(c, { x: 0.88, y: cY - 0.01, w: 8.5, h: 0.24, fontSize: bFS, fontFace: 'Arial', color: 'CBD5E1', margin: 0 });
+      cY += 0.24;
+    });
+
+    // Footer
+    s6.addText('An\u00e1lisis Monte Carlo \u00B7 Abril 2026 \u00B7 seed 42 \u00B7 Cholesky 6\u00d76 \u00B7 9 variables probabil\u00edsticas', { x: 0.6, y: 5.32, w: 8.8, h: 0.15, fontSize: 7, fontFace: 'Arial', color: '475569', margin: 0 });
+  }
 
   try {
     const pptBlob = await pres.write({ outputType: 'blob' });
