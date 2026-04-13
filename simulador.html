@@ -11351,19 +11351,28 @@ const MC = (function(){
   function sampleOne(rng, cfg){
     const c = sampleCorrelated(rng);
     const u = c.map(phi);
+    const _isSan = peMode === 'sanAudp' || peMode === 'sanPduc';
+
+    // Velocidad y tasa descuento: aplican en TODOS los modos
     const vel   = Math.max(-60, Math.min(80, (cfg.velSigma || 22) * c[0]));
-    const plusv = triangularCDF(u[1], cfg.plusvA, cfg.plusvMode, cfg.plusvB);
-    const tm    = 1.0 + (cfg.tmSigma / 100) * c[2];
-    const im    = triangularCDF(u[3], 0.95, 1.00, 1.30);
-    const mm    = triangularCDF(u[4], 0.90, 1.00, 1.35);
-    const sm    = triangularCDF(u[5], 0.95, 1.00, 1.25);
-    const prcOn = rng() < cfg.prcP;
+    const discRate = (cfg.discLo + (cfg.discHi - cfg.discLo) * rng()) / 100;
+
+    // Variables de venta de tierra: se fijan en base en modos sanitaria
+    // (no afectan el FCF sanitario pero el Cholesky genera correlaciones
+    // espurias si se varían → contaminan el tornado)
+    const plusv = _isSan ? cfg.plusvMode : triangularCDF(u[1], cfg.plusvA, cfg.plusvMode, cfg.plusvB);
+    const tm    = _isSan ? 1.0 : 1.0 + (cfg.tmSigma / 100) * c[2];
+    const im    = _isSan ? 1.0 : triangularCDF(u[3], 0.95, 1.00, 1.30);
+    const mm    = _isSan ? 1.0 : triangularCDF(u[4], 0.90, 1.00, 1.35);
+    const sm    = triangularCDF(u[5], 0.95, 1.00, 1.25);  // CAPEX sanitario sí varía siempre
+    const prcOn = _isSan ? false : rng() < cfg.prcP;
     const cU = rng();
     let crisisOn = false, crisisYears = 7;
-    if (cU < 0.45) crisisOn = false;
-    else if (cU < 0.75) { crisisOn = true; crisisYears = 3; }
-    else                { crisisOn = true; crisisYears = 7; }
-    const discRate = (cfg.discLo + (cfg.discHi - cfg.discLo) * rng()) / 100;
+    if (!_isSan) {
+      if (cU < 0.45) crisisOn = false;
+      else if (cU < 0.75) { crisisOn = true; crisisYears = 3; }
+      else                { crisisOn = true; crisisYears = 7; }
+    }
 
     // Multiplicadores sanitarios (solo usados en modos sanAudp/sanPduc)
     // Distribuciones triangulares independientes (no correlacionadas con Cholesky)
