@@ -13341,11 +13341,17 @@ async function downloadPEPptx() {
     for (let i = 0; i < W.length; i++) { let ok = true; for (let j = i; j < W.length; j++) if (fcf[j] < 0) { ok = false; break; } if (ok && fcf[i] > 0) { alwaysPos = W[i]; break; } }
     const van = d.vanResidual ? Math.round(d.vanResidual[0]) : 0;
     const fg = d.factGastadaCargada ? d.factGastadaCargada.reduce((s, v) => s + v, 0) : 0;
-    return { W, totalIng: d.totalIng, totalCostos: d.totalCostos, subtotalSan: d.subtotalSan,
+    // totalCostos: _peData expone partes sueltas, no el total. Lo armamos.
+    const N = W.length;
+    const totalCostos = new Array(N).fill(0);
+    for (let i = 0; i < N; i++) {
+      totalCostos[i] = (d.totalInfra?.[i] || 0) + (d.totalMitig?.[i] || 0) + (d.totalComerc?.[i] || 0) + (d.totalMant_a?.[i] || 0);
+    }
+    return { W, totalIng: d.totalIng, totalCostos, subtotalSan: d.subtotalSan,
       factPG: d.factPorGastar, factGastada: fg,
       flujoCF: d.flujoCajaFuturo, flujoCFAcum: d.flujoCajaFuturoAcum,
       resultNeg: d.resultadoNeg, resultNegAcum: d.resultadoNegAcum,
-      recVivAcum: d.recVivAcum, payback: d.pbYear, capTrabajo: d.capTrabajo, capPorGastar: d.capPorGastar,
+      recVivAcum: d.recTotalAcum || d.recVivAcum, payback: d.pbYear, capTrabajo: d.capTrabajo, capPorGastar: d.capPorGastar,
       lastNeg, alwaysPos, van };
   }
 
