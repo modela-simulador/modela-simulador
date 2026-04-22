@@ -1327,11 +1327,6 @@ function EerrModal({ result, inputs, lotFid, lotArea, onClose }: {
 
               <Divider />
 
-              {/* IVA a proveedores absorbido como costo (solo aplica a proyectos exentos, ej DS19) */}
-              <Row label="IVA No Recuperable (proveedores)" neto={p.ivaNoRecuperable} bruto={p.ivaNoRecuperable} hidePctIfZero />
-
-              <Divider />
-
               {/* ═══════ UTILIDAD DE LA ETAPA ═══════ */}
               <Row label="UTILIDAD (PÉRDIDA) DE LA ETAPA" neto={p.utilidadEtapa} bruto={p.utilidadEtapa} section bold />
             </tbody>

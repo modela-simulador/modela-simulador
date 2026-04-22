@@ -592,12 +592,14 @@ export function buildCashFlow(
       //   - row.afrVialCost (AFR, aportes viales al Estado)
       //   - row.escrituracionCost (servicios notariales)
       //   - row.financingInterest (intereses, servicios financieros exentos)
-    // IVA realmente pagado a proveedores (siempre sale como caja, sin importar exento):
-    // el desarrollador paga BRUTO a quien le factura con IVA.
-    const ivaPaidToSuppliers = ivaCreditoBase * ivaRate;
-    // IVA recuperable contra SII: DS19 exento no recupera (no hay débito para descontar).
-    const ivaCreditoRecoverable = exentoProject ? 0 : ivaPaidToSuppliers;
-    const netoIVA = ivaDebito - ivaCreditoRecoverable;
+    // IVA proveedores:
+    //  - Proyecto gravado (deptos, casas, etc.): paga IVA bruto al proveedor y
+    //    lo recupera vía débito ventas. Cash neto = 0 (pass-through).
+    //  - Proyecto exento (DS19): el contrato se negocia BRUTO-inclusive con el
+    //    contratista (que absorbe el IVA al no existir CEEC). Para el desarrollador
+    //    no hay cash out adicional por IVA; el directo del contrato ya es final.
+    const ivaCredito = exentoProject ? 0 : ivaCreditoBase * ivaRate;
+    const netoIVA = ivaDebito - ivaCredito;
 
     // Arrastre: saldo del mes = neto + saldo anterior (el pago del mes previo ya se restó)
     const ivaAcumulado = netoIVA + ivaAcumuladoPrev;
@@ -620,9 +622,9 @@ export function buildCashFlow(
 
     // ── Guardar IVA débito/crédito del mes (líneas separadas de cash flow) ──
     row.ivaDebitoReceived = ivaDebito;
-    // Para DS19 exento: el IVA a proveedores SIGUE saliendo como caja (el desarrollador
-    // paga bruto al contratista/estudios/ITO) aunque no lo pueda recuperar vía SII.
-    row.ivaCreditoPaid = ivaPaidToSuppliers;
+    // Proyecto gravado: IVA proveedor es cash out (se recupera via SII).
+    // Proyecto exento: contrato bruto-inclusive → no hay cash out adicional por IVA.
+    row.ivaCreditoPaid = ivaCredito;
 
     // ── TOTAL COSTOS (NETO, sin IVA) ──
     // ivaPaid, débito y crédito se manejan como líneas separadas en cash flow
@@ -858,19 +860,13 @@ export function buildPnL(
   // "Gastos Fin. Crédito Construcción" queda en 0 para evitar DOBLE CONTEO.
   // Si el proyecto tuviera fees adicionales del crédito (comisiones, seguros), se agregarían aquí.
   const gastosFinCreditoConstruccion = 0;
-  // IVA NO RECUPERABLE (DS19 exento): el IVA pagado a proveedores que no se
-  // descarga contra débito SII queda como costo real de caja. En proyectos
-  // gravados normales, este número es 0 (pass-through perfecto).
-  const ivaProveedoresTotal = sum(r => r.ivaCreditoPaid);
-  const ivaDebitoTotal = sum(r => r.ivaDebitoReceived);
-  const pagoIVASII = sum(r => r.ivaPaid);
-  // Balance: pagado a proveedores - recibido de clientes + pagado a SII = IVA neto absorbido
-  const ivaNoRecuperable = Math.max(0, ivaProveedoresTotal - ivaDebitoTotal + pagoIVASII);
   const utilidadAntesImpuesto = resultadoExplotacion - gastosFinCreditoConstruccion;
   const impuestoRenta = sum(r => r.incomeTax);
-  const pagoIVA = pagoIVASII;
-  // Utilidad después de tax e IVA no recuperable (realidad de caja)
-  const utilidadEtapa = utilidadAntesImpuesto - impuestoRenta - ivaNoRecuperable;
+  const pagoIVA = sum(r => r.ivaPaid);
+  const utilidadEtapa = utilidadAntesImpuesto - impuestoRenta;
+  // IVA No Recuperable: campo informacional, pero NO se vuelve a restar (el cost
+  // bruto del contrato DS19 ya lo contiene cuando el proyecto se negocia bruto-inclusive).
+  const ivaNoRecuperable = 0;
   // Utilidad desarrollador como REFERENCIA (no se descuenta como costo — lo maneja la TIR)
   // Es la utilidad acontecible, que es el residual natural del método
   const utilidadDesarrolladorPnL = utilidadEtapa; // acontecible = utilidad neta real
