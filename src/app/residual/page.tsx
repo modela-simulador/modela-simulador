@@ -480,6 +480,11 @@ export default function ResidualPage() {
                       setInputs({ ...inputs, unitModels: newModels });
                       setResult(null);
                     }} unit="UF/m²" />
+                  {product?.family === "ds19" && (
+                    <div className="text-[10px] text-purple-300 bg-purple-950/30 border border-purple-800/40 rounded p-2 mt-1">
+                      <b>DS19 / DFL-2 exento de IVA:</b> el precio ingresado es NETO (= bruto, no se cobra IVA al cliente). El desarrollador tampoco recupera IVA crédito de construcción.
+                    </div>
+                  )}
                   <SliderInput label="Velocidad de venta" value={inputs.salesVelocity} min={1} max={15} step={0.5}
                     onChange={(v) => updateInput("salesVelocity", v)} unit="un/mes" />
                   {/* Precio promedio por unidad (derivado) */}

@@ -17,6 +17,16 @@ import { PRODUCTS } from './constants';
 
 // ── Helpers ──────────────────────────────────────────────────
 
+/**
+ * IVA: DS19 (DFL-2) está exento. Sus viviendas + estacs + bodegas se venden
+ * SIN IVA y el desarrollador no recupera IVA crédito de construcción.
+ * Los locales comerciales siempre son gravados, incluso dentro de un proyecto DS19.
+ */
+function isProductIvaExento(productId: string): boolean {
+  const p = PRODUCTS.find(x => x.id === productId);
+  return p?.family === 'ds19';
+}
+
 function monthLabel(startYear: number, startMonth: number, offset: number): string {
   const m = (startMonth + offset - 1) % 12 + 1;
   const y = startYear + Math.floor((startMonth + offset - 1) / 12);
@@ -230,9 +240,10 @@ export function buildCashFlow(
     const bodRev = m.bodegaCount * m.bodegaPriceUF;
     return sum + vivRev + parkSurfaceRev + parkSubtRev + bodRev;
   }, 0);
-  const totalRevenueNet = totalRevenueGross / (1 + ivaRate);
+  // DS19 (DFL-2): venta exenta de IVA → el precio ingresado ya es NETO, no se divide.
+  const exentoProject = isProductIvaExento(inputs.productId);
+  const totalRevenueNet = exentoProject ? totalRevenueGross : totalRevenueGross / (1 + ivaRate);
   // IMPORTANTE: revenuePerUnit en NETO para cash flow (coincide con Excel H71 "Total PxQ Neto").
-  // Antes estaba en BRUTO causando un bug que inflaba la caja ~16% del revenue.
   const revenuePerUnit = totalRevenueNet / totalUnits;
 
   // Studies & permits
@@ -442,10 +453,15 @@ export function buildCashFlow(
     }
     row.cumulativeUnitsDelivered = cumDelivered;
 
+    // Revenue de vivienda (pre-commerce) para track de IVA débito
+    const housingRevenueThisMonth = row.revenuePIE + row.revenueEscrituracion;
+
     // ── COMMERCE SALE (lump sum at reception month, neto para IVA débito) ──
+    // Los locales comerciales SIEMPRE son gravados, aunque el resto del proyecto sea DS19 exento.
+    let commerceRevenueThisMonth = 0;
     if (inputs.comercioOn && m === monthReceptionInt) {
-      const commerceRevenueNet = comercioActiveM2 * inputs.comercioPriceUFm2 / (1 + ivaRate);
-      row.revenueEscrituracion += commerceRevenueNet;
+      commerceRevenueThisMonth = comercioActiveM2 * inputs.comercioPriceUFm2 / (1 + ivaRate);
+      row.revenueEscrituracion += commerceRevenueThisMonth;
     }
 
     row.totalRevenue = row.revenuePIE + row.revenueEscrituracion;
@@ -493,8 +509,11 @@ export function buildCashFlow(
 
     // ── IVA (método proporcional con arrastre — sigue Excel Flujo Etapa 59-64) ──
     // Cash flow NETO: débito = 19% sobre ingreso NETO del mes
-    // (matemáticamente idéntico a 16% × BRUTO pero el base ahora es NETO)
-    const ivaDebito = row.totalRevenue * ivaRate;
+    // DS19 (exento DFL-2): housing no paga IVA; comercio sí (siempre gravado).
+    // Proyecto normal: todo el revenue es gravado.
+    const ivaDebito = exentoProject
+      ? commerceRevenueThisMonth * ivaRate   // solo comercio
+      : row.totalRevenue * ivaRate;
 
     // Crédito: 19% sobre costos NETOS GRAVADOS.
     // Realidad chilena: casi todo servicio contratado a empresas tiene IVA (19%).
@@ -531,7 +550,9 @@ export function buildCashFlow(
       //   - row.afrVialCost (AFR, aportes viales al Estado)
       //   - row.escrituracionCost (servicios notariales)
       //   - row.financingInterest (intereses, servicios financieros exentos)
-    const ivaCredito = ivaCreditoBase * ivaRate;
+    // DS19 exento: desarrollador no recupera IVA de construcción (no hay débito contra el cual descargar).
+    // Simplificación: ivaCredito = 0 para proyectos exentos (subestima ~CEEC 65%, futuro input).
+    const ivaCredito = exentoProject ? 0 : ivaCreditoBase * ivaRate;
     const netoIVA = ivaDebito - ivaCredito;
 
     // Arrastre: saldo del mes = neto + saldo anterior (el pago del mes previo ya se restó)
@@ -626,12 +647,13 @@ export function buildPnL(
 ): ProfitAndLoss {
   const sum = (fn: (r: MonthlyCashFlowRow) => number) => cashFlow.reduce((s, r) => s + fn(r), 0);
   const iva = inputs.ivaRate;
+  const exento = isProductIvaExento(inputs.productId);
 
   // ─── INGRESOS (Bruto = con IVA, Net = sin IVA) ───
-  // Ventas inmobiliarias: viviendas (sup vendible × precio × unidades)
+  // DS19 (DFL-2) es exento: el precio ingresado es NETO y coincide con el BRUTO (no hay IVA al cliente).
   const ventasInmobiliariasGross = inputs.unitModels.reduce(
     (s, m) => s + m.count * m.supVendibleM2 * m.priceUFm2, 0);
-  const ventasInmobiliariasNet = ventasInmobiliariasGross / (1 + iva);
+  const ventasInmobiliariasNet = exento ? ventasInmobiliariasGross : ventasInmobiliariasGross / (1 + iva);
 
   // Ventas estacionamientos — superficie + subt (suma en UNA sola línea del EERR)
   const subtParkRatioPnL = inputs.subterraneoOn ? inputs.subterraneoPct : 0;
@@ -641,12 +663,12 @@ export function buildPnL(
       m.parkingCount * (1 - subtParkRatioPnL) * m.parkingPriceUF +
       m.parkingCount * subtParkRatioPnL * m.parkingPriceSubtUF,
     0);
-  const ventasEstacionamientosNet = ventasEstacionamientosGross / (1 + iva);
+  const ventasEstacionamientosNet = exento ? ventasEstacionamientosGross : ventasEstacionamientosGross / (1 + iva);
 
-  // Ventas bodegas
+  // Ventas bodegas — accesorias a vivienda, siguen el mismo régimen IVA que la vivienda principal
   const ventasBodegasGross = inputs.unitModels.reduce(
     (s, m) => s + m.bodegaCount * m.bodegaPriceUF, 0);
-  const ventasBodegasNet = ventasBodegasGross / (1 + iva);
+  const ventasBodegasNet = exento ? ventasBodegasGross : ventasBodegasGross / (1 + iva);
 
   // Ventas locales comerciales
   const ventaLocalesGross = inputs.comercioOn
