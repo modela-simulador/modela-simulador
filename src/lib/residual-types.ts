@@ -392,7 +392,7 @@ export const DEFAULT_INPUTS: Omit<ResidualInputs, 'lotAreaM2' | 'lotFid' | 'prod
   escrituracionUFPerUnit: 12,
   salesCommissionPct: 0.01,
   marketingPct: 0.01,
-  decoracionPilotoUF: 0,
+  decoracionPilotoUF: 1000,
   stockMaintenanceUFPerUnit: 4,
   postVentaGavPct: 0.006,
   contribucionesViviendasUFPerUnit: 11.6,
@@ -404,7 +404,7 @@ export const DEFAULT_INPUTS: Omit<ResidualInputs, 'lotAreaM2' | 'lotFid' | 'prod
   estudioMecanicaSuelosUFm2: 0.05,
   estudioSanitariosUFm2: 0.04,
   estudioElectricoUFm2: 0.04,
-  estudioBasuraUFm2: 0,
+  estudioBasuraUFm2: 0.01,
   estudioImpactoVialUFm2: 0.01,
   estudioImpactoAmbientalUFm2: 0,
   estudioSenaleticaUFm2: 0.04,
@@ -415,7 +415,7 @@ export const DEFAULT_INPUTS: Omit<ResidualInputs, 'lotAreaM2' | 'lotFid' | 'prod
   gastosRecepcionUFm2: 0.009,
   afrUFPerUnit: 5,                     // 5 UF/viv
   vialContributionUFPerUnit: 25,       // IMIV 25 UF/viv
-  itoUFMonth: 75,                      // 75 UF/mes × plazo construcción
+  itoUFMonth: 60,                      // 60 UF/mes × plazo construcción
   monthLandPurchase: 0,
   monthPreSalesStart: 6,                    // default mes 6
   monthPermitObtained: 10,

@@ -723,8 +723,6 @@ export default function ResidualPage() {
                     onChange={(v) => updateInput("contribucionesViviendasUFPerUnit", v)} unit="UF/viv" />
                   <SliderInput label="Decoración piloto" value={inputs.decoracionPilotoUF} min={0} max={5000} step={100}
                     onChange={(v) => updateInput("decoracionPilotoUF", v)} unit="UF total" />
-                  <SliderInput label="Admin general (fijo)" value={inputs.administracionGeneralFijoUF} min={0} max={5000} step={100}
-                    onChange={(v) => updateInput("administracionGeneralFijoUF", v)} unit="UF total" />
                   <SliderInput label="Post-venta inmob." value={inputs.postVentaGavPct * 100} min={0} max={2} step={0.1}
                     onChange={(v) => updateInput("postVentaGavPct", v / 100)} unit="% neto" />
                   <SliderInput label="Escrituración" value={inputs.escrituracionUFPerUnit} min={5} max={25} step={1}
