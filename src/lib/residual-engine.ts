@@ -138,7 +138,11 @@ export function buildCashFlow(
   // Total project duration (with buffer para backlog spread y stock post-recepción)
   // Backlog cap = 20 un/mes → span = ceil(totalUnits/20) meses después de monthEscrituracion.
   const backlogSpanMonths = Math.ceil(totalUnits / 20);
-  const totalMonths = Math.ceil(Math.max(monthEscrituracion + backlogSpanMonths + 6, monthSalesEnd + 12));
+  const serviuLagForHorizon = inputs.creditoEnlaceOn ? 2 : 0;
+  const totalMonths = Math.ceil(Math.max(
+    monthEscrituracion + backlogSpanMonths + serviuLagForHorizon + 6,
+    monthSalesEnd + 12,
+  ));
 
   // ── Compute total costs (for percentage-based items) ──
   const totalLandCost = landPriceUFm2 * lotAreaM2;
@@ -413,15 +417,17 @@ export function buildCashFlow(
       // Escrituración de preventas: FIFO al ritmo de BACKLOG_MONTHLY_CAP un/mes
       // (el banco procesa ~20 escrituras/mes). Las primeras preventas escrituran
       // en monthEscrituracion; las últimas, algunos meses después.
-      // Esto hace que mayor velocidad de venta → unidades "ganan cola" → TIR mejor.
+      // DS19: SERVIU tarda ~2 meses más en procesar el subsidio tras la escri.
       const BACKLOG_MONTHLY_CAP = 20;
+      const serviuLag = inputs.creditoEnlaceOn ? 2 : 0;
       let escriMonth: number;
       if (m < monthEscrituracion) {
         const saleOrder = cumSold - canSell; // unidades vendidas ANTES de este batch
         const backlogOffset = Math.floor(saleOrder / BACKLOG_MONTHLY_CAP);
-        escriMonth = monthEscrituracionInt + backlogOffset;
+        escriMonth = monthEscrituracionInt + backlogOffset + serviuLag;
       } else {
-        escriMonth = m + inputs.escrituracionLagMonths;  // stock post-recepción
+        // Stock post-recepción: lag bancario + lag SERVIU si aplica
+        escriMonth = m + inputs.escrituracionLagMonths + serviuLag;
       }
       escrituracionSchedule.push({
         month: escriMonth,
