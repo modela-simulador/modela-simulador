@@ -1053,12 +1053,36 @@ export function deriveDefaults(
   //   edificios / DS19 / edif 6P: 16 meses
   //   casas / townhouses: 14 meses
   const constructionMonthsByFamily: Record<string, number> = {
-    edificios: 15,
+    edificios: 16,
     ds19: 15,
-    casas: 15,
-    townhouses: 15,
+    casas: 14,
+    townhouses: 14,
   };
   const constructionMonths = constructionMonthsByFamily[product.family] ?? 15;
+
+  // Overrides específicos para DS19 (vivienda social) — costos y fees más contenidos
+  const isDs19 = product.family === 'ds19';
+  const ds19Overrides = isDs19 ? {
+    constructionCostUFm2: 16,
+    estudioArquitecturaUFm2: 0.28,
+    estudioCalculoUFm2: 0.05,
+    salesCommissionPct: 0.008,
+    marketingPct: 0.008,
+    tarifaGestionInmobiliariaPct: 0.045,
+    escrituracionUFPerUnit: 6,
+    contribucionesViviendasUFPerUnit: 5.8,
+    decoracionPilotoUF: 0,
+    vialContributionUFPerUnit: 18,
+    commonAreaPct: 0.15,
+  } : {};
+
+  // Si DS19, recalcular supConstruida con el commonAreaPct override
+  const effectiveCommonArea = isDs19 ? 0.15 : commonAreaPct;
+  const effectiveSupConstruida = supVendible * (1 + effectiveCommonArea);
+  const effectiveUnitModel: UnitModel = {
+    ...unitModel,
+    supConstruidaM2: effectiveSupConstruida,
+  };
 
   return {
     ...DEFAULT_INPUTS,
@@ -1066,11 +1090,12 @@ export function deriveDefaults(
     lotFid,
     productId,
     prcOn,
-    unitModels: [unitModel],
+    unitModels: [effectiveUnitModel],
     totalUnits,
-    totalSupConstruidaM2: supConstruida * totalUnits,
+    totalSupConstruidaM2: effectiveSupConstruida * totalUnits,
     totalSupVendibleM2: supVendible * totalUnits,
     subterraneoOn,
     constructionMonths,
+    ...ds19Overrides,
   };
 }
