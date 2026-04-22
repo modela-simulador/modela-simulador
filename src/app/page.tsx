@@ -201,7 +201,7 @@ function AppSelector({ username, onLogout }: { username: string; onLogout: () =>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 w-full max-w-5xl mb-6">
           {/* Simulador Inmobiliario (el actual en GitHub Pages) */}
           <a
-            href={`${BASE_PATH}/simulador.html`}
+            href={`${BASE_PATH}/simulador-legacy.html`}
             className="group relative bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-10 hover:bg-white/8 hover:border-[#2B6CB0]/40 transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl hover:shadow-[#2B6CB0]/10 cursor-pointer block"
           >
             <div className="w-20 h-20 rounded-xl bg-gradient-to-br from-[#2B6CB0] to-[#153E6B] flex items-center justify-center mb-6 group-hover:scale-105 transition-transform shadow-lg shadow-[#2B6CB0]/20">
