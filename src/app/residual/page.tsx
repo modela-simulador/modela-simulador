@@ -397,7 +397,7 @@ export default function ResidualPage() {
                         totalSupConstruidaM2: v * k * inputs.totalUnits,
                       });
                     }} unit="m²" />
-                  <SliderInput label="% Áreas Comunes s/ vendible" value={inputs.commonAreaPct * 100} min={5} max={40} step={1}
+                  <SliderInput label="% Áreas Comunes s/ vendible" value={inputs.commonAreaPct * 100} min={0} max={40} step={1}
                     onChange={(v) => {
                       const pct = v / 100;
                       const k = 1 + pct;
