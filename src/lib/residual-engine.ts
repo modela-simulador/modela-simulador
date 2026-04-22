@@ -1060,8 +1060,10 @@ export function deriveDefaults(
   };
   const constructionMonths = constructionMonthsByFamily[product.family] ?? 15;
 
-  // Overrides específicos para DS19 (vivienda social) — costos y fees más contenidos
+  // Overrides específicos por familia
   const isDs19 = product.family === 'ds19';
+  const isHouseLike = product.family === 'casas' || product.family === 'townhouses';
+
   const ds19Overrides = isDs19 ? {
     constructionCostUFm2: 16,
     estudioArquitecturaUFm2: 0.28,
@@ -1076,8 +1078,15 @@ export function deriveDefaults(
     commonAreaPct: 0.15,
   } : {};
 
-  // Si DS19, recalcular supConstruida con el commonAreaPct override
-  const effectiveCommonArea = isDs19 ? 0.15 : commonAreaPct;
+  const houseOverrides = isHouseLike ? {
+    estudioArquitecturaUFm2: 0.35,
+    estudioCalculoUFm2: 0.08,
+    vialContributionUFPerUnit: 20,
+    commonAreaPct: 0,  // casas/TH: cada unidad es independiente, sin áreas comunes
+  } : {};
+
+  // Recalcular supConstruida con el commonAreaPct efectivo de cada familia
+  const effectiveCommonArea = isDs19 ? 0.15 : isHouseLike ? 0 : commonAreaPct;
   const effectiveSupConstruida = supVendible * (1 + effectiveCommonArea);
   const effectiveUnitModel: UnitModel = {
     ...unitModel,
@@ -1097,5 +1106,6 @@ export function deriveDefaults(
     subterraneoOn,
     constructionMonths,
     ...ds19Overrides,
+    ...houseOverrides,
   };
 }
