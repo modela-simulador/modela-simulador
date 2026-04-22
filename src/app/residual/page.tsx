@@ -628,7 +628,7 @@ export default function ResidualPage() {
 
                   <div className="text-[10px] text-zinc-600 italic mt-1">
                     {product?.family === "casas" || product?.family === "townhouses"
-                      ? "Urba aplicada a 35% del terreno. Mov. tierra = 50% del terreno (15% vialidades + 35% plataformas)."
+                      ? "Urba aplicada a 30% del terreno. Mov. tierra = 50% del terreno (15% vialidades + 35% plataformas)."
                       : (product?.family === "edificios" || product?.family === "ds19") && !inputs.subterraneoOn
                       ? "Urba sobre (24 m² verde + 25 m² estac × 1.15) × N_viv. Mov. tierra = (terreno − áreas verdes − estac./2)."
                       : `Urba sobre (24 m² verde + 25 m² × ${fmtPct(1 - inputs.subterraneoPct, 0)} × 1.15) × N_viv. Mov. tierra anulado (sustituido por excavación).`}

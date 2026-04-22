@@ -176,7 +176,7 @@ export function buildCashFlow(
   const SURFACE_PARKING_OVERHEAD = 1.15; // vialidades/maniobras sobre estac. superficie
   let supUrbanizar: number;
   if (family === "casas" || family === "townhouses") {
-    supUrbanizar = lotAreaM2 * 0.35;
+    supUrbanizar = lotAreaM2 * 0.30;
   } else if (family === "edificios" || family === "ds19") {
     if (inputs.subterraneoOn) {
       const greenAreaBump = 1 + 0.10 * (1 - inputs.subterraneoPct);
