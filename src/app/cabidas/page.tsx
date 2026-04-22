@@ -13,6 +13,7 @@ import CabidaLoader from "@/components/ui/CabidaLoader";
 import StreetDrawPanel from "@/components/sidebar/StreetDrawPanel";
 import PhasingPanel from "@/components/sidebar/PhasingPanel";
 import PhasingTimeline from "@/components/ui/PhasingTimeline";
+import { BASE_PATH } from "@/lib/base-path";
 import { PRODUCTS, getDistrictsForFids } from "@/lib/constants";
 import { createEmptyDrawState, nextStreetId, type DrawnStreet } from "@/lib/street-draw-state";
 import { createEmptyPhasingState, computeWaves, buildTimeline, mergeCabidas, computeElementWaveAssignments, type PhasingState } from "@/lib/phasing";
@@ -63,12 +64,12 @@ export default function Home() {
   const [vialAreaMap, setVialAreaMap] = useState<Record<number, number>>({});
   const [greenAreaMap, setGreenAreaMap] = useState<Record<number, number>>({});
   useEffect(() => {
-    fetch("/data/vial-nuevo.geojson").then(r => r.json()).then(data => {
+    fetch(`${BASE_PATH}/data/vial-nuevo.geojson`).then(r => r.json()).then(data => {
       const m: Record<number, number> = {};
       for (const f of data.features) m[f.properties.fid] = f.properties.Area || 0;
       setVialAreaMap(m);
     });
-    fetch("/data/areas-verdes.geojson").then(r => r.json()).then(data => {
+    fetch(`${BASE_PATH}/data/areas-verdes.geojson`).then(r => r.json()).then(data => {
       const m: Record<number, number> = {};
       for (const f of data.features) m[f.properties.fid] = f.properties.Arae || f.properties.Area || 0;
       setGreenAreaMap(m);
@@ -782,7 +783,7 @@ export default function Home() {
         <div className="absolute top-4 left-4 z-10">
           <div className="flex items-center gap-3 mb-1">
             <a
-              href="/"
+              href={BASE_PATH || "/"}
               className="flex items-center gap-1.5 text-zinc-500 hover:text-white text-xs transition-colors bg-zinc-900/70 backdrop-blur px-2 py-1 rounded-md border border-zinc-800 hover:border-zinc-600"
             >
               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

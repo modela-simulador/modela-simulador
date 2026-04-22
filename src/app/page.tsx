@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { login, isAuthenticated, getUsername, logout } from "@/lib/auth";
+import { BASE_PATH } from "@/lib/base-path";
 
 export default function LandingPage() {
   const [authed, setAuthed] = useState(false);
@@ -200,7 +201,7 @@ function AppSelector({ username, onLogout }: { username: string; onLogout: () =>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 w-full max-w-5xl mb-6">
           {/* Simulador Inmobiliario (el actual en GitHub Pages) */}
           <a
-            href="/simulador.html"
+            href={`${BASE_PATH}/simulador.html`}
             className="group relative bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-10 hover:bg-white/8 hover:border-[#2B6CB0]/40 transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl hover:shadow-[#2B6CB0]/10 cursor-pointer block"
           >
             <div className="w-20 h-20 rounded-xl bg-gradient-to-br from-[#2B6CB0] to-[#153E6B] flex items-center justify-center mb-6 group-hover:scale-105 transition-transform shadow-lg shadow-[#2B6CB0]/20">
@@ -231,7 +232,7 @@ function AppSelector({ username, onLogout }: { username: string; onLogout: () =>
 
           {/* Valorización de Suelos */}
           <a
-            href="/residual"
+            href={`${BASE_PATH}/residual`}
             className="group relative bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-10 hover:bg-white/8 hover:border-[#22c55e]/40 transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl hover:shadow-[#22c55e]/10 cursor-pointer block"
           >
             <div className="w-20 h-20 rounded-xl bg-gradient-to-br from-[#22c55e] to-[#15803d] flex items-center justify-center mb-6 group-hover:scale-105 transition-transform shadow-lg shadow-[#22c55e]/20">
@@ -264,7 +265,7 @@ function AppSelector({ username, onLogout }: { username: string; onLogout: () =>
         {/* Tercera opción secundaria: Cabidas Automáticas */}
         <div className="w-full max-w-5xl">
           <a
-            href="/cabidas"
+            href={`${BASE_PATH}/cabidas`}
             className="group relative flex items-center gap-4 bg-white/3 backdrop-blur-xl border border-white/10 rounded-xl px-6 py-4 hover:bg-white/6 hover:border-[#a89867]/40 transition-all duration-300"
           >
             <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-[#a89867] to-[#7a6f4a] flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">

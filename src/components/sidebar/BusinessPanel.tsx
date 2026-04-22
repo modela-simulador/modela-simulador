@@ -3,6 +3,7 @@
 import { useMemo, useEffect, useState } from "react";
 import { PRODUCTS } from "@/lib/constants";
 import { INFRA_COSTS } from "@/lib/types";
+import { BASE_PATH } from "@/lib/base-path";
 import type { SubdivisionResult, BusinessSelection } from "@/lib/types";
 
 interface BusinessPanelProps {
@@ -38,7 +39,7 @@ export default function BusinessPanel({ result, selection, onClear }: BusinessPa
   const [greenAreas, setGreenAreas] = useState<FeatureAreaMap>({});
 
   useEffect(() => {
-    fetch("/data/vial-nuevo.geojson")
+    fetch(`${BASE_PATH}/data/vial-nuevo.geojson`)
       .then((r) => r.json())
       .then((data) => {
         const map: FeatureAreaMap = {};
@@ -47,7 +48,7 @@ export default function BusinessPanel({ result, selection, onClear }: BusinessPa
         }
         setVialAreas(map);
       });
-    fetch("/data/areas-verdes.geojson")
+    fetch(`${BASE_PATH}/data/areas-verdes.geojson`)
       .then((r) => r.json())
       .then((data) => {
         const map: FeatureAreaMap = {};

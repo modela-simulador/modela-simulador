@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useMemo } from "react";
 import mapboxgl from "mapbox-gl";
 import { MAP_CENTER, MAP_ZOOM, LAYER_COLORS, PRODUCTS } from "@/lib/constants";
+import { BASE_PATH } from "@/lib/base-path";
 import type { MacroloteFeature, CabidaEntry, BusinessSelection } from "@/lib/types";
 import type { DrawnStreet } from "@/lib/street-draw-state";
 import {
@@ -207,11 +208,11 @@ export default function MasterplanMap({
 
       // Load all GeoJSON sources
       const sources = [
-        { id: "cerco", url: "/data/cercos.geojson" },
-        { id: "vial-nuevo", url: "/data/vial-nuevo.geojson" },
-        { id: "areas-verdes", url: "/data/areas-verdes.geojson" },
-        { id: "lotes", url: "/data/lotes.geojson" },
-        { id: "div-calles", url: "/data/div-calles.geojson" },
+        { id: "cerco", url: `${BASE_PATH}/data/cercos.geojson` },
+        { id: "vial-nuevo", url: `${BASE_PATH}/data/vial-nuevo.geojson` },
+        { id: "areas-verdes", url: `${BASE_PATH}/data/areas-verdes.geojson` },
+        { id: "lotes", url: `${BASE_PATH}/data/lotes.geojson` },
+        { id: "div-calles", url: `${BASE_PATH}/data/div-calles.geojson` },
       ];
 
       sources.forEach(({ id, url }) => {

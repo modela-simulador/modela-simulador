@@ -1,8 +1,25 @@
 import type { NextConfig } from "next";
 
+// Static export para GitHub Pages.
+// Se sirve en https://modela-simulador.github.io/modela-simulador/
+// En dev local (`npm run dev`) no se aplica basePath/export.
+const isProd = process.env.NODE_ENV === "production";
+const isGhPages = process.env.DEPLOY_TARGET === "gh-pages" || isProd;
+const basePath = isGhPages ? "/modela-simulador" : "";
+
 const nextConfig: NextConfig = {
   turbopack: {
     root: __dirname,
+  },
+  ...(isGhPages && {
+    output: "export",
+    basePath,
+    assetPrefix: basePath,
+    images: { unoptimized: true },
+    trailingSlash: true,
+  }),
+  env: {
+    NEXT_PUBLIC_BASE_PATH: basePath,
   },
 };
 
