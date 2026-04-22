@@ -14,6 +14,7 @@ import type {
 } from './residual-types';
 import { DEFAULT_INPUTS } from './residual-types';
 import { PRODUCTS } from './constants';
+import { cannibalizationFactor } from './cannibalization';
 
 // ── Helpers ──────────────────────────────────────────────────
 
@@ -976,6 +977,154 @@ function bisectLand(
   return { land: mid, iterations, converged: false };
 }
 
+// ── Multi-etapa con canibalización ──
+// Si numEtapas = 2: divide el proyecto en dos mitades. La etapa 2 inicia preventas
+// calzando su IC con los últimos `etapaOverlapMonths` de obra de la etapa 1.
+// Ambas etapas venden a velocidad canibalizada (cannibalizationFactor(2)/2 × base)
+// desde sus respectivos inicios de preventa. Los flujos se suman mes a mes.
+// Gastos generales se ajustan en etapa 2 para no duplicar durante el traslape.
+
+function emptyCashFlowRow(m: number): MonthlyCashFlowRow {
+  return {
+    month: m, date: '', utilidadDesarrollador: 0,
+    ivaDebitoReceived: 0, ivaCreditoPaid: 0,
+    unitsSoldThisMonth: 0, cumulativeUnitsSold: 0,
+    unitsDelivered: 0, cumulativeUnitsDelivered: 0,
+    revenuePIE: 0, revenueEscrituracion: 0, totalRevenue: 0,
+    landCost: 0, landContributions: 0,
+    constructionCost: 0, urbanizationCost: 0, earthMovementCost: 0,
+    indirectCosts: 0, postVentaConstruction: 0, constructorUtility: 0,
+    contingencies: 0, studiesPermitsCost: 0, afrVialCost: 0, itoCost: 0,
+    totalConstructionCost: 0,
+    escrituracionCost: 0, salesCommission: 0, marketingCost: 0,
+    adminCost: 0, postVentaGav: 0, stockMaintenance: 0, greenInsurance: 0,
+    totalGAV: 0,
+    financingInterest: 0, ivaPaid: 0, incomeTax: 0,
+    totalCost: 0, netCashFlow: 0, cumulativeCashFlow: 0,
+    financingDrawdown: 0, financingRepayment: 0,
+    netCashFlowLevered: 0, cumulativeCashFlowLevered: 0,
+    creditoEnlaceDrawdown: 0, creditoEnlaceRepayment: 0,
+  };
+}
+
+function mergeCashFlowRows(a: MonthlyCashFlowRow, b: MonthlyCashFlowRow): MonthlyCashFlowRow {
+  const out = { ...a };
+  const sumKeys: (keyof MonthlyCashFlowRow)[] = [
+    'utilidadDesarrollador', 'ivaDebitoReceived', 'ivaCreditoPaid',
+    'unitsSoldThisMonth', 'cumulativeUnitsSold', 'unitsDelivered', 'cumulativeUnitsDelivered',
+    'revenuePIE', 'revenueEscrituracion', 'totalRevenue',
+    'landCost', 'landContributions',
+    'constructionCost', 'urbanizationCost', 'earthMovementCost',
+    'indirectCosts', 'postVentaConstruction', 'constructorUtility',
+    'contingencies', 'studiesPermitsCost', 'afrVialCost', 'itoCost',
+    'totalConstructionCost', 'escrituracionCost', 'salesCommission', 'marketingCost',
+    'adminCost', 'postVentaGav', 'stockMaintenance', 'greenInsurance', 'totalGAV',
+    'financingInterest', 'ivaPaid', 'incomeTax',
+    'totalCost', 'netCashFlow',
+    'financingDrawdown', 'financingRepayment', 'netCashFlowLevered',
+    'creditoEnlaceDrawdown', 'creditoEnlaceRepayment',
+  ];
+  for (const k of sumKeys) {
+    (out[k] as number) = (a[k] as number) + (b[k] as number);
+  }
+  return out;
+}
+
+export function buildMultiEtapaCashFlow(
+  inputs: ResidualInputs,
+  landPriceUFm2: number,
+): MonthlyCashFlowRow[] {
+  if (inputs.numEtapas <= 1) {
+    return buildCashFlow(inputs, landPriceUFm2);
+  }
+
+  // División simétrica: 2 etapas iguales (redondeo hacia abajo, el residuo se
+  // adjunta a etapa 2 para no perder unidades).
+  const unitsE1 = Math.floor(inputs.totalUnits / 2);
+  const unitsE2 = inputs.totalUnits - unitsE1;
+  const supConstE1 = inputs.totalSupConstruidaM2 * (unitsE1 / inputs.totalUnits);
+  const supConstE2 = inputs.totalSupConstruidaM2 - supConstE1;
+  const supVendE1 = inputs.totalSupVendibleM2 * (unitsE1 / inputs.totalUnits);
+  const supVendE2 = inputs.totalSupVendibleM2 - supVendE1;
+  const baseVel = inputs.salesVelocity;
+  const canibVel = baseVel * cannibalizationFactor(2) / 2;  // 0.675 × base
+
+  // Ambas etapas venden a velocidad canibalizada. Simplificación de v1:
+  // el momento solo (etapa 1 sin etapa 2) también va canibalizado → subestima
+  // ligeramente la caja en los primeros meses, pero es conservador.
+  const etapaCommon: Partial<ResidualInputs> = {
+    numEtapas: 1,  // recursion safety
+    salesVelocity: canibVel,
+  };
+
+  // Etapa 1 — lleva el terreno y contribuciones del proyecto completo
+  const e1Inputs: ResidualInputs = {
+    ...inputs,
+    ...etapaCommon,
+    totalUnits: unitsE1,
+    totalSupConstruidaM2: supConstE1,
+    totalSupVendibleM2: supVendE1,
+    unitModels: inputs.unitModels.map(m => ({
+      ...m,
+      count: unitsE1,
+      parkingCount: Math.round(m.parkingCount * unitsE1 / inputs.totalUnits),
+    })),
+  };
+  const e1 = buildCashFlow(e1Inputs, landPriceUFm2);
+
+  // Cálculo del desfase de etapa 2:
+  //   icE1 = monthPreSalesStart + ceil(unitsE1 * preventaPct / canibVel)
+  //   icE2_target = icE1 + constructionMonths - overlapMonths
+  //   preventaTimeE2 = ceil(unitsE2 * preventaPct / canibVel)
+  //   preSalesStart_E2 = icE2_target - preventaTimeE2
+  const preventaE1Units = unitsE1 * inputs.preventasBeforeConstructionPct;
+  const preventaE2Units = unitsE2 * inputs.preventasBeforeConstructionPct;
+  const icE1 = inputs.autoConstructionStart
+    ? inputs.monthPreSalesStart + Math.ceil(preventaE1Units / Math.max(0.1, canibVel))
+    : inputs.monthConstructionStart;
+  const icE2Target = icE1 + inputs.constructionMonths - inputs.etapaOverlapMonths;
+  const preventaTimeE2 = Math.ceil(preventaE2Units / Math.max(0.1, canibVel));
+  const preSalesStartE2 = Math.max(inputs.monthPreSalesStart, icE2Target - preventaTimeE2);
+
+  // Etapa 2 — sin terreno, sin contribuciones, gastos generales reducidos por traslape
+  const overlapFactor = Math.max(0, 1 - inputs.etapaOverlapMonths / inputs.constructionMonths);
+  const e2Inputs: ResidualInputs = {
+    ...inputs,
+    ...etapaCommon,
+    totalUnits: unitsE2,
+    totalSupConstruidaM2: supConstE2,
+    totalSupVendibleM2: supVendE2,
+    unitModels: inputs.unitModels.map(m => ({
+      ...m,
+      count: unitsE2,
+      parkingCount: Math.round(m.parkingCount * unitsE2 / inputs.totalUnits),
+    })),
+    monthPreSalesStart: preSalesStartE2,
+    landContributionsUF: 0,        // terreno pagado en E1
+    landBrokerageUF: 0,
+    indirectCostsUFMonth: inputs.indirectCostsUFMonth * overlapFactor,
+  };
+  const e2 = buildCashFlow(e2Inputs, 0);  // land = 0 para no doble contar
+
+  // Fusionar mes a mes
+  const maxLen = Math.max(e1.length, e2.length);
+  const merged: MonthlyCashFlowRow[] = [];
+  let cumCF = 0, cumCFLev = 0;
+  for (let m = 0; m < maxLen; m++) {
+    const r1 = e1[m] || emptyCashFlowRow(m);
+    const r2 = e2[m] || emptyCashFlowRow(m);
+    const row = mergeCashFlowRows(r1, r2);
+    row.month = m;
+    row.date = r1.date || r2.date || '';
+    cumCF += row.netCashFlow;
+    cumCFLev += row.netCashFlowLevered;
+    row.cumulativeCashFlow = cumCF;
+    row.cumulativeCashFlowLevered = cumCFLev;
+    merged.push(row);
+  }
+  return merged;
+}
+
 // ── Main solver: Método Residual Dinámico clásico (como Excel) ──
 // Terreno es la variable; el solver lo ajusta hasta que TIR (activo puro) = target.
 // La utilidad acontecible sale como RESULTADO NATURAL — no se fuerza.
@@ -985,7 +1134,7 @@ export function solveResidual(inputs: ResidualInputs): ResidualOutput {
 
   // Solver por TIR: busca land tal que TIR unlevered = target
   const byTIR = bisectLand(inputs, (land) => {
-    const cf = buildCashFlow(inputs, land);
+    const cf = buildMultiEtapaCashFlow(inputs, land);
     const tir = computeIRR(cf.map(r => r.netCashFlow));
     if (tir === null) return null;
     return tir - targetMonthly;
@@ -993,7 +1142,7 @@ export function solveResidual(inputs: ResidualInputs): ResidualOutput {
 
   // Solver por Utilidad (informativo, para diagnóstico)
   const byMargin = bisectLand(inputs, (land) => {
-    const cf = buildCashFlow(inputs, land);
+    const cf = buildMultiEtapaCashFlow(inputs, land);
     const pnl = buildPnL(inputs, cf, land);
     if (pnl.totalRevenueNet <= 0) return null;
     return (pnl.netProfit / pnl.totalRevenueNet) - inputs.developerMarginPct;
@@ -1005,7 +1154,7 @@ export function solveResidual(inputs: ResidualInputs): ResidualOutput {
   const converged = byTIR.converged;
 
   // ── Build final output con el land binding ──
-  const cashFlow = buildCashFlow(inputs, finalLand);
+  const cashFlow = buildMultiEtapaCashFlow(inputs, finalLand);
   const flows = cashFlow.map(r => r.netCashFlow);
   const tirMonthly = computeIRR(flows) ?? 0;
   const tirAnnual = Math.pow(1 + tirMonthly, 12) - 1;

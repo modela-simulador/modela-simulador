@@ -139,6 +139,14 @@ export interface ResidualInputs {
   constructionFinancingPct: number;
   interestRateAnnual: number;
 
+  // Multi-etapa: permite simular 1 o 2 etapas consecutivas con traslape.
+  // Etapa 2 inicia obra cuando alcanza X% preventa (igual regla que etapa 1);
+  // su preventa arranca antes para calzar con traslape deseado contra etapa 1.
+  // Durante meses donde AMBAS etapas venden activamente, la velocidad total se
+  // canibaliza: 2 etapas = 1.35× baseVelocity (cada una recibe 0.675×).
+  numEtapas: 1 | 2;
+  etapaOverlapMonths: number;  // meses de traslape obra E1-E2 (default 4)
+
   // Crédito de Enlace (subsidio gobierno DS19): préstamo sin interés durante obra,
   // repagado proporcional a escrituraciones post-recepción. Mejora TIR reduciendo
   // capital negativo acumulado en la fase de construcción.
@@ -457,6 +465,8 @@ export const DEFAULT_INPUTS: Omit<ResidualInputs, 'lotAreaM2' | 'lotFid' | 'prod
   landFinancingPct: 0,
   constructionFinancingPct: 0,             // 0 = activo puro; 1.0 = 100% financiado
   interestRateAnnual: 0.045,
+  numEtapas: 1,                            // default: una sola etapa (comportamiento clásico)
+  etapaOverlapMonths: 4,                   // 4 meses de traslape obra cuando numEtapas = 2
   creditoEnlaceOn: false,                  // OFF por default; DS19 lo activa automáticamente
   creditoEnlaceUFPerUnit: 300,             // 300 UF/viv típico Chile DS19
   constructionAdvancePct: 0.20,            // 20% anticipo al contratista

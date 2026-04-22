@@ -383,6 +383,45 @@ export default function ResidualPage() {
                 <Stat label="Unidades est." value={fmt(estimatedUnits)} />
                 <Stat label="Min. lote" value={`${product?.minLotHa || 0} ha`} />
               </div>
+
+              {/* Multi-etapa selector */}
+              {inputs && (
+                <div className="mt-3 bg-zinc-900/50 rounded-lg p-2 border border-zinc-700">
+                  <div className="text-[10px] uppercase tracking-wider text-zinc-500 font-semibold mb-1.5">Etapas del Proyecto</div>
+                  <div className="flex gap-1">
+                    <button
+                      onClick={() => updateInput("numEtapas", 1)}
+                      className={`flex-1 py-1.5 text-xs rounded font-semibold transition ${
+                        inputs.numEtapas === 1
+                          ? "bg-zinc-600 text-white shadow"
+                          : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700"
+                      }`}>
+                      1 etapa
+                    </button>
+                    <button
+                      onClick={() => updateInput("numEtapas", 2)}
+                      className={`flex-1 py-1.5 text-xs rounded font-semibold transition ${
+                        inputs.numEtapas === 2
+                          ? "bg-indigo-600 text-white shadow"
+                          : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700"
+                      }`}>
+                      2 etapas
+                    </button>
+                  </div>
+                  {inputs.numEtapas === 2 && (
+                    <>
+                      <div className="mt-2">
+                        <SliderInput label="Traslape obra E1-E2" value={inputs.etapaOverlapMonths} min={0} max={8} step={1}
+                          onChange={(v) => updateInput("etapaOverlapMonths", v)} unit="meses" />
+                      </div>
+                      <div className="text-[10px] text-indigo-300 mt-1.5 leading-tight">
+                        Etapa 2 inicia preventas antes para que su IC calce con los últimos <b>{inputs.etapaOverlapMonths}m</b> de obra de etapa 1. Durante venta simultánea, velocidad canibaliza a <b>{(inputs.salesVelocity * 0.675).toFixed(1)} un/mes por etapa</b> (1.35× entre las dos, no 2×).
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+
               {inputs && (
                 <div className="mt-3 pt-3 border-t border-zinc-700 space-y-2">
                   {/* m² vendible promedio por unidad */}
