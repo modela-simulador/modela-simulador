@@ -2,6 +2,7 @@
 import geopandas as gpd
 from shapely.geometry import Polygon, MultiPolygon, LineString, shape, mapping, Point
 from shapely.ops import unary_union
+from shapely.validation import make_valid
 import os
 import math
 
@@ -21,6 +22,39 @@ from geometry_utils import (
 )
 
 DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
+
+
+def _valid(geom):
+    """Ensure a geometry is valid. Fixes self-intersections and ring issues."""
+    if geom is None or geom.is_empty:
+        return geom
+    if not geom.is_valid:
+        geom = make_valid(geom)
+    return geom
+
+
+def _safe_union(geoms: list):
+    """unary_union with make_valid fallback on TopologyException."""
+    try:
+        return unary_union(geoms)
+    except Exception:
+        return unary_union([_valid(g) for g in geoms])
+
+
+def _safe_difference(a, b):
+    """a.difference(b) with make_valid fallback."""
+    try:
+        return a.difference(b)
+    except Exception:
+        return _valid(a).difference(_valid(b))
+
+
+def _safe_intersection(a, b):
+    """a.intersection(b) with make_valid fallback."""
+    try:
+        return a.intersection(b)
+    except Exception:
+        return _valid(a).intersection(_valid(b))
 
 # Product definitions — synced with simulador inmobiliario (simulador.html)
 # incidencia = fraction of sale price that corresponds to land value
@@ -71,10 +105,10 @@ def get_macrolotes(lotes_gdf, fids: list[str]) -> list[Polygon]:
         return geoms
 
     # Try to merge adjacent macrolotes
-    merged = unary_union(geoms)
+    merged = _safe_union(geoms)
     if isinstance(merged, MultiPolygon):
         # Buffer slightly to merge near-adjacent, then unbuffer
-        merged = unary_union([g.buffer(1) for g in geoms]).buffer(-1)
+        merged = _safe_union([g.buffer(1) for g in geoms]).buffer(-1)
 
     if isinstance(merged, MultiPolygon):
         # Non-adjacent: return each polygon separately
@@ -2458,6 +2492,8 @@ def run_subdivision(fids: list[str], allocations: list[dict], max_viviendas: int
 
     # Get macrolotes (may be multiple non-adjacent polygons)
     macrolote_polys = get_macrolotes(lotes_gdf, fids)
+    # Validate all input geometries to prevent TopologyException downstream
+    macrolote_polys = [_valid(p) for p in macrolote_polys]
     macro_area = sum(p.area for p in macrolote_polys)
 
     # Get green areas and buildable parts for ALL macrolote polygons
@@ -2475,7 +2511,8 @@ def run_subdivision(fids: list[str], allocations: list[dict], max_viviendas: int
     # These don't affect buildable area but ARE used for street orientation:
     # streets must not point toward nearby green areas even if green is
     # technically outside the macrolote boundary.
-    merged_macro = unary_union(macrolote_polys)
+    merged_macro = _safe_union(macrolote_polys)
+    merged_macro = _valid(merged_macro)
     nearby_greens = get_nearby_greens(merged_macro, av_gdf, proximity_m=25.0)
     # Combine: all_green_for_streets = internal + nearby (for street avoidance)
     all_green_for_streets = list(all_green_areas) + nearby_greens
@@ -2504,7 +2541,7 @@ def run_subdivision(fids: list[str], allocations: list[dict], max_viviendas: int
         vial_union = Polygon()
 
     # ── Plan-first subdivision ──
-    green_for_streets_union = unary_union(all_green_for_streets) if all_green_for_streets else Polygon()
+    green_for_streets_union = _safe_union(all_green_for_streets) if all_green_for_streets else Polygon()
 
     # ── Custom streets mode ──
     # User-drawn streets define the ONLY internal streets.
@@ -2513,7 +2550,8 @@ def run_subdivision(fids: list[str], allocations: list[dict], max_viviendas: int
     if custom_streets and len(custom_streets) > 0:
         from pyproj import Transformer
         wgs_to_utm = Transformer.from_crs("EPSG:4326", "EPSG:32719", always_xy=True)
-        macro_union = unary_union(macrolote_polys)
+        macro_union = _safe_union(macrolote_polys)
+        macro_union = _valid(macro_union)
 
         # ── Step 1: Convert street lines to UTM and snap endpoints to vialidad ──
         custom_street_polys = []
@@ -2588,25 +2626,35 @@ def run_subdivision(fids: list[str], allocations: list[dict], max_viviendas: int
                 custom_street_polys.append(street_poly)
 
         if custom_street_polys:
-            custom_street_union = unary_union(custom_street_polys)
+            custom_street_union = _safe_union(custom_street_polys)
             # Clip streets to macrolote boundary
-            custom_street_union = custom_street_union.intersection(macro_union)
+            custom_street_union = _safe_intersection(custom_street_union, macro_union)
 
             # Get buildable area minus streets and greens
-            green_union = unary_union(all_green_areas) if all_green_areas else Polygon()
-            remaining = macro_union.difference(custom_street_union)
+            green_union = _safe_union(all_green_areas) if all_green_areas else Polygon()
+            remaining = _safe_difference(macro_union, custom_street_union)
             if not green_union.is_empty:
-                remaining = remaining.difference(green_union)
+                remaining = _safe_difference(remaining, green_union)
 
-            # Extract blocks — filter out slivers and ghost fragments
+            # Extract blocks — filter out slivers and ghost fragments.
+            # Use buffer(-0.5).buffer(0.5) to break apart polygons connected by
+            # thin bridges (Shapely sometimes keeps them as one Polygon instead
+            # of splitting into MultiPolygon when the street barely touches).
+            try:
+                remaining_clean = remaining.buffer(-0.5).buffer(0.5)
+                if remaining_clean.is_empty:
+                    remaining_clean = remaining
+            except Exception:
+                remaining_clean = remaining
+
             MIN_BLOCK_AREA = 500  # m² — blocks smaller than this are slivers
             raw_blocks = []
-            if isinstance(remaining, MultiPolygon):
-                raw_blocks = [g for g in remaining.geoms if isinstance(g, Polygon)]
-            elif isinstance(remaining, Polygon):
-                raw_blocks = [remaining]
-            elif hasattr(remaining, 'geoms'):
-                raw_blocks = [g for g in remaining.geoms if isinstance(g, Polygon)]
+            if isinstance(remaining_clean, MultiPolygon):
+                raw_blocks = [g for g in remaining_clean.geoms if isinstance(g, Polygon)]
+            elif isinstance(remaining_clean, Polygon):
+                raw_blocks = [remaining_clean]
+            elif hasattr(remaining_clean, 'geoms'):
+                raw_blocks = [g for g in remaining_clean.geoms if isinstance(g, Polygon)]
 
             # Separate real blocks from slivers
             blocks = []
@@ -2626,7 +2674,7 @@ def run_subdivision(fids: list[str], allocations: list[dict], max_viviendas: int
                 else:
                     blocks.append(b)
 
-            # Merge slivers into nearest real block
+            # Merge slivers into nearest TOUCHING block only
             for sliver in slivers:
                 if not blocks:
                     break
@@ -2637,10 +2685,15 @@ def run_subdivision(fids: list[str], allocations: list[dict], max_viviendas: int
                     if d < best_dist:
                         best_dist = d
                         best_idx = bi
-                merged = unary_union([blocks[best_idx], sliver])
+                # Only merge if the sliver actually touches/overlaps the block
+                # (distance < 2m). Don't merge across streets.
+                if best_dist > 2.0:
+                    continue
+                merged = _safe_union([blocks[best_idx], sliver])
                 if isinstance(merged, Polygon):
                     blocks[best_idx] = merged
                 elif isinstance(merged, MultiPolygon):
+                    # Keep only the largest piece — don't bridge across gaps
                     blocks[best_idx] = max(merged.geoms, key=lambda g: g.area)
 
             if not blocks:
@@ -2729,10 +2782,11 @@ def run_subdivision(fids: list[str], allocations: list[dict], max_viviendas: int
     # Identify connected macrolote groups by buffer-merging adjacent polygons.
     # Non-adjacent macrolotes get subdivided independently with proportional
     # allocation, preventing the gap elimination from inflating lots.
-    macro_union_poly = unary_union(macrolote_polys)
+    macro_union_poly = _safe_union(macrolote_polys)
+    macro_union_poly = _valid(macro_union_poly)
     if isinstance(macro_union_poly, MultiPolygon):
         # Try buffer-merge to bridge thin gaps between truly adjacent macrolotes
-        merged = unary_union([g.buffer(5) for g in macro_union_poly.geoms]).buffer(-5)
+        merged = _safe_union([_valid(g.buffer(5)) for g in macro_union_poly.geoms]).buffer(-5)
         if isinstance(merged, MultiPolygon):
             groups = [g for g in merged.geoms if g.area > 500]
         else:
@@ -2868,19 +2922,20 @@ def run_subdivision(fids: list[str], allocations: list[dict], max_viviendas: int
         raise ValueError("Subdivision produced no lots")
 
     # Build exclusion zone (streets + greens) for clipping
-    street_union = unary_union(all_streets) if all_streets else Polygon()
+    street_union = _safe_union(all_streets) if all_streets else Polygon()
     green_union = Polygon()
     for poly in macrolote_polys:
         greens = get_intersecting_greens(poly, av_gdf)
         if greens:
-            green_union = unary_union([green_union] + greens) if not green_union.is_empty else unary_union(greens)
-    exclusion_zone = unary_union([street_union, green_union]) if not green_union.is_empty else street_union
+            green_union = _safe_union([green_union] + greens) if not green_union.is_empty else _safe_union(greens)
+    exclusion_zone = _safe_union([street_union, green_union]) if not green_union.is_empty else street_union
 
     # ── No-overlap enforcement ──
     # After merging, lots can overlap (buffer/unbuffer expands into neighbors).
     # Process lots largest-first: each lot claims its territory, smaller lots
     # get clipped to avoid overlap. Also clip all lots to macrolote perimeter.
-    macro_union = unary_union(macrolote_polys)
+    macro_union = _safe_union(macrolote_polys)
+    macro_union = _valid(macro_union)
 
     def _extract_polygon(geom):
         """Extract the largest Polygon from any geometry type."""
@@ -2895,7 +2950,7 @@ def run_subdivision(fids: list[str], allocations: list[dict], max_viviendas: int
     assigned.sort(key=lambda a: a["area_m2"], reverse=True)
     for i in range(len(assigned)):
         # Clip to macrolote perimeter
-        clipped = _extract_polygon(assigned[i]["polygon"].intersection(macro_union))
+        clipped = _extract_polygon(_safe_intersection(assigned[i]["polygon"], macro_union))
         if not clipped.is_empty:
             assigned[i]["polygon"] = clipped
             assigned[i]["area_m2"] = clipped.area
@@ -2905,9 +2960,9 @@ def run_subdivision(fids: list[str], allocations: list[dict], max_viviendas: int
         for j in range(i):
             if assigned[j]["polygon"].is_empty:
                 continue
-            overlap = assigned[i]["polygon"].intersection(assigned[j]["polygon"])
+            overlap = _safe_intersection(assigned[i]["polygon"], assigned[j]["polygon"])
             if not overlap.is_empty and overlap.area > 1:
-                trimmed = _extract_polygon(assigned[i]["polygon"].difference(assigned[j]["polygon"]))
+                trimmed = _extract_polygon(_safe_difference(assigned[i]["polygon"], assigned[j]["polygon"]))
                 if not trimmed.is_empty and trimmed.area > 100:
                     assigned[i]["polygon"] = trimmed
                     assigned[i]["area_m2"] = trimmed.area
@@ -2918,7 +2973,7 @@ def run_subdivision(fids: list[str], allocations: list[dict], max_viviendas: int
     # we now need to subtract green areas from each lot.
     if not green_union.is_empty:
         for a in assigned:
-            subtracted = a["polygon"].difference(green_union)
+            subtracted = _safe_difference(a["polygon"], green_union)
             if not subtracted.is_empty:
                 lot_poly = _extract_polygon(subtracted)
                 if not lot_poly.is_empty and lot_poly.area > 100:
@@ -2990,7 +3045,7 @@ def run_subdivision(fids: list[str], allocations: list[dict], max_viviendas: int
                 best_idx = i
         if best_idx >= 0:
             target = validated[best_idx]
-            combined = unary_union([target["polygon"], reject["polygon"]])
+            combined = _safe_union([target["polygon"], reject["polygon"]])
             if isinstance(combined, MultiPolygon):
                 combined = max(combined.geoms, key=lambda g: g.area)
             target["polygon"] = combined
@@ -3007,17 +3062,17 @@ def run_subdivision(fids: list[str], allocations: list[dict], max_viviendas: int
 
     # ── Gap elimination: absorb uncovered areas into nearest SAME-GROUP lot ──
     # Work per-group to prevent lots from absorbing area from other macrolotes.
-    street_union_final = unary_union(all_streets) if all_streets else Polygon()
+    street_union_final = _safe_union(all_streets) if all_streets else Polygon()
     for gi, group_poly in enumerate(groups):
         group_lots_idx = [i for i, a in enumerate(assigned) if a.get("_group_idx") == gi]
         if not group_lots_idx:
             continue
-        group_lot_union = unary_union([assigned[i]["polygon"] for i in group_lots_idx])
+        group_lot_union = _safe_union([assigned[i]["polygon"] for i in group_lots_idx])
         covered_parts = [group_lot_union, street_union_final]
         if not green_union.is_empty:
             covered_parts.append(green_union)
-        covered = unary_union(covered_parts)
-        gap_geom = group_poly.difference(covered)
+        covered = _safe_union(covered_parts)
+        gap_geom = _safe_difference(group_poly, covered)
 
         if gap_geom.is_empty:
             continue
@@ -3035,7 +3090,7 @@ def run_subdivision(fids: list[str], allocations: list[dict], max_viviendas: int
                     best_idx = i
             if best_idx is not None and best_dist < 50:
                 target = assigned[best_idx]
-                combined = unary_union([target["polygon"], frag])
+                combined = _safe_union([target["polygon"], frag])
                 if isinstance(combined, MultiPolygon):
                     combined = max(combined.geoms, key=lambda g: g.area)
                 # Check: don't inflate beyond product max
@@ -3071,9 +3126,9 @@ def run_subdivision(fids: list[str], allocations: list[dict], max_viviendas: int
         concavity_ratio = simplified.area / convex.area if convex.area > 0 else 1.0
         if concavity_ratio < 0.75:
             # Very concave — try convex hull clipped to macro + exclusion
-            clipped_convex = convex.intersection(macro_union)
+            clipped_convex = _safe_intersection(convex, macro_union)
             if not exclusion_zone.is_empty:
-                clipped_convex = clipped_convex.difference(exclusion_zone)
+                clipped_convex = _safe_difference(clipped_convex, exclusion_zone)
             if isinstance(clipped_convex, MultiPolygon):
                 clipped_convex = max(clipped_convex.geoms, key=lambda g: g.area)
             if (not clipped_convex.is_empty
@@ -3197,16 +3252,16 @@ def run_subdivision(fids: list[str], allocations: list[dict], max_viviendas: int
                 best_ni = ni
         if best_ni >= 0 and best_dist <= 80.0:
             target_a = assigned[best_ni]
-            combined = unary_union([target_a["polygon"], v["polygon"]])
+            combined = _safe_union([target_a["polygon"], v["polygon"]])
             if isinstance(combined, MultiPolygon):
                 combined = max(combined.geoms, key=lambda g: g.area)
             # Check if merged result would ALSO violate.
             # If so, try using convex hull clipped to macro boundary
             # to regularize the merged shape.
             if _is_shape_violation(combined):
-                hull = combined.convex_hull.intersection(macro_union)
+                hull = _safe_intersection(combined.convex_hull, macro_union)
                 if not exclusion_zone.is_empty:
-                    hull = hull.difference(exclusion_zone)
+                    hull = _safe_difference(hull, exclusion_zone)
                 if isinstance(hull, MultiPolygon):
                     hull = max(hull.geoms, key=lambda g: g.area)
                 if (not hull.is_empty and hull.area >= combined.area * 0.85
@@ -3309,10 +3364,25 @@ def _build_response(assigned, all_streets, parks, green_union, macro_area, macro
         from shapely.ops import transform
         return transform(transformer.transform, geom)
 
-    # Display polygons: clip against green areas only (streets render on top)
+    # Build combined exclusion zone for display clipping
+    street_union = _safe_union(all_streets) if all_streets else Polygon()
+    # Combine streets + structural roads + green areas for lot display clipping
+    clip_zones = []
+    if not green_union.is_empty:
+        clip_zones.append(green_union)
+    if not street_union.is_empty:
+        clip_zones.append(street_union)
+    if not vial_union.is_empty:
+        clip_zones.append(vial_union)
+    clip_union = _safe_union(clip_zones) if clip_zones else Polygon()
+
+    # Display polygons: clip lots against greens AND streets
     for a in assigned:
-        if not green_union.is_empty:
-            display_poly = a["polygon"].difference(green_union)
+        if not clip_union.is_empty:
+            try:
+                display_poly = _safe_difference(a["polygon"], clip_union)
+            except Exception:
+                display_poly = a["polygon"]
             if not display_poly.is_empty:
                 if isinstance(display_poly, MultiPolygon):
                     display_poly = max(display_poly.geoms, key=lambda g: g.area)
@@ -3321,17 +3391,14 @@ def _build_response(assigned, all_streets, parks, green_union, macro_area, macro
                 a["display_polygon"] = a["polygon"]
         else:
             a["display_polygon"] = a["polygon"]
-
-    # Subtract streets from parks so green areas don't visually overlap street width
-    street_union = unary_union(all_streets) if all_streets else Polygon()
-    # Also subtract structural roads from parks
+    # Subtract streets + structural roads from parks for display
     road_union = street_union
     if not vial_union.is_empty:
-        road_union = unary_union([street_union, vial_union]) if not street_union.is_empty else vial_union
+        road_union = _safe_union([street_union, vial_union]) if not street_union.is_empty else vial_union
     display_parks = []
     for p in parks:
         try:
-            clipped = p.difference(road_union) if not road_union.is_empty else p
+            clipped = _safe_difference(p, road_union) if not road_union.is_empty else p
             if clipped.is_empty:
                 continue
             # If multi-polygon results, keep all pieces (green can be split by streets)

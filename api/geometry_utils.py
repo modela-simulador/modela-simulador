@@ -4,6 +4,7 @@ from typing import Union, List
 from shapely.geometry import Polygon, MultiPolygon, LineString, box, mapping
 from shapely.ops import split, unary_union
 from shapely.affinity import rotate
+from shapely.validation import make_valid
 import numpy as np
 import math
 
@@ -15,8 +16,16 @@ def get_buildable_area(macrolote: Union[Polygon, MultiPolygon], green_areas: lis
     else:
         macro = macrolote
 
+    # Validate inputs to prevent TopologyException
+    if not macro.is_valid:
+        macro = make_valid(macro)
     greens = unary_union(green_areas) if green_areas else Polygon()
-    buildable = macro.difference(greens)
+    if not greens.is_empty and not greens.is_valid:
+        greens = make_valid(greens)
+    try:
+        buildable = macro.difference(greens)
+    except Exception:
+        buildable = make_valid(macro).difference(make_valid(greens))
 
     if buildable.is_empty:
         return []

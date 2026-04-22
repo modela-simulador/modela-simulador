@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "BatucoTerra — Generador de Cabidas",
-  description: "Herramienta de subdivisión automática de macrolotes",
+  title: "Modela — Plataforma de Desarrollo Inmobiliario",
+  description: "Simulador financiero y generador de cabidas automáticas",
 };
 
 export default function RootLayout({

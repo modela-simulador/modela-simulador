@@ -1,0 +1,1074 @@
+"use client";
+
+import { useState, useCallback, useMemo, useEffect, useRef } from "react";
+import dynamic from "next/dynamic";
+import MacrolotePanel from "@/components/sidebar/MacrolotePanel";
+import ProductMixForm from "@/components/sidebar/ProductMixForm";
+import MetricsPanel from "@/components/sidebar/MetricsPanel";
+import LotEditPanel from "@/components/sidebar/LotEditPanel";
+import BusinessReportPanel from "@/components/sidebar/BusinessReportPanel";
+import ExportPanel from "@/components/sidebar/ExportPanel";
+import InfraCostPanel from "@/components/sidebar/InfraCostPanel";
+import CabidaLoader from "@/components/ui/CabidaLoader";
+import StreetDrawPanel from "@/components/sidebar/StreetDrawPanel";
+import PhasingPanel from "@/components/sidebar/PhasingPanel";
+import PhasingTimeline from "@/components/ui/PhasingTimeline";
+import { PRODUCTS, getDistrictsForFids } from "@/lib/constants";
+import { createEmptyDrawState, nextStreetId, type DrawnStreet } from "@/lib/street-draw-state";
+import { createEmptyPhasingState, computeWaves, buildTimeline, mergeCabidas, computeElementWaveAssignments, type PhasingState } from "@/lib/phasing";
+import type { MacroloteFeature, ProductAllocation, SubdivisionResult, CabidaEntry, BusinessSelection } from "@/lib/types";
+
+const MasterplanMap = dynamic(() => import("@/components/map/MasterplanMap"), {
+  ssr: false,
+  loading: () => (
+    <div className="w-full h-full flex items-center justify-center bg-zinc-900">
+      <p className="text-zinc-400">Cargando mapa...</p>
+    </div>
+  ),
+});
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
+/** Build a stable key from an array of FIDs */
+function makeCabidaId(fids: string[]): string {
+  return [...fids].sort().join(",");
+}
+
+export default function Home() {
+  const [selectedMacrolotes, setSelectedMacrolotes] = useState<MacroloteFeature[]>([]);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [generateError, setGenerateError] = useState<string | null>(null);
+
+  // Persistent cabida results — each iteration stored independently
+  const [cabidaHistory, setCabidaHistory] = useState<CabidaEntry[]>([]);
+  // Which cabida entry is "active" for editing (the latest generated for current selection)
+  const [activeCabidaId, setActiveCabidaId] = useState<string | null>(null);
+  const [selectedLotIndex, setSelectedLotIndex] = useState<number | null>(null);
+
+  // Multi-element selection for business analysis
+  const [businessSelection, setBusinessSelection] = useState<BusinessSelection>({
+    lotIndices: [],
+    structuralStreetFids: [],
+    greenAreaFids: [],
+  });
+
+  // Street drawing state
+  const [drawState, setDrawState] = useState(createEmptyDrawState);
+
+  // Phasing / etapamiento state
+  const [phasing, setPhasing] = useState<PhasingState>(createEmptyPhasingState);
+  const phasingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Pre-fetch infrastructure area data at app level so it's ready for all panels
+  const [vialAreaMap, setVialAreaMap] = useState<Record<number, number>>({});
+  const [greenAreaMap, setGreenAreaMap] = useState<Record<number, number>>({});
+  useEffect(() => {
+    fetch("/data/vial-nuevo.geojson").then(r => r.json()).then(data => {
+      const m: Record<number, number> = {};
+      for (const f of data.features) m[f.properties.fid] = f.properties.Area || 0;
+      setVialAreaMap(m);
+    });
+    fetch("/data/areas-verdes.geojson").then(r => r.json()).then(data => {
+      const m: Record<number, number> = {};
+      for (const f of data.features) m[f.properties.fid] = f.properties.Arae || f.properties.Area || 0;
+      setGreenAreaMap(m);
+    });
+  }, []);
+
+  const activeEntry = useMemo(
+    () => cabidaHistory.find((e) => e.id === activeCabidaId) ?? null,
+    [cabidaHistory, activeCabidaId],
+  );
+
+  const totalAreaHa = useMemo(() => {
+    return selectedMacrolotes.reduce((sum, m) => sum + (m.properties.Area || 0), 0) / 10000;
+  }, [selectedMacrolotes]);
+
+  // Determine which district(s) the selected macrolotes belong to
+  const activeDistricts = useMemo(() => {
+    const fids = selectedMacrolotes.map((m) => m.properties.fid);
+    return getDistrictsForFids(fids);
+  }, [selectedMacrolotes]);
+
+  // Check if anything is selected for business analysis
+  const hasBusinessSelection = useMemo(() => {
+    return businessSelection.lotIndices.length > 0 ||
+           businessSelection.structuralStreetFids.length > 0 ||
+           businessSelection.greenAreaFids.length > 0;
+  }, [businessSelection]);
+
+  // Infrastructure selected without an active cabida — show cost panel
+  const hasInfraOnly = useMemo(() => {
+    return !activeEntry && (
+      businessSelection.structuralStreetFids.length > 0 ||
+      businessSelection.greenAreaFids.length > 0
+    );
+  }, [activeEntry, businessSelection]);
+
+  // Accumulated metrics across all cabida iterations
+  const accumulatedMetrics = useMemo(() => {
+    if (cabidaHistory.length === 0) return null;
+    let totalLots = 0;
+    let totalUnits = 0;
+    let totalValueUF = 0;
+    const unitsByProduct: Record<string, number> = {};
+    const valueByProduct: Record<string, number> = {};
+
+    for (const entry of cabidaHistory) {
+      const m = entry.result.metrics;
+      totalLots += m.totalLots;
+      totalUnits += m.totalUnits;
+      totalValueUF += m.totalValueUF;
+      for (const [pid, units] of Object.entries(m.unitsByProduct)) {
+        unitsByProduct[pid] = (unitsByProduct[pid] || 0) + units;
+      }
+      for (const [pid, val] of Object.entries(m.valueByProduct)) {
+        valueByProduct[pid] = (valueByProduct[pid] || 0) + val;
+      }
+    }
+    return { totalLots, totalUnits, totalValueUF, unitsByProduct, valueByProduct, iterations: cabidaHistory.length };
+  }, [cabidaHistory]);
+
+  /** Select macrolotes — supports Shift+Click for multi-select */
+  const handleSelect = useCallback((feature: MacroloteFeature | null, shiftKey?: boolean) => {
+    if (!feature) {
+      if (!shiftKey) {
+        setSelectedMacrolotes([]);
+        setSelectedLotIndex(null);
+        setBusinessSelection({ lotIndices: [], structuralStreetFids: [], greenAreaFids: [] });
+      }
+      return;
+    }
+
+    if (shiftKey) {
+      // Shift+click: toggle this macrolote in/out — only clear lot indices, preserve infra selection
+      setSelectedLotIndex(null);
+      setBusinessSelection((prev) => ({ ...prev, lotIndices: [] }));
+      setSelectedMacrolotes((prev) => {
+        const exists = prev.find((m) => m.properties.fid === feature.properties.fid);
+        if (exists) return prev.filter((m) => m.properties.fid !== feature.properties.fid);
+        return [...prev, feature];
+      });
+    } else {
+      // Normal click: select only this macrolote — only clear lot indices, preserve infra selection
+      setSelectedLotIndex(null);
+      setBusinessSelection((prev) => ({ ...prev, lotIndices: [] }));
+      setSelectedMacrolotes([feature]);
+    }
+  }, []);
+
+  /** Box-select: select macrolotes + infrastructure at once.
+   *  - With Shift: always accumulate (add to existing selection)
+   *  - Without Shift: replace macrolotes (if any captured), accumulate infra
+   *  - If box captured no macrolotes, don't touch macrolote selection */
+  const handleBoxSelect = useCallback(
+    (macrolotes: MacroloteFeature[], streetFids: number[], greenFids: number[], shiftKey: boolean) => {
+      setSelectedLotIndex(null);
+
+      // Macrolotes: replace or accumulate
+      if (macrolotes.length > 0) {
+        if (shiftKey) {
+          setSelectedMacrolotes((prev) => {
+            const existingFids = new Set(prev.map((m) => m.properties.fid));
+            const newOnes = macrolotes.filter((f) => !existingFids.has(f.properties.fid));
+            return [...prev, ...newOnes];
+          });
+        } else {
+          setSelectedMacrolotes(macrolotes);
+        }
+      }
+
+      // Infrastructure: always accumulate (add to existing)
+      if (streetFids.length > 0 || greenFids.length > 0) {
+        setBusinessSelection((prev) => ({
+          lotIndices: [],
+          structuralStreetFids: [...new Set([...prev.structuralStreetFids, ...streetFids])],
+          greenAreaFids: [...new Set([...prev.greenAreaFids, ...greenFids])],
+        }));
+      }
+    },
+    [],
+  );
+
+  // Update activeCabidaId when selection changes
+  const currentSelectionId = useMemo(
+    () => makeCabidaId(selectedMacrolotes.map((m) => m.properties.fid)),
+    [selectedMacrolotes],
+  );
+  const hasExistingCabida = useMemo(
+    () => cabidaHistory.some((e) => e.id === currentSelectionId),
+    [cabidaHistory, currentSelectionId],
+  );
+
+  /** Click on a lot — toggle in business selection */
+  const handleLotClick = useCallback((lotIndex: number, cabidaId?: string) => {
+    if (cabidaId) setActiveCabidaId(cabidaId);
+    setSelectedLotIndex(lotIndex);
+
+    // Also add/toggle in business selection
+    setBusinessSelection((prev) => {
+      const exists = prev.lotIndices.includes(lotIndex);
+      return {
+        ...prev,
+        lotIndices: exists
+          ? prev.lotIndices.filter((i) => i !== lotIndex)
+          : [...prev.lotIndices, lotIndex],
+      };
+    });
+  }, []);
+
+  /** Click on a structural road — toggle fid in business selection */
+  const handleStructuralStreetClick = useCallback((fid: number, areaM2: number) => {
+    setBusinessSelection((prev) => {
+      const exists = prev.structuralStreetFids.includes(fid);
+      return {
+        ...prev,
+        structuralStreetFids: exists
+          ? prev.structuralStreetFids.filter((f) => f !== fid)
+          : [...prev.structuralStreetFids, fid],
+      };
+    });
+  }, []);
+
+  /** Click on a central green area — toggle fid in business selection */
+  const handleGreenAreaClick = useCallback((fid: number, areaM2: number) => {
+    setBusinessSelection((prev) => {
+      const exists = prev.greenAreaFids.includes(fid);
+      return {
+        ...prev,
+        greenAreaFids: exists
+          ? prev.greenAreaFids.filter((f) => f !== fid)
+          : [...prev.greenAreaFids, fid],
+      };
+    });
+  }, []);
+
+  /** Clear business selection */
+  const handleClearBusinessSelection = useCallback(() => {
+    setBusinessSelection({ lotIndices: [], structuralStreetFids: [], greenAreaFids: [] });
+    setSelectedLotIndex(null);
+  }, []);
+
+  const handleChangeProduct = useCallback((lotIndex: number, newProductId: string) => {
+    if (!activeCabidaId) return;
+    const product = PRODUCTS.find((p) => p.id === newProductId);
+    if (!product) return;
+
+    setCabidaHistory((prev) =>
+      prev.map((entry) => {
+        if (entry.id !== activeCabidaId) return entry;
+
+        const updatedLots = entry.result.lots.map((lot, i) => {
+          if (i !== lotIndex) return lot;
+          const newUnits = product.efficiency > 0 ? Math.round((lot.areaM2 / 10000) * product.efficiency) : 0;
+          return { ...lot, product: newProductId, units: newUnits };
+        });
+
+        const totalLots = updatedLots.length;
+        const totalUnits = updatedLots.reduce((s, l) => s + l.units, 0);
+        const unitsByProduct: Record<string, number> = {};
+        updatedLots.forEach((l) => {
+          unitsByProduct[l.product] = (unitsByProduct[l.product] || 0) + l.units;
+        });
+        const totalLotArea = updatedLots.reduce((s, l) => s + l.areaM2, 0);
+        const totalArea = totalLotArea + entry.result.metrics.streetAreaM2 + entry.result.metrics.parkAreaM2;
+        const efficiencyPct = Math.round((totalLotArea / totalArea) * 100);
+        const densityPerHa = Math.round(totalUnits / (totalArea / 10000));
+
+        return {
+          ...entry,
+          result: {
+            ...entry.result,
+            lots: updatedLots,
+            metrics: { ...entry.result.metrics, totalLots, totalUnits, unitsByProduct, efficiencyPct, densityPerHa },
+          },
+        };
+      }),
+    );
+  }, [activeCabidaId]);
+
+  // ── Street drawing handlers ──────────────────────────────────
+  const handleToggleDraw = useCallback(() => {
+    setDrawState((prev) => ({
+      ...prev,
+      isDrawing: !prev.isDrawing,
+      activeVertices: [], // reset active line when toggling
+    }));
+  }, []);
+
+  const handleDrawClick = useCallback((lngLat: [number, number]) => {
+    setDrawState((prev) => ({
+      ...prev,
+      activeVertices: [...prev.activeVertices, lngLat],
+    }));
+  }, []);
+
+  const handleFinishLine = useCallback(() => {
+    setDrawState((prev) => {
+      if (prev.activeVertices.length < 2) return prev;
+      const newStreet: DrawnStreet = {
+        id: nextStreetId(),
+        coordinates: prev.activeVertices,
+        widthM: 12,
+      };
+      return {
+        ...prev,
+        streets: [...prev.streets, newStreet],
+        activeVertices: [],
+        // Stay in drawing mode so user can draw more streets
+      };
+    });
+  }, []);
+
+  const handleDrawDoubleClick = useCallback(() => {
+    // Double-click adds a point AND finishes — we need to finish with current vertices
+    setDrawState((prev) => {
+      if (prev.activeVertices.length < 2) return prev;
+      const newStreet: DrawnStreet = {
+        id: nextStreetId(),
+        coordinates: prev.activeVertices,
+        widthM: 12,
+      };
+      return {
+        ...prev,
+        streets: [...prev.streets, newStreet],
+        activeVertices: [],
+      };
+    });
+  }, []);
+
+  const handleUndoVertex = useCallback(() => {
+    setDrawState((prev) => ({
+      ...prev,
+      activeVertices: prev.activeVertices.slice(0, -1),
+    }));
+  }, []);
+
+  const handleDeleteStreet = useCallback((id: string) => {
+    setDrawState((prev) => ({
+      ...prev,
+      streets: prev.streets.filter((s) => s.id !== id),
+    }));
+  }, []);
+
+  const handleClearAllStreets = useCallback(() => {
+    setDrawState((prev) => ({
+      ...prev,
+      streets: [],
+      activeVertices: [],
+    }));
+  }, []);
+
+  // ── Phasing handlers ─────────────────────────────────────────
+  const handleTogglePhasing = useCallback(() => {
+    setPhasing((prev) => {
+      if (prev.isActive) {
+        // Deactivate: stop timer, reset
+        if (phasingTimerRef.current) clearInterval(phasingTimerRef.current);
+        phasingTimerRef.current = null;
+        return createEmptyPhasingState();
+      }
+      // Activate: merge all cabida entries with district info
+      const merged = cabidaHistory.length > 0 ? mergeCabidas(cabidaHistory) : null;
+      return { ...createEmptyPhasingState(), isActive: true, mergedData: merged };
+    });
+  }, [cabidaHistory]);
+
+  /** Toggle an internal cabida street in phasing selection (click = add/remove) */
+  const handlePhasingStreetToggle = useCallback((streetIndex: number) => {
+    setPhasing((prev) => ({
+      ...prev,
+      selectedStreetIndices: prev.selectedStreetIndices.includes(streetIndex)
+        ? prev.selectedStreetIndices.filter((i) => i !== streetIndex)
+        : [...prev.selectedStreetIndices, streetIndex],
+    }));
+  }, []);
+
+  /** Toggle a structural road in phasing selection (click = add/remove) */
+  const handlePhasingStructuralToggle = useCallback((fid: number, geometry: GeoJSON.Geometry) => {
+    setPhasing((prev) => {
+      const exists = prev.selectedStructuralFids.includes(fid);
+      if (exists) {
+        const idx = prev.selectedStructuralFids.indexOf(fid);
+        return {
+          ...prev,
+          selectedStructuralFids: prev.selectedStructuralFids.filter((f) => f !== fid),
+          structuralGeometries: prev.structuralGeometries.filter((_, i) => i !== idx),
+        };
+      }
+      return {
+        ...prev,
+        selectedStructuralFids: [...prev.selectedStructuralFids, fid],
+        structuralGeometries: [...prev.structuralGeometries, geometry],
+      };
+    });
+  }, []);
+
+  const handleComputePhasing = useCallback(() => {
+    setPhasing((prev) => {
+      if (!prev.mergedData) return prev;
+      const waves = computeWaves(prev.mergedData, prev.selectedStreetIndices, prev.structuralGeometries);
+      const timeline = buildTimeline(prev.mergedData, waves);
+      const { streetWaves, parkWaves } = computeElementWaveAssignments(prev.mergedData, waves);
+      // Start paused at wave 0 so user sees the first phase and controls playback
+      return { ...prev, waves, timeline, currentWave: 0, isPlaying: false, streetWaveMap: streetWaves, parkWaveMap: parkWaves };
+    });
+  }, []);
+
+  const handlePhasingPlay = useCallback(() => {
+    setPhasing((prev) => ({ ...prev, isPlaying: true }));
+  }, []);
+
+  const handlePhasingPause = useCallback(() => {
+    setPhasing((prev) => ({ ...prev, isPlaying: false }));
+    if (phasingTimerRef.current) {
+      clearInterval(phasingTimerRef.current);
+      phasingTimerRef.current = null;
+    }
+  }, []);
+
+  const handlePhasingReset = useCallback(() => {
+    if (phasingTimerRef.current) {
+      clearInterval(phasingTimerRef.current);
+      phasingTimerRef.current = null;
+    }
+    setPhasing((prev) => ({
+      ...prev,
+      waves: [],
+      timeline: [],
+      currentWave: -1,
+      isPlaying: false,
+      selectedStreetIndices: [],
+      selectedStructuralFids: [],
+      structuralGeometries: [],
+      streetWaveMap: {},
+      parkWaveMap: {},
+    }));
+  }, []);
+
+  const handlePhasingSetSpeed = useCallback((speed: number) => {
+    setPhasing((prev) => ({ ...prev, speed }));
+  }, []);
+
+  const handlePhasingSetWave = useCallback((wave: number) => {
+    setPhasing((prev) => ({ ...prev, currentWave: wave, isPlaying: false }));
+    if (phasingTimerRef.current) {
+      clearInterval(phasingTimerRef.current);
+      phasingTimerRef.current = null;
+    }
+  }, []);
+
+  // Phasing playback timer
+  useEffect(() => {
+    if (phasing.isPlaying && phasing.waves.length > 0) {
+      if (phasingTimerRef.current) clearInterval(phasingTimerRef.current);
+      const interval = 2000 / phasing.speed; // 2s per wave at 1x
+      phasingTimerRef.current = setInterval(() => {
+        setPhasing((prev) => {
+          const nextWave = prev.currentWave + 1;
+          if (nextWave >= prev.waves.length) {
+            // Animation complete
+            if (phasingTimerRef.current) clearInterval(phasingTimerRef.current);
+            phasingTimerRef.current = null;
+            return { ...prev, currentWave: prev.waves.length - 1, isPlaying: false };
+          }
+          return { ...prev, currentWave: nextWave };
+        });
+      }, interval);
+      // Start the first wave immediately if not started
+      if (phasing.currentWave < 0) {
+        setPhasing((prev) => ({ ...prev, currentWave: 0 }));
+      }
+    }
+    return () => {
+      if (phasingTimerRef.current && !phasing.isPlaying) {
+        clearInterval(phasingTimerRef.current);
+        phasingTimerRef.current = null;
+      }
+    };
+  }, [phasing.isPlaying, phasing.speed, phasing.waves.length]);
+
+  // Visible lot indices for phasing animation
+  const phasingVisibleLots = useMemo(() => {
+    if (!phasing.isActive || phasing.waves.length === 0 || phasing.currentWave < 0) return null;
+    const visible = new Set<number>();
+    for (let w = 0; w <= phasing.currentWave && w < phasing.waves.length; w++) {
+      for (const li of phasing.waves[w]) visible.add(li);
+    }
+    return visible;
+  }, [phasing.isActive, phasing.waves, phasing.currentWave]);
+
+  // Current wave lot indices (for highlight)
+  const phasingCurrentWaveLots = useMemo(() => {
+    if (!phasing.isActive || phasing.waves.length === 0 || phasing.currentWave < 0) return null;
+    return new Set(phasing.waves[phasing.currentWave] ?? []);
+  }, [phasing.isActive, phasing.waves, phasing.currentWave]);
+
+  // Visible street indices for phasing — streets light up at their assigned wave
+  const phasingVisibleStreets = useMemo(() => {
+    if (!phasing.isActive || phasing.waves.length === 0 || phasing.currentWave < 0) return null;
+    const visible = new Set<number>();
+    for (const [idx, w] of Object.entries(phasing.streetWaveMap)) {
+      if (w <= phasing.currentWave) visible.add(Number(idx));
+    }
+    return visible;
+  }, [phasing.isActive, phasing.waves, phasing.currentWave, phasing.streetWaveMap]);
+
+  // Visible park indices for phasing — parks light up at their assigned wave
+  const phasingVisibleParks = useMemo(() => {
+    if (!phasing.isActive || phasing.waves.length === 0 || phasing.currentWave < 0) return null;
+    const visible = new Set<number>();
+    for (const [idx, w] of Object.entries(phasing.parkWaveMap)) {
+      if (w <= phasing.currentWave) visible.add(Number(idx));
+    }
+    return visible;
+  }, [phasing.isActive, phasing.waves, phasing.currentWave, phasing.parkWaveMap]);
+
+  // Keyboard shortcuts for draw mode
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (!drawState.isDrawing) return;
+      if (e.key === "Enter") {
+        handleFinishLine();
+      } else if (e.key === "Escape") {
+        setDrawState((prev) => ({ ...prev, activeVertices: [], isDrawing: false }));
+      } else if ((e.key === "z" || e.key === "Z") && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        handleUndoVertex();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [drawState.isDrawing, handleFinishLine, handleUndoVertex]);
+
+  const handleGenerate = useCallback(async (allocations: ProductAllocation[]) => {
+    if (selectedMacrolotes.length === 0) return;
+    setIsGenerating(true);
+    setGenerateError(null);
+
+    try {
+      const fids = selectedMacrolotes.map((m) => m.properties.fid);
+      const cabidaId = makeCabidaId(fids);
+
+      // Calculate max housing units from district constraints
+      const maxViv = activeDistricts.length > 0
+        ? activeDistricts.reduce((sum, d) => sum + d.maxViviendas, 0)
+        : null;
+
+      console.log("[Cabida] Generating with", drawState.streets.length, "custom streets",
+        drawState.streets.map(s => ({ pts: s.coordinates.length, w: s.widthM })));
+
+      const res = await fetch(`${API_URL}/subdivide`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          macrolote_fids: fids,
+          product_allocations: allocations.map((a) => ({
+            family_id: a.familyId,
+            product_id: a.productId,
+            percentage: a.percentage,
+            ...(a.lotSizeM2 ? { lot_size_m2: a.lotSizeM2 } : {}),
+          })),
+          ...(maxViv !== null ? { max_viviendas: maxViv } : {}),
+          ...(drawState.streets.length > 0 ? {
+            custom_streets: drawState.streets.map((s) => ({
+              coordinates: s.coordinates,
+              width_m: s.widthM,
+            })),
+          } : {}),
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: "Error desconocido del servidor" }));
+        console.error("Subdivision error:", err);
+        setGenerateError(err.detail || "Error al generar cabida");
+        return;
+      }
+
+      const data = await res.json();
+      const result: SubdivisionResult = {
+        streets: data.streets.map((s: Record<string, unknown>) => ({
+          geometry: s.geometry,
+          areaM2: s.area_m2 as number,
+        })),
+        lots: data.lots.map((l: Record<string, unknown>) => ({
+          geometry: l.geometry,
+          product: l.product,
+          areaM2: l.area_m2,
+          units: l.units,
+          frontageM: l.frontage_m,
+        })),
+        parks: data.parks.map((p: Record<string, unknown>) => ({
+          geometry: p.geometry,
+          areaM2: p.area_m2 as number,
+        })),
+        metrics: {
+          totalLots: data.metrics.total_lots,
+          totalUnits: data.metrics.total_units,
+          unitsByProduct: data.metrics.units_by_product,
+          streetAreaM2: data.metrics.street_area_m2,
+          parkAreaM2: data.metrics.park_area_m2,
+          efficiencyPct: data.metrics.efficiency_pct,
+          densityPerHa: data.metrics.density_per_ha,
+          totalValueUF: data.metrics.total_value_uf || 0,
+          valueByProduct: data.metrics.value_by_product || {},
+          streetCostUF: data.metrics.street_cost_uf || 0,
+          greenCostUF: data.metrics.green_cost_uf || 0,
+          landCostUF: data.metrics.land_cost_uf || 0,
+          totalCostUF: data.metrics.total_cost_uf || 0,
+          netValueUF: data.metrics.net_value_uf || 0,
+          macroAreaM2: data.metrics.macro_area_m2 || 0,
+        },
+      };
+
+      const newEntry: CabidaEntry = { id: cabidaId, fids, result };
+
+      // Append or replace: keep cabidas for OTHER macrolotes, only
+      // replace the one for the same FIDs. This way iterating across
+      // different lots accumulates results in the history.
+      setCabidaHistory((prev) => {
+        const filtered = prev.filter((e) => e.id !== cabidaId);
+        return [...filtered, newEntry];
+      });
+      setActiveCabidaId(cabidaId);
+      setSelectedLotIndex(null);
+      // Keep structural infra selections — only clear lot indices
+      setBusinessSelection((prev) => ({ ...prev, lotIndices: [] }));
+      // Clear drawn streets after generation — they're now part of the cabida result (gray)
+      if (drawState.streets.length > 0) {
+        setDrawState(createEmptyDrawState());
+      }
+    } catch (err) {
+      console.error("Failed to call subdivision API:", err);
+      setGenerateError("No se pudo conectar al servidor");
+    } finally {
+      setIsGenerating(false);
+    }
+  }, [selectedMacrolotes, drawState.streets, activeDistricts]);
+
+  const handleRemoveCabida = useCallback((cabidaId: string) => {
+    setCabidaHistory((prev) => prev.filter((e) => e.id !== cabidaId));
+    if (activeCabidaId === cabidaId) {
+      setActiveCabidaId(null);
+      setSelectedLotIndex(null);
+      setBusinessSelection({ lotIndices: [], structuralStreetFids: [], greenAreaFids: [] });
+    }
+  }, [activeCabidaId]);
+
+  const handleClearAll = useCallback(() => {
+    setCabidaHistory([]);
+    setActiveCabidaId(null);
+    setSelectedLotIndex(null);
+    setBusinessSelection({ lotIndices: [], structuralStreetFids: [], greenAreaFids: [] });
+  }, []);
+
+  /** Save current cabida and free the panel for a new macrolote selection */
+  const handleSaveCabida = useCallback(() => {
+    // The cabida is already in history — just deselect macrolotes to free the panel
+    setSelectedMacrolotes([]);
+    setActiveCabidaId(null);
+    setSelectedLotIndex(null);
+    setBusinessSelection({ lotIndices: [], structuralStreetFids: [], greenAreaFids: [] });
+  }, []);
+
+  const fidsLabel = selectedMacrolotes.map((m) => m.properties.fid).join(", ");
+
+  return (
+    <div className="flex h-screen bg-zinc-950">
+      {/* Left panel — Business Report (when cabida exists) OR Infra Cost (when only infra selected) */}
+      {activeEntry ? (
+        <div className="w-80 border-r border-zinc-800 flex-shrink-0">
+          <BusinessReportPanel
+            result={activeEntry.result}
+            fidsLabel={fidsLabel}
+            totalAreaHa={totalAreaHa}
+            selection={businessSelection}
+            vialAreaMap={vialAreaMap}
+            greenAreaMap={greenAreaMap}
+            onClear={handleClearBusinessSelection}
+          />
+        </div>
+      ) : hasInfraOnly ? (
+        <div className="w-72 border-r border-zinc-800 flex-shrink-0">
+          <InfraCostPanel
+            selection={businessSelection}
+            vialAreaMap={vialAreaMap}
+            greenAreaMap={greenAreaMap}
+            onClear={handleClearBusinessSelection}
+          />
+        </div>
+      ) : null}
+
+      {/* Map */}
+      <div className="flex-1 relative">
+        {isGenerating && <CabidaLoader />}
+
+        {/* Phasing: floating instruction banner over map — with INICIAR button */}
+        {phasing.isActive && phasing.waves.length === 0 && (
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center gap-3">
+            <div className="bg-zinc-900/95 border border-yellow-500 text-yellow-100 px-5 py-3 rounded-xl shadow-2xl shadow-yellow-900/40 text-sm flex items-center gap-3">
+              <svg className="w-5 h-5 text-yellow-400 flex-shrink-0 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122" />
+              </svg>
+              <span>
+                <strong>Click en calles internas o vialidades estructurales</strong> <span className="text-yellow-400">(se marcan en amarillo)</span>
+                {(phasing.selectedStreetIndices.length + phasing.selectedStructuralFids.length) > 0 && (
+                  <span className="ml-2 bg-yellow-700 px-2 py-0.5 rounded font-mono text-yellow-100">
+                    {phasing.selectedStreetIndices.length + phasing.selectedStructuralFids.length} calle{(phasing.selectedStreetIndices.length + phasing.selectedStructuralFids.length) > 1 ? "s" : ""}
+                  </span>
+                )}
+              </span>
+              <button
+                onClick={handleTogglePhasing}
+                className="ml-2 text-yellow-300 hover:text-white text-xs underline flex-shrink-0"
+              >
+                Cancelar
+              </button>
+            </div>
+            {(phasing.selectedStreetIndices.length + phasing.selectedStructuralFids.length) > 0 && (
+              <button
+                onClick={handleComputePhasing}
+                className="px-8 py-4 rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white text-lg font-black transition-all shadow-2xl shadow-indigo-600/60 flex items-center gap-3 border-2 border-indigo-400 animate-pulse"
+              >
+                <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8.132v3.736a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664l-3.197-2.132z" clipRule="evenodd" />
+                </svg>
+                INICIAR ETAPAMIENTO
+              </button>
+            )}
+          </div>
+        )}
+
+        {generateError && (
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 bg-red-900/90 border border-red-500 text-red-100 px-4 py-3 rounded-lg shadow-lg max-w-md text-sm flex items-center gap-3">
+            <span className="text-red-400 text-lg">⚠</span>
+            <span className="flex-1">{generateError}</span>
+            <button
+              onClick={() => setGenerateError(null)}
+              className="text-red-400 hover:text-red-200 font-bold"
+            >
+              ✕
+            </button>
+          </div>
+        )}
+        <MasterplanMap
+          onMacroloteSelect={handleSelect}
+          onBoxSelect={handleBoxSelect}
+          selectedMacrolotes={selectedMacrolotes}
+          cabidaHistory={cabidaHistory}
+          activeCabidaId={activeCabidaId}
+          onLotClick={handleLotClick}
+          onStructuralStreetClick={handleStructuralStreetClick}
+          onGreenAreaClick={handleGreenAreaClick}
+          selectedLotIndex={selectedLotIndex}
+          businessSelection={businessSelection}
+          drawMode={drawState.isDrawing}
+          drawnStreets={drawState.streets}
+          activeVertices={drawState.activeVertices}
+          onDrawClick={handleDrawClick}
+          onDrawDoubleClick={handleDrawDoubleClick}
+          phasingMode={phasing.isActive}
+          phasingVisibleLots={phasingVisibleLots}
+          phasingCurrentWaveLots={phasingCurrentWaveLots}
+          phasingVisibleStreets={phasingVisibleStreets}
+          phasingVisibleParks={phasingVisibleParks}
+          phasingSelectedStreets={phasing.isActive ? phasing.selectedStreetIndices : null}
+          phasingSelectedStructuralFids={phasing.isActive ? phasing.selectedStructuralFids : null}
+          phasingSelectingStreets={phasing.isActive && phasing.waves.length === 0}
+          onPhasingStreetToggle={handlePhasingStreetToggle}
+          onPhasingStructuralToggle={handlePhasingStructuralToggle}
+        />
+        <div className="absolute top-4 left-4 z-10">
+          <div className="flex items-center gap-3 mb-1">
+            <a
+              href="/"
+              className="flex items-center gap-1.5 text-zinc-500 hover:text-white text-xs transition-colors bg-zinc-900/70 backdrop-blur px-2 py-1 rounded-md border border-zinc-800 hover:border-zinc-600"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
+              </svg>
+              Modela
+            </a>
+            <h1 className="text-xl font-bold text-white tracking-tight">
+              Cabidas Automaticas
+            </h1>
+          </div>
+          <p className="text-sm text-zinc-400">
+            {selectedMacrolotes.length > 0
+              ? `Lotes ${fidsLabel} — ${totalAreaHa.toFixed(1)} ha`
+              : "Click en un macrolote · Shift+Click para multi-selección"}
+          </p>
+        </div>
+
+        {/* Phasing timeline bar (bottom of map) */}
+        {phasing.isActive && phasing.timeline.length > 0 && (
+          <PhasingTimeline
+            timeline={phasing.timeline}
+            currentWave={phasing.currentWave}
+            onSetWave={handlePhasingSetWave}
+          />
+        )}
+
+        {/* Phasing floating playback controls (top of map) */}
+        {phasing.isActive && phasing.waves.length > 0 && (
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 bg-zinc-900/95 backdrop-blur border border-indigo-500 rounded-xl px-5 py-3 shadow-2xl">
+            {/* Year display */}
+            <div className="text-center mr-2">
+              <div className="text-white text-2xl font-bold font-mono leading-none">
+                {phasing.timeline[phasing.currentWave]?.year ?? "—"}
+              </div>
+              <div className="text-indigo-400 text-[10px] font-medium">
+                Fase {phasing.currentWave + 1}/{phasing.waves.length}
+              </div>
+            </div>
+
+            {/* Step back */}
+            <button
+              onClick={() => handlePhasingSetWave(Math.max(0, phasing.currentWave - 1))}
+              disabled={phasing.currentWave <= 0}
+              className="w-9 h-9 rounded-lg bg-zinc-800 hover:bg-zinc-700 disabled:opacity-30 disabled:cursor-not-allowed text-white flex items-center justify-center transition-colors"
+              title="Fase anterior"
+            >
+              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z"/></svg>
+            </button>
+
+            {/* Play/Pause */}
+            {phasing.isPlaying ? (
+              <button
+                onClick={handlePhasingPause}
+                className="w-12 h-12 rounded-full bg-amber-600 hover:bg-amber-500 text-white flex items-center justify-center transition-colors shadow-lg"
+                title="Pausar"
+              >
+                <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd"/></svg>
+              </button>
+            ) : (
+              <button
+                onClick={handlePhasingPlay}
+                disabled={phasing.currentWave >= phasing.waves.length - 1}
+                className="w-12 h-12 rounded-full bg-indigo-600 hover:bg-indigo-500 disabled:bg-emerald-700 text-white flex items-center justify-center transition-colors shadow-lg"
+                title={phasing.currentWave >= phasing.waves.length - 1 ? "Completo" : "Reproducir"}
+              >
+                {phasing.currentWave >= phasing.waves.length - 1 ? (
+                  <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/></svg>
+                ) : (
+                  <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8.132v3.736a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664l-3.197-2.132z" clipRule="evenodd"/></svg>
+                )}
+              </button>
+            )}
+
+            {/* Step forward */}
+            <button
+              onClick={() => handlePhasingSetWave(Math.min(phasing.waves.length - 1, phasing.currentWave + 1))}
+              disabled={phasing.currentWave >= phasing.waves.length - 1}
+              className="w-9 h-9 rounded-lg bg-zinc-800 hover:bg-zinc-700 disabled:opacity-30 disabled:cursor-not-allowed text-white flex items-center justify-center transition-colors"
+              title="Fase siguiente"
+            >
+              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"/></svg>
+            </button>
+
+            {/* Speed buttons */}
+            <div className="flex items-center gap-1 ml-2 border-l border-zinc-700 pl-3">
+              {[1, 2, 4].map((s) => (
+                <button
+                  key={s}
+                  onClick={() => handlePhasingSetSpeed(s)}
+                  className={`w-8 h-7 rounded text-[11px] font-bold transition-colors ${
+                    phasing.speed === s ? "bg-indigo-600 text-white" : "bg-zinc-800 text-zinc-500 hover:bg-zinc-700"
+                  }`}
+                >
+                  {s}x
+                </button>
+              ))}
+            </div>
+
+            {/* Reset / Exit */}
+            <div className="flex items-center gap-1 ml-2 border-l border-zinc-700 pl-3">
+              <button
+                onClick={handlePhasingReset}
+                className="px-3 h-8 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-400 text-xs transition-colors"
+                title="Volver a seleccionar calles"
+              >
+                Reiniciar
+              </button>
+              <button
+                onClick={handleTogglePhasing}
+                className="px-3 h-8 rounded-lg bg-zinc-800 hover:bg-red-900 text-zinc-400 hover:text-red-300 text-xs transition-colors"
+                title="Salir de etapamiento"
+              >
+                Salir
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Accumulated badge */}
+        {accumulatedMetrics && accumulatedMetrics.iterations > 0 && !phasing.isActive && (
+          <div className="absolute bottom-8 left-4 z-10 bg-zinc-900/90 backdrop-blur border border-zinc-700 rounded-lg px-4 py-3 text-sm">
+            <div className="text-zinc-400 font-medium mb-1">
+              {accumulatedMetrics.iterations} iteracion{accumulatedMetrics.iterations > 1 ? "es" : ""}
+            </div>
+            <div className="text-white font-bold">
+              {accumulatedMetrics.totalLots} lotes · {accumulatedMetrics.totalUnits.toLocaleString()} viv
+            </div>
+            <div className="text-emerald-400 text-xs">
+              {Math.round(accumulatedMetrics.totalValueUF).toLocaleString()} UF total
+            </div>
+            {accumulatedMetrics.iterations > 1 && (
+              <button
+                onClick={handleClearAll}
+                className="mt-2 text-xs text-red-400 hover:text-red-300 transition-colors"
+              >
+                Limpiar todo
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Right sidebar — config & metrics
+           Show when: macrolotes selected, OR phasing is active, OR there's an active cabida entry */}
+      {(selectedMacrolotes.length > 0 || (cabidaHistory.length > 0 && (phasing.isActive || activeCabidaId))) && (
+        <div className="w-96 bg-zinc-900 border-l border-zinc-800 p-4 overflow-y-auto flex flex-col gap-6">
+          {/* Phasing / Etapamiento — ALWAYS ON TOP when active, so it's never hidden by scroll */}
+          {cabidaHistory.length > 0 && phasing.isActive && (
+            <PhasingPanel
+              phasing={phasing}
+              onTogglePhasing={handleTogglePhasing}
+              onCompute={handleComputePhasing}
+              onPlay={handlePhasingPlay}
+              onPause={handlePhasingPause}
+              onReset={handlePhasingReset}
+              onSetSpeed={handlePhasingSetSpeed}
+              onSetWave={handlePhasingSetWave}
+            />
+          )}
+
+          {/* Macrolote selection section — only when macrolotes selected */}
+          {selectedMacrolotes.length > 0 && (
+            <>
+              <MacrolotePanel
+                macrolotes={selectedMacrolotes}
+                onClose={() => { setSelectedMacrolotes([]); setSelectedLotIndex(null); setBusinessSelection({ lotIndices: [], structuralStreetFids: [], greenAreaFids: [] }); }}
+              />
+
+              {/* Street drawing tool — always visible when macrolotes selected */}
+              <StreetDrawPanel
+                isDrawing={drawState.isDrawing}
+                streets={drawState.streets}
+                activeVertexCount={drawState.activeVertices.length}
+                onToggleDraw={handleToggleDraw}
+                onFinishLine={handleFinishLine}
+                onDeleteStreet={handleDeleteStreet}
+                onClearAll={handleClearAllStreets}
+                onUndo={handleUndoVertex}
+              />
+
+              {activeEntry ? (
+                <>
+                  <MetricsPanel
+                    result={activeEntry.result}
+                    label={`Cabida: Lotes ${activeEntry.fids.join(", ")}`}
+                    onReset={() => handleRemoveCabida(activeEntry.id)}
+                  />
+
+                  {/* Save button — frees panel for next macrolote */}
+                  <button
+                    onClick={handleSaveCabida}
+                    className="w-full py-2.5 px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-sm transition-colors flex items-center justify-center gap-2"
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    Guardar Cabida
+                  </button>
+
+                  {selectedLotIndex !== null && activeEntry.result.lots[selectedLotIndex] && (
+                    <LotEditPanel
+                      lot={activeEntry.result.lots[selectedLotIndex]}
+                      lotIndex={selectedLotIndex}
+                      onChangeProduct={handleChangeProduct}
+                      onDeselect={() => setSelectedLotIndex(null)}
+                    />
+                  )}
+
+                  <details className="group border-t border-zinc-800 pt-2">
+                    <summary className="flex items-center justify-between cursor-pointer text-sm font-semibold text-zinc-400 hover:text-zinc-200 transition-colors py-2">
+                      <span>Modificar Mix de Productos</span>
+                      <svg className="w-4 h-4 transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </summary>
+                    <ProductMixForm
+                      areaHa={totalAreaHa}
+                      onGenerate={handleGenerate}
+                      isGenerating={isGenerating}
+                      districts={activeDistricts}
+                    />
+                  </details>
+
+                  <ExportPanel
+                    subdivision={activeEntry.result}
+                    macroloteFid={activeEntry.fids.join(", ")}
+                  />
+                </>
+              ) : (
+                <ProductMixForm
+                  areaHa={totalAreaHa}
+                  onGenerate={handleGenerate}
+                  isGenerating={isGenerating}
+                />
+              )}
+            </>
+          )}
+
+          {/* Phasing activation button — when NOT active yet */}
+          {cabidaHistory.length > 0 && !phasing.isActive && (
+            <PhasingPanel
+              phasing={phasing}
+              onTogglePhasing={handleTogglePhasing}
+              onCompute={handleComputePhasing}
+              onPlay={handlePhasingPlay}
+              onPause={handlePhasingPause}
+              onReset={handlePhasingReset}
+              onSetSpeed={handlePhasingSetSpeed}
+              onSetWave={handlePhasingSetWave}
+            />
+          )}
+
+          {cabidaHistory.length > 1 && (
+            <div className="border-t border-zinc-800 pt-4">
+              <h3 className="text-sm font-semibold text-zinc-300 mb-3">Historial de Cabidas</h3>
+              <div className="flex flex-col gap-2">
+                {cabidaHistory.map((entry) => (
+                  <button
+                    key={entry.id}
+                    onClick={() => { setActiveCabidaId(entry.id); setSelectedLotIndex(null); }}
+                    className={`flex items-center justify-between px-3 py-2 rounded-lg text-left text-sm transition-colors ${
+                      entry.id === activeCabidaId
+                        ? "bg-blue-600/20 border border-blue-500/50 text-white"
+                        : "bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-transparent"
+                    }`}
+                  >
+                    <div>
+                      <div className="font-medium">Lotes {entry.fids.join(", ")}</div>
+                      <div className="text-xs text-zinc-400">
+                        {entry.result.metrics.totalLots} lotes · {entry.result.metrics.totalUnits} viv · {Math.round(entry.result.metrics.totalValueUF).toLocaleString()} UF
+                      </div>
+                    </div>
+                    <span
+                      onClick={(e) => { e.stopPropagation(); handleRemoveCabida(entry.id); }}
+                      className="text-zinc-500 hover:text-red-400 ml-2 cursor-pointer"
+                    >
+                      ✕
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}

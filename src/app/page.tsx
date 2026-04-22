@@ -1,675 +1,298 @@
 "use client";
 
-import { useState, useCallback, useMemo, useEffect } from "react";
-import dynamic from "next/dynamic";
-import MacrolotePanel from "@/components/sidebar/MacrolotePanel";
-import ProductMixForm from "@/components/sidebar/ProductMixForm";
-import MetricsPanel from "@/components/sidebar/MetricsPanel";
-import LotEditPanel from "@/components/sidebar/LotEditPanel";
-import BusinessReportPanel from "@/components/sidebar/BusinessReportPanel";
-import ExportPanel from "@/components/sidebar/ExportPanel";
-import InfraCostPanel from "@/components/sidebar/InfraCostPanel";
-import CabidaLoader from "@/components/ui/CabidaLoader";
-import StreetDrawPanel from "@/components/sidebar/StreetDrawPanel";
-import { PRODUCTS, getDistrictsForFids } from "@/lib/constants";
-import { createEmptyDrawState, nextStreetId, type DrawnStreet } from "@/lib/street-draw-state";
-import type { MacroloteFeature, ProductAllocation, SubdivisionResult, CabidaEntry, BusinessSelection } from "@/lib/types";
+import { useState, useEffect } from "react";
+import { login, isAuthenticated, getUsername, logout } from "@/lib/auth";
 
-const MasterplanMap = dynamic(() => import("@/components/map/MasterplanMap"), {
-  ssr: false,
-  loading: () => (
-    <div className="w-full h-full flex items-center justify-center bg-zinc-900">
-      <p className="text-zinc-400">Cargando mapa...</p>
-    </div>
-  ),
-});
+export default function LandingPage() {
+  const [authed, setAuthed] = useState(false);
+  const [username, setUsername] = useState("");
+  const [checking, setChecking] = useState(true);
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+  // Check existing session
+  useEffect(() => {
+    const ok = isAuthenticated();
+    setAuthed(ok);
+    if (ok) setUsername(getUsername());
+    setChecking(false);
+  }, []);
 
-/** Build a stable key from an array of FIDs */
-function makeCabidaId(fids: string[]): string {
-  return [...fids].sort().join(",");
+  if (checking) {
+    return (
+      <div className="min-h-screen bg-[#1A1825] flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-amber-600 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (!authed) {
+    return <LoginScreen onSuccess={(name) => { setAuthed(true); setUsername(name); }} />;
+  }
+
+  return <AppSelector username={username} onLogout={() => { logout(); setAuthed(false); setUsername(""); }} />;
 }
 
-export default function Home() {
-  const [selectedMacrolotes, setSelectedMacrolotes] = useState<MacroloteFeature[]>([]);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [generateError, setGenerateError] = useState<string | null>(null);
+// ── Login Screen ──────────────────────────────────────────
 
-  // Persistent cabida results — each iteration stored independently
-  const [cabidaHistory, setCabidaHistory] = useState<CabidaEntry[]>([]);
-  // Which cabida entry is "active" for editing (the latest generated for current selection)
-  const [activeCabidaId, setActiveCabidaId] = useState<string | null>(null);
-  const [selectedLotIndex, setSelectedLotIndex] = useState<number | null>(null);
+function LoginScreen({ onSuccess }: { onSuccess: (name: string) => void }) {
+  const [user, setUser] = useState("");
+  const [pass, setPass] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [attempts, setAttempts] = useState(0);
+  const [locked, setLocked] = useState(false);
 
-  // Multi-element selection for business analysis
-  const [businessSelection, setBusinessSelection] = useState<BusinessSelection>({
-    lotIndices: [],
-    structuralStreetFids: [],
-    greenAreaFids: [],
-  });
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (locked || loading) return;
 
-  // Street drawing state
-  const [drawState, setDrawState] = useState(createEmptyDrawState);
+    setLoading(true);
+    setError("");
 
-  // Pre-fetch infrastructure area data at app level so it's ready for all panels
-  const [vialAreaMap, setVialAreaMap] = useState<Record<number, number>>({});
-  const [greenAreaMap, setGreenAreaMap] = useState<Record<number, number>>({});
-  useEffect(() => {
-    fetch("/data/vial-nuevo.geojson").then(r => r.json()).then(data => {
-      const m: Record<number, number> = {};
-      for (const f of data.features) m[f.properties.fid] = f.properties.Area || 0;
-      setVialAreaMap(m);
-    });
-    fetch("/data/areas-verdes.geojson").then(r => r.json()).then(data => {
-      const m: Record<number, number> = {};
-      for (const f of data.features) m[f.properties.fid] = f.properties.Arae || f.properties.Area || 0;
-      setGreenAreaMap(m);
-    });
-  }, []);
+    const result = await login(user, pass);
 
-  const activeEntry = useMemo(
-    () => cabidaHistory.find((e) => e.id === activeCabidaId) ?? null,
-    [cabidaHistory, activeCabidaId],
-  );
-
-  const totalAreaHa = useMemo(() => {
-    return selectedMacrolotes.reduce((sum, m) => sum + (m.properties.Area || 0), 0) / 10000;
-  }, [selectedMacrolotes]);
-
-  // Determine which district(s) the selected macrolotes belong to
-  const activeDistricts = useMemo(() => {
-    const fids = selectedMacrolotes.map((m) => m.properties.fid);
-    return getDistrictsForFids(fids);
-  }, [selectedMacrolotes]);
-
-  // Check if anything is selected for business analysis
-  const hasBusinessSelection = useMemo(() => {
-    return businessSelection.lotIndices.length > 0 ||
-           businessSelection.structuralStreetFids.length > 0 ||
-           businessSelection.greenAreaFids.length > 0;
-  }, [businessSelection]);
-
-  // Infrastructure selected without an active cabida — show cost panel
-  const hasInfraOnly = useMemo(() => {
-    return !activeEntry && (
-      businessSelection.structuralStreetFids.length > 0 ||
-      businessSelection.greenAreaFids.length > 0
-    );
-  }, [activeEntry, businessSelection]);
-
-  // Accumulated metrics across all cabida iterations
-  const accumulatedMetrics = useMemo(() => {
-    if (cabidaHistory.length === 0) return null;
-    let totalLots = 0;
-    let totalUnits = 0;
-    let totalValueUF = 0;
-    const unitsByProduct: Record<string, number> = {};
-    const valueByProduct: Record<string, number> = {};
-
-    for (const entry of cabidaHistory) {
-      const m = entry.result.metrics;
-      totalLots += m.totalLots;
-      totalUnits += m.totalUnits;
-      totalValueUF += m.totalValueUF;
-      for (const [pid, units] of Object.entries(m.unitsByProduct)) {
-        unitsByProduct[pid] = (unitsByProduct[pid] || 0) + units;
-      }
-      for (const [pid, val] of Object.entries(m.valueByProduct)) {
-        valueByProduct[pid] = (valueByProduct[pid] || 0) + val;
-      }
-    }
-    return { totalLots, totalUnits, totalValueUF, unitsByProduct, valueByProduct, iterations: cabidaHistory.length };
-  }, [cabidaHistory]);
-
-  /** Select macrolotes — supports Shift+Click for multi-select */
-  const handleSelect = useCallback((feature: MacroloteFeature | null, shiftKey?: boolean) => {
-    if (!feature) {
-      if (!shiftKey) {
-        setSelectedMacrolotes([]);
-        setSelectedLotIndex(null);
-        setBusinessSelection({ lotIndices: [], structuralStreetFids: [], greenAreaFids: [] });
-      }
-      return;
-    }
-
-    if (shiftKey) {
-      // Shift+click: toggle this macrolote in/out — only clear lot indices, preserve infra selection
-      setSelectedLotIndex(null);
-      setBusinessSelection((prev) => ({ ...prev, lotIndices: [] }));
-      setSelectedMacrolotes((prev) => {
-        const exists = prev.find((m) => m.properties.fid === feature.properties.fid);
-        if (exists) return prev.filter((m) => m.properties.fid !== feature.properties.fid);
-        return [...prev, feature];
-      });
+    if (result.success) {
+      onSuccess(result.name!);
     } else {
-      // Normal click: select only this macrolote — only clear lot indices, preserve infra selection
-      setSelectedLotIndex(null);
-      setBusinessSelection((prev) => ({ ...prev, lotIndices: [] }));
-      setSelectedMacrolotes([feature]);
-    }
-  }, []);
-
-  // Update activeCabidaId when selection changes
-  const currentSelectionId = useMemo(
-    () => makeCabidaId(selectedMacrolotes.map((m) => m.properties.fid)),
-    [selectedMacrolotes],
-  );
-  const hasExistingCabida = useMemo(
-    () => cabidaHistory.some((e) => e.id === currentSelectionId),
-    [cabidaHistory, currentSelectionId],
-  );
-
-  /** Click on a lot — toggle in business selection */
-  const handleLotClick = useCallback((lotIndex: number, cabidaId?: string) => {
-    if (cabidaId) setActiveCabidaId(cabidaId);
-    setSelectedLotIndex(lotIndex);
-
-    // Also add/toggle in business selection
-    setBusinessSelection((prev) => {
-      const exists = prev.lotIndices.includes(lotIndex);
-      return {
-        ...prev,
-        lotIndices: exists
-          ? prev.lotIndices.filter((i) => i !== lotIndex)
-          : [...prev.lotIndices, lotIndex],
-      };
-    });
-  }, []);
-
-  /** Click on a structural road — toggle fid in business selection */
-  const handleStructuralStreetClick = useCallback((fid: number, areaM2: number) => {
-    setBusinessSelection((prev) => {
-      const exists = prev.structuralStreetFids.includes(fid);
-      return {
-        ...prev,
-        structuralStreetFids: exists
-          ? prev.structuralStreetFids.filter((f) => f !== fid)
-          : [...prev.structuralStreetFids, fid],
-      };
-    });
-  }, []);
-
-  /** Click on a central green area — toggle fid in business selection */
-  const handleGreenAreaClick = useCallback((fid: number, areaM2: number) => {
-    setBusinessSelection((prev) => {
-      const exists = prev.greenAreaFids.includes(fid);
-      return {
-        ...prev,
-        greenAreaFids: exists
-          ? prev.greenAreaFids.filter((f) => f !== fid)
-          : [...prev.greenAreaFids, fid],
-      };
-    });
-  }, []);
-
-  /** Clear business selection */
-  const handleClearBusinessSelection = useCallback(() => {
-    setBusinessSelection({ lotIndices: [], structuralStreetFids: [], greenAreaFids: [] });
-    setSelectedLotIndex(null);
-  }, []);
-
-  const handleChangeProduct = useCallback((lotIndex: number, newProductId: string) => {
-    if (!activeCabidaId) return;
-    const product = PRODUCTS.find((p) => p.id === newProductId);
-    if (!product) return;
-
-    setCabidaHistory((prev) =>
-      prev.map((entry) => {
-        if (entry.id !== activeCabidaId) return entry;
-
-        const updatedLots = entry.result.lots.map((lot, i) => {
-          if (i !== lotIndex) return lot;
-          const newUnits = product.efficiency > 0 ? Math.round((lot.areaM2 / 10000) * product.efficiency) : 0;
-          return { ...lot, product: newProductId, units: newUnits };
-        });
-
-        const totalLots = updatedLots.length;
-        const totalUnits = updatedLots.reduce((s, l) => s + l.units, 0);
-        const unitsByProduct: Record<string, number> = {};
-        updatedLots.forEach((l) => {
-          unitsByProduct[l.product] = (unitsByProduct[l.product] || 0) + l.units;
-        });
-        const totalLotArea = updatedLots.reduce((s, l) => s + l.areaM2, 0);
-        const totalArea = totalLotArea + entry.result.metrics.streetAreaM2 + entry.result.metrics.parkAreaM2;
-        const efficiencyPct = Math.round((totalLotArea / totalArea) * 100);
-        const densityPerHa = Math.round(totalUnits / (totalArea / 10000));
-
-        return {
-          ...entry,
-          result: {
-            ...entry.result,
-            lots: updatedLots,
-            metrics: { ...entry.result.metrics, totalLots, totalUnits, unitsByProduct, efficiencyPct, densityPerHa },
-          },
-        };
-      }),
-    );
-  }, [activeCabidaId]);
-
-  // ── Street drawing handlers ──────────────────────────────────
-  const handleToggleDraw = useCallback(() => {
-    setDrawState((prev) => ({
-      ...prev,
-      isDrawing: !prev.isDrawing,
-      activeVertices: [], // reset active line when toggling
-    }));
-  }, []);
-
-  const handleDrawClick = useCallback((lngLat: [number, number]) => {
-    setDrawState((prev) => ({
-      ...prev,
-      activeVertices: [...prev.activeVertices, lngLat],
-    }));
-  }, []);
-
-  const handleFinishLine = useCallback(() => {
-    setDrawState((prev) => {
-      if (prev.activeVertices.length < 2) return prev;
-      const newStreet: DrawnStreet = {
-        id: nextStreetId(),
-        coordinates: prev.activeVertices,
-        widthM: 12,
-      };
-      return {
-        ...prev,
-        streets: [...prev.streets, newStreet],
-        activeVertices: [],
-        // Stay in drawing mode so user can draw more streets
-      };
-    });
-  }, []);
-
-  const handleDrawDoubleClick = useCallback(() => {
-    // Double-click adds a point AND finishes — we need to finish with current vertices
-    setDrawState((prev) => {
-      if (prev.activeVertices.length < 2) return prev;
-      const newStreet: DrawnStreet = {
-        id: nextStreetId(),
-        coordinates: prev.activeVertices,
-        widthM: 12,
-      };
-      return {
-        ...prev,
-        streets: [...prev.streets, newStreet],
-        activeVertices: [],
-      };
-    });
-  }, []);
-
-  const handleUndoVertex = useCallback(() => {
-    setDrawState((prev) => ({
-      ...prev,
-      activeVertices: prev.activeVertices.slice(0, -1),
-    }));
-  }, []);
-
-  const handleDeleteStreet = useCallback((id: string) => {
-    setDrawState((prev) => ({
-      ...prev,
-      streets: prev.streets.filter((s) => s.id !== id),
-    }));
-  }, []);
-
-  const handleClearAllStreets = useCallback(() => {
-    setDrawState((prev) => ({
-      ...prev,
-      streets: [],
-      activeVertices: [],
-    }));
-  }, []);
-
-  // Keyboard shortcuts for draw mode
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (!drawState.isDrawing) return;
-      if (e.key === "Enter") {
-        handleFinishLine();
-      } else if (e.key === "Escape") {
-        setDrawState((prev) => ({ ...prev, activeVertices: [], isDrawing: false }));
-      } else if ((e.key === "z" || e.key === "Z") && (e.ctrlKey || e.metaKey)) {
-        e.preventDefault();
-        handleUndoVertex();
+      const newAttempts = attempts + 1;
+      setAttempts(newAttempts);
+      if (newAttempts >= 5) {
+        setLocked(true);
+        setError("Demasiados intentos. Espere 60 segundos.");
+        setTimeout(() => { setLocked(false); setAttempts(0); }, 60000);
+      } else {
+        setError(result.error || "Error de autenticacion");
       }
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [drawState.isDrawing, handleFinishLine, handleUndoVertex]);
-
-  const handleGenerate = useCallback(async (allocations: ProductAllocation[]) => {
-    if (selectedMacrolotes.length === 0) return;
-    setIsGenerating(true);
-    setGenerateError(null);
-
-    try {
-      const fids = selectedMacrolotes.map((m) => m.properties.fid);
-      const cabidaId = makeCabidaId(fids);
-
-      // Calculate max housing units from district constraints
-      const maxViv = activeDistricts.length > 0
-        ? activeDistricts.reduce((sum, d) => sum + d.maxViviendas, 0)
-        : null;
-
-      console.log("[Cabida] Generating with", drawState.streets.length, "custom streets",
-        drawState.streets.map(s => ({ pts: s.coordinates.length, w: s.widthM })));
-
-      const res = await fetch(`${API_URL}/subdivide`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          macrolote_fids: fids,
-          product_allocations: allocations.map((a) => ({
-            family_id: a.familyId,
-            product_id: a.productId,
-            percentage: a.percentage,
-            ...(a.lotSizeM2 ? { lot_size_m2: a.lotSizeM2 } : {}),
-          })),
-          ...(maxViv !== null ? { max_viviendas: maxViv } : {}),
-          ...(drawState.streets.length > 0 ? {
-            custom_streets: drawState.streets.map((s) => ({
-              coordinates: s.coordinates,
-              width_m: s.widthM,
-            })),
-          } : {}),
-        }),
-      });
-
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({ detail: "Error desconocido del servidor" }));
-        console.error("Subdivision error:", err);
-        setGenerateError(err.detail || "Error al generar cabida");
-        return;
-      }
-
-      const data = await res.json();
-      const result: SubdivisionResult = {
-        streets: data.streets.map((s: Record<string, unknown>) => ({
-          geometry: s.geometry,
-          areaM2: s.area_m2 as number,
-        })),
-        lots: data.lots.map((l: Record<string, unknown>) => ({
-          geometry: l.geometry,
-          product: l.product,
-          areaM2: l.area_m2,
-          units: l.units,
-          frontageM: l.frontage_m,
-        })),
-        parks: data.parks.map((p: Record<string, unknown>) => ({
-          geometry: p.geometry,
-          areaM2: p.area_m2 as number,
-        })),
-        metrics: {
-          totalLots: data.metrics.total_lots,
-          totalUnits: data.metrics.total_units,
-          unitsByProduct: data.metrics.units_by_product,
-          streetAreaM2: data.metrics.street_area_m2,
-          parkAreaM2: data.metrics.park_area_m2,
-          efficiencyPct: data.metrics.efficiency_pct,
-          densityPerHa: data.metrics.density_per_ha,
-          totalValueUF: data.metrics.total_value_uf || 0,
-          valueByProduct: data.metrics.value_by_product || {},
-          streetCostUF: data.metrics.street_cost_uf || 0,
-          greenCostUF: data.metrics.green_cost_uf || 0,
-          landCostUF: data.metrics.land_cost_uf || 0,
-          totalCostUF: data.metrics.total_cost_uf || 0,
-          netValueUF: data.metrics.net_value_uf || 0,
-          macroAreaM2: data.metrics.macro_area_m2 || 0,
-        },
-      };
-
-      const newEntry: CabidaEntry = { id: cabidaId, fids, result };
-
-      // Append or replace: keep cabidas for OTHER macrolotes, only
-      // replace the one for the same FIDs. This way iterating across
-      // different lots accumulates results in the history.
-      setCabidaHistory((prev) => {
-        const filtered = prev.filter((e) => e.id !== cabidaId);
-        return [...filtered, newEntry];
-      });
-      setActiveCabidaId(cabidaId);
-      setSelectedLotIndex(null);
-      // Keep structural infra selections — only clear lot indices
-      setBusinessSelection((prev) => ({ ...prev, lotIndices: [] }));
-      // Clear drawn streets after generation — they're now part of the cabida result (gray)
-      if (drawState.streets.length > 0) {
-        setDrawState(createEmptyDrawState());
-      }
-    } catch (err) {
-      console.error("Failed to call subdivision API:", err);
-      setGenerateError("No se pudo conectar al servidor");
-    } finally {
-      setIsGenerating(false);
     }
-  }, [selectedMacrolotes, drawState.streets, activeDistricts]);
-
-  const handleRemoveCabida = useCallback((cabidaId: string) => {
-    setCabidaHistory((prev) => prev.filter((e) => e.id !== cabidaId));
-    if (activeCabidaId === cabidaId) {
-      setActiveCabidaId(null);
-      setSelectedLotIndex(null);
-      setBusinessSelection({ lotIndices: [], structuralStreetFids: [], greenAreaFids: [] });
-    }
-  }, [activeCabidaId]);
-
-  const handleClearAll = useCallback(() => {
-    setCabidaHistory([]);
-    setActiveCabidaId(null);
-    setSelectedLotIndex(null);
-    setBusinessSelection({ lotIndices: [], structuralStreetFids: [], greenAreaFids: [] });
-  }, []);
-
-  /** Save current cabida and free the panel for a new macrolote selection */
-  const handleSaveCabida = useCallback(() => {
-    // The cabida is already in history — just deselect macrolotes to free the panel
-    setSelectedMacrolotes([]);
-    setActiveCabidaId(null);
-    setSelectedLotIndex(null);
-    setBusinessSelection({ lotIndices: [], structuralStreetFids: [], greenAreaFids: [] });
-  }, []);
-
-  const fidsLabel = selectedMacrolotes.map((m) => m.properties.fid).join(", ");
+    setLoading(false);
+  };
 
   return (
-    <div className="flex h-screen bg-zinc-950">
-      {/* Left panel — Business Report (when cabida exists) OR Infra Cost (when only infra selected) */}
-      {activeEntry ? (
-        <div className="w-80 border-r border-zinc-800 flex-shrink-0">
-          <BusinessReportPanel
-            result={activeEntry.result}
-            fidsLabel={fidsLabel}
-            totalAreaHa={totalAreaHa}
-            selection={businessSelection}
-            vialAreaMap={vialAreaMap}
-            greenAreaMap={greenAreaMap}
-            onClear={handleClearBusinessSelection}
-          />
-        </div>
-      ) : hasInfraOnly ? (
-        <div className="w-72 border-r border-zinc-800 flex-shrink-0">
-          <InfraCostPanel
-            selection={businessSelection}
-            vialAreaMap={vialAreaMap}
-            greenAreaMap={greenAreaMap}
-            onClear={handleClearBusinessSelection}
-          />
-        </div>
-      ) : null}
-
-      {/* Map */}
-      <div className="flex-1 relative">
-        {isGenerating && <CabidaLoader />}
-        {generateError && (
-          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 bg-red-900/90 border border-red-500 text-red-100 px-4 py-3 rounded-lg shadow-lg max-w-md text-sm flex items-center gap-3">
-            <span className="text-red-400 text-lg">⚠</span>
-            <span className="flex-1">{generateError}</span>
-            <button
-              onClick={() => setGenerateError(null)}
-              className="text-red-400 hover:text-red-200 font-bold"
-            >
-              ✕
-            </button>
-          </div>
-        )}
-        <MasterplanMap
-          onMacroloteSelect={handleSelect}
-          selectedMacrolotes={selectedMacrolotes}
-          cabidaHistory={cabidaHistory}
-          activeCabidaId={activeCabidaId}
-          onLotClick={handleLotClick}
-          onStructuralStreetClick={handleStructuralStreetClick}
-          onGreenAreaClick={handleGreenAreaClick}
-          selectedLotIndex={selectedLotIndex}
-          businessSelection={businessSelection}
-          drawMode={drawState.isDrawing}
-          drawnStreets={drawState.streets}
-          activeVertices={drawState.activeVertices}
-          onDrawClick={handleDrawClick}
-          onDrawDoubleClick={handleDrawDoubleClick}
-        />
-        <div className="absolute top-4 left-4 z-10">
-          <h1 className="text-xl font-bold text-white tracking-tight">
-            BatucoTerra — Generador de Cabidas
-          </h1>
-          <p className="text-sm text-zinc-400 mt-0.5">
-            {selectedMacrolotes.length > 0
-              ? `Lotes ${fidsLabel} — ${totalAreaHa.toFixed(1)} ha`
-              : "Click en un macrolote · Shift+Click para multi-selección"}
-          </p>
-        </div>
-
-        {/* Accumulated badge */}
-        {accumulatedMetrics && accumulatedMetrics.iterations > 0 && (
-          <div className="absolute bottom-8 left-4 z-10 bg-zinc-900/90 backdrop-blur border border-zinc-700 rounded-lg px-4 py-3 text-sm">
-            <div className="text-zinc-400 font-medium mb-1">
-              {accumulatedMetrics.iterations} iteracion{accumulatedMetrics.iterations > 1 ? "es" : ""}
-            </div>
-            <div className="text-white font-bold">
-              {accumulatedMetrics.totalLots} lotes · {accumulatedMetrics.totalUnits.toLocaleString()} viv
-            </div>
-            <div className="text-emerald-400 text-xs">
-              {Math.round(accumulatedMetrics.totalValueUF).toLocaleString()} UF total
-            </div>
-            {accumulatedMetrics.iterations > 1 && (
-              <button
-                onClick={handleClearAll}
-                className="mt-2 text-xs text-red-400 hover:text-red-300 transition-colors"
-              >
-                Limpiar todo
-              </button>
-            )}
-          </div>
-        )}
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-[#1A1825] via-[#1f1b2e] to-[#153E6B] px-6 relative overflow-hidden">
+      {/* Subtle radial glows */}
+      <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute w-[600px] h-[600px] left-[10%] top-[60%] -translate-y-1/2 rounded-full bg-[#2B6CB0]/10 blur-[120px]" />
+        <div className="absolute w-[400px] h-[400px] right-[15%] top-[20%] rounded-full bg-[#a89867]/8 blur-[100px]" />
       </div>
 
-      {/* Right sidebar — config & metrics */}
-      {selectedMacrolotes.length > 0 && (
-        <div className="w-96 bg-zinc-900 border-l border-zinc-800 p-4 overflow-y-auto flex flex-col gap-6">
-          <MacrolotePanel
-            macrolotes={selectedMacrolotes}
-            onClose={() => { setSelectedMacrolotes([]); setSelectedLotIndex(null); setBusinessSelection({ lotIndices: [], structuralStreetFids: [], greenAreaFids: [] }); }}
+      {/* Logo */}
+      <div className="relative mb-8">
+        <svg width="64" height="64" viewBox="0 0 64 64" fill="none" className="drop-shadow-xl">
+          <rect x="4" y="4" width="56" height="56" rx="14" fill="url(#logo-grad)" stroke="rgba(168,152,103,0.3)" strokeWidth="1.5" />
+          <text x="32" y="42" textAnchor="middle" fill="white" fontSize="28" fontWeight="700" fontFamily="Inter, system-ui, sans-serif">M</text>
+          <defs>
+            <linearGradient id="logo-grad" x1="0" y1="0" x2="64" y2="64">
+              <stop offset="0%" stopColor="#2B6CB0" />
+              <stop offset="100%" stopColor="#153E6B" />
+            </linearGradient>
+          </defs>
+        </svg>
+      </div>
+
+      <h1 className="text-4xl sm:text-5xl font-bold bg-gradient-to-r from-white via-white to-[#c4b58a] bg-clip-text text-transparent mb-3 relative">
+        Modela
+      </h1>
+      <p className="text-white/50 text-base mb-10 font-light relative">
+        Plataforma de desarrollo inmobiliario
+      </p>
+
+      {/* Login card */}
+      <form
+        onSubmit={handleSubmit}
+        className="w-full max-w-[380px] bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-9 relative"
+      >
+        <h2 className="text-lg font-semibold text-white/90 text-center mb-6">
+          Iniciar Sesion
+        </h2>
+
+        <div className="mb-4">
+          <label className="block text-[13px] font-medium text-white/50 mb-1.5">Usuario</label>
+          <input
+            type="text"
+            value={user}
+            onChange={(e) => setUser(e.target.value)}
+            placeholder="Ingresa tu usuario"
+            autoComplete="username"
+            className="w-full px-3.5 py-2.5 bg-white/6 border border-white/12 rounded-lg text-white text-sm placeholder:text-white/25 focus:border-[#a89867] focus:ring-2 focus:ring-[#a89867]/15 focus:bg-white/8 outline-none transition-all"
           />
-
-          {/* Street drawing tool — always visible when macrolotes selected */}
-          <StreetDrawPanel
-            isDrawing={drawState.isDrawing}
-            streets={drawState.streets}
-            activeVertexCount={drawState.activeVertices.length}
-            onToggleDraw={handleToggleDraw}
-            onFinishLine={handleFinishLine}
-            onDeleteStreet={handleDeleteStreet}
-            onClearAll={handleClearAllStreets}
-            onUndo={handleUndoVertex}
-          />
-
-          {activeEntry ? (
-            <>
-              <MetricsPanel
-                result={activeEntry.result}
-                label={`Cabida: Lotes ${activeEntry.fids.join(", ")}`}
-                onReset={() => handleRemoveCabida(activeEntry.id)}
-              />
-
-              {/* Save button — frees panel for next macrolote */}
-              <button
-                onClick={handleSaveCabida}
-                className="w-full py-2.5 px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-sm transition-colors flex items-center justify-center gap-2"
-              >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-                Guardar Cabida
-              </button>
-
-              {selectedLotIndex !== null && activeEntry.result.lots[selectedLotIndex] && (
-                <LotEditPanel
-                  lot={activeEntry.result.lots[selectedLotIndex]}
-                  lotIndex={selectedLotIndex}
-                  onChangeProduct={handleChangeProduct}
-                  onDeselect={() => setSelectedLotIndex(null)}
-                />
-              )}
-
-              <details className="group border-t border-zinc-800 pt-2">
-                <summary className="flex items-center justify-between cursor-pointer text-sm font-semibold text-zinc-400 hover:text-zinc-200 transition-colors py-2">
-                  <span>Modificar Mix de Productos</span>
-                  <svg className="w-4 h-4 transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </summary>
-                <ProductMixForm
-                  areaHa={totalAreaHa}
-                  onGenerate={handleGenerate}
-                  isGenerating={isGenerating}
-                  districts={activeDistricts}
-                />
-              </details>
-
-              <ExportPanel
-                subdivision={activeEntry.result}
-                macroloteFid={activeEntry.fids.join(", ")}
-              />
-            </>
-          ) : (
-            <ProductMixForm
-              areaHa={totalAreaHa}
-              onGenerate={handleGenerate}
-              isGenerating={isGenerating}
-            />
-          )}
-
-          {cabidaHistory.length > 1 && (
-            <div className="border-t border-zinc-800 pt-4">
-              <h3 className="text-sm font-semibold text-zinc-300 mb-3">Historial de Cabidas</h3>
-              <div className="flex flex-col gap-2">
-                {cabidaHistory.map((entry) => (
-                  <button
-                    key={entry.id}
-                    onClick={() => { setActiveCabidaId(entry.id); setSelectedLotIndex(null); }}
-                    className={`flex items-center justify-between px-3 py-2 rounded-lg text-left text-sm transition-colors ${
-                      entry.id === activeCabidaId
-                        ? "bg-blue-600/20 border border-blue-500/50 text-white"
-                        : "bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-transparent"
-                    }`}
-                  >
-                    <div>
-                      <div className="font-medium">Lotes {entry.fids.join(", ")}</div>
-                      <div className="text-xs text-zinc-400">
-                        {entry.result.metrics.totalLots} lotes · {entry.result.metrics.totalUnits} viv · {Math.round(entry.result.metrics.totalValueUF).toLocaleString()} UF
-                      </div>
-                    </div>
-                    <span
-                      onClick={(e) => { e.stopPropagation(); handleRemoveCabida(entry.id); }}
-                      className="text-zinc-500 hover:text-red-400 ml-2 cursor-pointer"
-                    >
-                      ✕
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
-      )}
+
+        <div className="mb-5">
+          <label className="block text-[13px] font-medium text-white/50 mb-1.5">Contrasena</label>
+          <input
+            type="password"
+            value={pass}
+            onChange={(e) => setPass(e.target.value)}
+            placeholder="Ingresa tu contrasena"
+            autoComplete="current-password"
+            className="w-full px-3.5 py-2.5 bg-white/6 border border-white/12 rounded-lg text-white text-sm placeholder:text-white/25 focus:border-[#a89867] focus:ring-2 focus:ring-[#a89867]/15 focus:bg-white/8 outline-none transition-all"
+          />
+        </div>
+
+        {error && (
+          <div className="text-[#fca5a5] text-xs text-center mb-4 px-3 py-2 bg-red-600/15 rounded-lg">
+            {error}
+          </div>
+        )}
+
+        <button
+          type="submit"
+          disabled={loading || locked}
+          className="w-full py-3 bg-[#a89867] hover:bg-[#c4b58a] disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold text-sm rounded-lg transition-all shadow-lg shadow-[#a89867]/30 hover:-translate-y-0.5"
+        >
+          {loading ? "Verificando..." : "Entrar"}
+        </button>
+      </form>
+
+      <span className="absolute bottom-6 text-xs text-white/40 tracking-wider">
+        MODELA 2026
+      </span>
+    </div>
+  );
+}
+
+// ── App Selector ──────────────────────────────────────────
+
+function AppSelector({ username, onLogout }: { username: string; onLogout: () => void }) {
+  return (
+    <div className="min-h-screen flex flex-col bg-gradient-to-br from-[#1A1825] via-[#1f1b2e] to-[#153E6B] relative overflow-hidden">
+      {/* Background glows */}
+      <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute w-[700px] h-[700px] left-[5%] bottom-0 rounded-full bg-[#2B6CB0]/8 blur-[150px]" />
+        <div className="absolute w-[500px] h-[500px] right-[10%] top-[10%] rounded-full bg-[#a89867]/6 blur-[120px]" />
+      </div>
+
+      {/* Header */}
+      <header className="relative z-10 flex items-center justify-between px-8 py-5">
+        <div className="flex items-center gap-3">
+          <svg width="36" height="36" viewBox="0 0 64 64" fill="none">
+            <rect x="4" y="4" width="56" height="56" rx="14" fill="url(#hdr-grad)" stroke="rgba(168,152,103,0.3)" strokeWidth="1.5" />
+            <text x="32" y="42" textAnchor="middle" fill="white" fontSize="28" fontWeight="700" fontFamily="Inter, system-ui, sans-serif">M</text>
+            <defs>
+              <linearGradient id="hdr-grad" x1="0" y1="0" x2="64" y2="64">
+                <stop offset="0%" stopColor="#2B6CB0" />
+                <stop offset="100%" stopColor="#153E6B" />
+              </linearGradient>
+            </defs>
+          </svg>
+          <span className="text-white font-semibold text-lg tracking-tight">Modela</span>
+        </div>
+        <div className="flex items-center gap-4">
+          <span className="text-white/50 text-sm">{username}</span>
+          <button
+            onClick={onLogout}
+            className="px-3 py-1.5 border border-white/15 rounded-md text-white/50 text-xs hover:bg-red-500/10 hover:border-red-400/30 hover:text-red-300 transition-all"
+          >
+            Cerrar sesion
+          </button>
+        </div>
+      </header>
+
+      {/* Main content */}
+      <main className="relative z-10 flex-1 flex flex-col items-center justify-center px-6 -mt-10">
+        <h1 className="text-3xl sm:text-4xl font-bold text-white mb-2 text-center">
+          Selecciona una herramienta
+        </h1>
+        <p className="text-white/40 text-sm mb-12 text-center">
+          Elige el modulo al que quieres acceder
+        </p>
+
+        {/* Dos opciones principales en fila superior */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 w-full max-w-5xl mb-6">
+          {/* Simulador Inmobiliario (el actual en GitHub Pages) */}
+          <a
+            href="/simulador.html"
+            className="group relative bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-10 hover:bg-white/8 hover:border-[#2B6CB0]/40 transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl hover:shadow-[#2B6CB0]/10 cursor-pointer block"
+          >
+            <div className="w-20 h-20 rounded-xl bg-gradient-to-br from-[#2B6CB0] to-[#153E6B] flex items-center justify-center mb-6 group-hover:scale-105 transition-transform shadow-lg shadow-[#2B6CB0]/20">
+              <svg className="w-10 h-10 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />
+              </svg>
+            </div>
+
+            <h2 className="text-2xl font-bold text-white mb-3 group-hover:text-[#93c5fd] transition-colors">
+              Simulador Inmobiliario
+            </h2>
+            <p className="text-white/50 text-sm leading-relaxed mb-5">
+              Modelo de negocio completo: flujo de caja, VAN, TIR, etapamiento financiero y sensibilidad de variables.
+            </p>
+
+            <div className="flex flex-wrap gap-2">
+              <span className="px-3 py-1 bg-[#2B6CB0]/15 text-[#93c5fd] text-[11px] font-medium rounded-md">Flujo de Caja</span>
+              <span className="px-3 py-1 bg-[#2B6CB0]/15 text-[#93c5fd] text-[11px] font-medium rounded-md">VAN / TIR</span>
+              <span className="px-3 py-1 bg-[#2B6CB0]/15 text-[#93c5fd] text-[11px] font-medium rounded-md">Sensibilidad</span>
+            </div>
+
+            <div className="absolute top-10 right-10 w-9 h-9 rounded-full bg-white/5 flex items-center justify-center group-hover:bg-[#2B6CB0]/20 transition-colors">
+              <svg className="w-5 h-5 text-white/30 group-hover:text-white/70 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+              </svg>
+            </div>
+          </a>
+
+          {/* Valorización de Suelos */}
+          <a
+            href="/residual"
+            className="group relative bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-10 hover:bg-white/8 hover:border-[#22c55e]/40 transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl hover:shadow-[#22c55e]/10 cursor-pointer block"
+          >
+            <div className="w-20 h-20 rounded-xl bg-gradient-to-br from-[#22c55e] to-[#15803d] flex items-center justify-center mb-6 group-hover:scale-105 transition-transform shadow-lg shadow-[#22c55e]/20">
+              <svg className="w-10 h-10 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+
+            <h2 className="text-2xl font-bold text-white mb-3 group-hover:text-[#86efac] transition-colors">
+              Valorización de Suelos
+            </h2>
+            <p className="text-white/50 text-sm leading-relaxed mb-5">
+              Método residual dinámico: selecciona un lote, define el producto inmobiliario y obtén el valor del terreno en UF/m² con la TIR objetivo.
+            </p>
+
+            <div className="flex flex-wrap gap-2">
+              <span className="px-3 py-1 bg-[#22c55e]/15 text-[#86efac] text-[11px] font-medium rounded-md">Valor Terreno</span>
+              <span className="px-3 py-1 bg-[#22c55e]/15 text-[#86efac] text-[11px] font-medium rounded-md">Incidencia</span>
+              <span className="px-3 py-1 bg-[#22c55e]/15 text-[#86efac] text-[11px] font-medium rounded-md">TIR / VAN</span>
+            </div>
+
+            <div className="absolute top-10 right-10 w-9 h-9 rounded-full bg-white/5 flex items-center justify-center group-hover:bg-[#22c55e]/20 transition-colors">
+              <svg className="w-5 h-5 text-white/30 group-hover:text-white/70 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+              </svg>
+            </div>
+          </a>
+        </div>
+
+        {/* Tercera opción secundaria: Cabidas Automáticas */}
+        <div className="w-full max-w-5xl">
+          <a
+            href="/cabidas"
+            className="group relative flex items-center gap-4 bg-white/3 backdrop-blur-xl border border-white/10 rounded-xl px-6 py-4 hover:bg-white/6 hover:border-[#a89867]/40 transition-all duration-300"
+          >
+            <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-[#a89867] to-[#7a6f4a] flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+              <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 6.75V15m6-6v8.25m.503 3.498l4.875-2.437c.381-.19.622-.58.622-1.006V4.82c0-.836-.88-1.38-1.628-1.006l-3.869 1.934c-.317.159-.69.159-1.006 0L9.503 3.252a1.125 1.125 0 00-1.006 0L3.622 5.689C3.24 5.88 3 6.27 3 6.695V19.18c0 .836.88 1.38 1.628 1.006l3.869-1.934c.317-.159.69-.159 1.006 0l4.994 2.497c.317.158.69.158 1.006 0z" />
+              </svg>
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <h3 className="text-base font-semibold text-white group-hover:text-[#c4b58a] transition-colors">
+                  Cabidas Automáticas
+                </h3>
+                <span className="text-[10px] px-2 py-0.5 bg-white/5 border border-white/10 rounded text-white/40 tracking-wider uppercase">Beta</span>
+              </div>
+              <p className="text-white/40 text-xs leading-relaxed mt-0.5 truncate">
+                Generador de subdivisión automática, mix de productos, etapamiento BFS y análisis de negocio.
+              </p>
+            </div>
+            <svg className="w-5 h-5 text-white/30 group-hover:text-white/70 transition-colors shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+            </svg>
+          </a>
+        </div>
+      </main>
+
+      <footer className="relative z-10 text-center py-4">
+        <span className="text-xs text-white/30 tracking-wider">MODELA 2026</span>
+      </footer>
     </div>
   );
 }
