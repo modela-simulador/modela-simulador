@@ -992,7 +992,7 @@ export function deriveDefaults(
   // El ticket viene del constants.ts; UF/m² se deriva como ticket / m²_vendible.
   const SUP_VENDIBLE_BY_PRODUCT: Record<string, number> = {
     // DS19 (vivienda social)
-    ds19: 42,
+    ds19: 52,
     // Deptos / Edificios — todos 60 m²
     deptos1: 60,        // 3500 UF → 58.3 UF/m²
     deptos2: 60,        // 4000 UF → 66.7 UF/m²
@@ -1053,10 +1053,10 @@ export function deriveDefaults(
   //   edificios / DS19 / edif 6P: 16 meses
   //   casas / townhouses: 14 meses
   const constructionMonthsByFamily: Record<string, number> = {
-    edificios: 16,
-    ds19: 16,
-    casas: 14,
-    townhouses: 14,
+    edificios: 15,
+    ds19: 15,
+    casas: 15,
+    townhouses: 15,
   };
   const constructionMonths = constructionMonthsByFamily[product.family] ?? 15;
 

@@ -370,7 +370,7 @@ export interface ResidualOutput {
 export const DEFAULT_INPUTS: Omit<ResidualInputs, 'lotAreaM2' | 'lotFid' | 'productId' | 'unitModels' | 'totalUnits' | 'totalSupConstruidaM2' | 'totalSupVendibleM2'> = {
   salesVelocity: 4,
   prcOn: false,                   // default: SIN nuevo PRC (norma actual 150 viv/ha)
-  commonAreaPct: 0.20,            // 20% áreas comunes → ratio 1.20× (equivalente a ~83% eficiencia)
+  commonAreaPct: 0.15,            // 15% áreas comunes → ratio 1.15×
   comercioOn: false,              // OFF por default; usuario lo activa si el proyecto incluye placas comerciales
   comercioM2: 350,                 // 350 m² default
   comercioPriceUFm2: 55,           // 55 UF/m² bruto
@@ -381,7 +381,7 @@ export const DEFAULT_INPUTS: Omit<ResidualInputs, 'lotAreaM2' | 'lotFid' | 'prod
   subterraneoCostUFm2: 10,         // costo directo bajo cota 0
   subterraneoConstructionMonths: 1, // 1 mes extra de gastos generales cuando subt ON
   subterraneoExcavationCostUFm2: 0.5, // mov. tierra = 0.5 UF/m² (solo excavación)
-  constructionCostUFm2: 18.5,          // UF/m² construido (directo)
+  constructionCostUFm2: 16,            // UF/m² construido (directo)
   urbanizationCostUFm2: 2.0,           // UF/m² terreno urbanizado
   earthMovementCostUFm2: 1.5,          // UF/m² terreno movido
   indirectCostsUFMonth: 2400,
@@ -389,18 +389,18 @@ export const DEFAULT_INPUTS: Omit<ResidualInputs, 'lotAreaM2' | 'lotFid' | 'prod
   constructorUtilityPct: 0.065,
   contingenciesPct: 0.01,
   ivaRate: 0.19,
-  escrituracionUFPerUnit: 12,
-  salesCommissionPct: 0.01,
-  marketingPct: 0.01,
-  decoracionPilotoUF: 1000,
+  escrituracionUFPerUnit: 6,
+  salesCommissionPct: 0.008,
+  marketingPct: 0.008,
+  decoracionPilotoUF: 0,
   stockMaintenanceUFPerUnit: 4,
   postVentaGavPct: 0.006,
-  contribucionesViviendasUFPerUnit: 11.6,
+  contribucionesViviendasUFPerUnit: 5.8,
   administracionGeneralFijoUF: 0,
-  tarifaGestionInmobiliariaPct: 0.055,     // 5.5% sobre ventas brutas (default Chile)
+  tarifaGestionInmobiliariaPct: 0.045,     // 4.5% sobre ventas brutas
   greenInsuranceUFPerUnit: 2.82,
-  estudioArquitecturaUFm2: 0.42,
-  estudioCalculoUFm2: 0.11,
+  estudioArquitecturaUFm2: 0.28,
+  estudioCalculoUFm2: 0.05,
   estudioMecanicaSuelosUFm2: 0.05,
   estudioSanitariosUFm2: 0.04,
   estudioElectricoUFm2: 0.04,
@@ -414,7 +414,7 @@ export const DEFAULT_INPUTS: Omit<ResidualInputs, 'lotAreaM2' | 'lotFid' | 'prod
   permisoObraUFm2: 0.03,
   gastosRecepcionUFm2: 0.009,
   afrUFPerUnit: 5,                     // 5 UF/viv
-  vialContributionUFPerUnit: 25,       // IMIV 25 UF/viv
+  vialContributionUFPerUnit: 18,       // IMIV 18 UF/viv
   itoUFMonth: 60,                      // 60 UF/mes × plazo construcción
   monthLandPurchase: 0,
   monthPreSalesStart: 6,                    // default mes 6
