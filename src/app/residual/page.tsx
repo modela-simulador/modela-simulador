@@ -838,22 +838,6 @@ export default function ResidualPage() {
                       </div>
                     </div>
 
-                    {/* Construction cost KPIs */}
-                    <div className="bg-zinc-800/50 rounded-lg p-3 border border-orange-900/50">
-                      <div className="text-xs uppercase tracking-wider text-orange-400 font-semibold mb-2">Costo Construcción Neto</div>
-                      <div className="grid grid-cols-2 gap-3">
-                        <KPI label="UF/m² directo" value={fmt(result.costoConstruccionDirectoUFm2, 2)} color="text-zinc-300" />
-                        <KPI label="UF/m² NETO total" value={fmt(result.costoConstruccionNetoUFm2, 2)} color="text-orange-300" big />
-                        <KPI label="Sup. vivienda" value={`${fmt(inputs.totalSupConstruidaM2)} m²`} color="text-zinc-400" />
-                        <KPI label="Sup. subterráneo" value={`${fmt(result.supSubterraneoTotal)} m²`} color="text-cyan-400" />
-                        <KPI label="Sup. TOTAL construida" value={`${fmt(result.supConstruidaTotal)} m²`} color="text-zinc-300" />
-                        <KPI label="Costo total UF" value={fmt(Math.round(result.costoConstruccionNetoUFm2 * result.supConstruidaTotal))} color="text-orange-300" />
-                      </div>
-                      <div className="text-[10px] text-zinc-600 mt-2 italic">
-                        Neto = directo + urba + mov. tierra + indirectos + utilidad + post-venta + imprevistos (sin terreno)
-                      </div>
-                    </div>
-
                     {/* Additional metrics */}
                     <div className="grid grid-cols-3 gap-2">
                       <KPISmall label="VAN" value={`${fmt(result.vanUF)} UF`} />
