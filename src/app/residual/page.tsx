@@ -7,6 +7,7 @@ import * as XLSX from "xlsx";
 import { PRODUCTS, MAP_CENTER, MAP_ZOOM, LAYER_COLORS } from "@/lib/constants";
 import { solveResidual, deriveDefaults, getEffectiveEfficiency } from "@/lib/residual-engine";
 import { DEFAULT_INPUTS } from "@/lib/residual-types";
+import { BASE_PATH } from "@/lib/base-path";
 import type { ResidualInputs, ResidualOutput, UnitModel } from "@/lib/residual-types";
 
 // ── Helpers ──────────────────────────────────────────────────
@@ -203,17 +204,17 @@ export default function ResidualPage() {
     m.addControl(new mapboxgl.NavigationControl(), "top-right");
     m.on("load", () => {
       // Lotes
-      m.addSource("lotes", { type: "geojson", data: "/data/lotes.geojson", promoteId: "fid" });
+      m.addSource("lotes", { type: "geojson", data: `${BASE_PATH}/data/lotes.geojson`, promoteId: "fid" });
       m.addLayer({ id: "lotes-fill", type: "fill", source: "lotes", paint: { "fill-color": ["case", ["boolean", ["feature-state", "selected"], false], "#3B82F6", LAYER_COLORS.lotes], "fill-opacity": ["case", ["boolean", ["feature-state", "selected"], false], 0.5, 0.15] } });
       m.addLayer({ id: "lotes-line", type: "line", source: "lotes", paint: { "line-color": ["case", ["boolean", ["feature-state", "selected"], false], "#60A5FA", "#94a3b8"], "line-width": ["case", ["boolean", ["feature-state", "selected"], false], 2.5, 0.8] } });
       // Areas verdes
-      m.addSource("areas-verdes", { type: "geojson", data: "/data/areas-verdes.geojson" });
+      m.addSource("areas-verdes", { type: "geojson", data: `${BASE_PATH}/data/areas-verdes.geojson` });
       m.addLayer({ id: "av-fill", type: "fill", source: "areas-verdes", paint: { "fill-color": LAYER_COLORS.areasVerdes, "fill-opacity": 0.2 } });
       // Vialidades
-      m.addSource("vial-nuevo", { type: "geojson", data: "/data/vial-nuevo.geojson" });
+      m.addSource("vial-nuevo", { type: "geojson", data: `${BASE_PATH}/data/vial-nuevo.geojson` });
       m.addLayer({ id: "vial-fill", type: "fill", source: "vial-nuevo", paint: { "fill-color": LAYER_COLORS.vialNuevo, "fill-opacity": 0.12 } });
       // Cerco
-      m.addSource("cerco", { type: "geojson", data: "/data/cercos.geojson" });
+      m.addSource("cerco", { type: "geojson", data: `${BASE_PATH}/data/cercos.geojson` });
       m.addLayer({ id: "cerco-line", type: "line", source: "cerco", paint: { "line-color": LAYER_COLORS.cerco, "line-width": 1.5, "line-dasharray": [4, 3] } });
 
       // Hover tooltip
