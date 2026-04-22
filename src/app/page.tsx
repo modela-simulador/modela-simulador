@@ -75,24 +75,17 @@ function LoginScreen({ onSuccess }: { onSuccess: (name: string) => void }) {
         <div className="absolute w-[400px] h-[400px] right-[15%] top-[20%] rounded-full bg-[#a89867]/8 blur-[100px]" />
       </div>
 
-      {/* Logo */}
-      <div className="relative mb-8">
-        <svg width="64" height="64" viewBox="0 0 64 64" fill="none" className="drop-shadow-xl">
-          <rect x="4" y="4" width="56" height="56" rx="14" fill="url(#logo-grad)" stroke="rgba(168,152,103,0.3)" strokeWidth="1.5" />
-          <text x="32" y="42" textAnchor="middle" fill="white" fontSize="28" fontWeight="700" fontFamily="Inter, system-ui, sans-serif">M</text>
-          <defs>
-            <linearGradient id="logo-grad" x1="0" y1="0" x2="64" y2="64">
-              <stop offset="0%" stopColor="#2B6CB0" />
-              <stop offset="100%" stopColor="#153E6B" />
-            </linearGradient>
-          </defs>
-        </svg>
+      {/* Logo Modela (desde modela.cl) */}
+      <div className="relative mb-6">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={`${BASE_PATH}/logo_modela.webp`}
+          alt="Modela"
+          className="h-24 w-auto drop-shadow-xl"
+        />
       </div>
 
-      <h1 className="text-4xl sm:text-5xl font-bold bg-gradient-to-r from-white via-white to-[#c4b58a] bg-clip-text text-transparent mb-3 relative">
-        Modela
-      </h1>
-      <p className="text-white/50 text-base mb-10 font-light relative">
+      <p className="text-white/60 text-base mb-10 font-light tracking-wide relative">
         Plataforma de desarrollo inmobiliario
       </p>
 
@@ -165,17 +158,12 @@ function AppSelector({ username, onLogout }: { username: string; onLogout: () =>
       {/* Header */}
       <header className="relative z-10 flex items-center justify-between px-8 py-5">
         <div className="flex items-center gap-3">
-          <svg width="36" height="36" viewBox="0 0 64 64" fill="none">
-            <rect x="4" y="4" width="56" height="56" rx="14" fill="url(#hdr-grad)" stroke="rgba(168,152,103,0.3)" strokeWidth="1.5" />
-            <text x="32" y="42" textAnchor="middle" fill="white" fontSize="28" fontWeight="700" fontFamily="Inter, system-ui, sans-serif">M</text>
-            <defs>
-              <linearGradient id="hdr-grad" x1="0" y1="0" x2="64" y2="64">
-                <stop offset="0%" stopColor="#2B6CB0" />
-                <stop offset="100%" stopColor="#153E6B" />
-              </linearGradient>
-            </defs>
-          </svg>
-          <span className="text-white font-semibold text-lg tracking-tight">Modela</span>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={`${BASE_PATH}/logo_modela.webp`}
+            alt="Modela"
+            className="h-10 w-auto"
+          />
         </div>
         <div className="flex items-center gap-4">
           <span className="text-white/50 text-sm">{username}</span>
