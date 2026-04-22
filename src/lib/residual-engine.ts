@@ -326,6 +326,8 @@ export function buildCashFlow(
       financingRepayment: 0,
       netCashFlowLevered: 0,
       cumulativeCashFlowLevered: 0,
+      creditoEnlaceDrawdown: 0,
+      creditoEnlaceRepayment: 0,
     };
 
     // ── LAND PURCHASE ──
@@ -615,6 +617,54 @@ export function buildCashFlow(
     totalLandCostNet - totalFinancingCost;
   const incomeTaxPayable = Math.max(0, utilidadAntesImpuesto * incomeTaxRate);
 
+  // ── CRÉDITO DE ENLACE (DS19) ─────────────────────────────
+  // Subsidio estatal: desembolsos durante obra (hasta cap total_viv × UF/viv),
+  // repagado proporcional a escrituraciones post-recepción. Sin interés.
+  // Mejora la TIR al reducir capital negativo acumulado en la fase de obra.
+  if (inputs.creditoEnlaceOn && inputs.creditoEnlaceUFPerUnit > 0) {
+    const totalCredito = inputs.creditoEnlaceUFPerUnit * totalUnits;
+
+    // Pase 1: desembolsos durante obra (cubre costo mes a mes hasta agotar cap)
+    let drawn = 0;
+    for (const row of rows) {
+      if (drawn >= totalCredito) break;
+      const constSpendThisMonth =
+        row.constructionCost + row.urbanizationCost + row.earthMovementCost +
+        row.indirectCosts + row.postVentaConstruction + row.constructorUtility + row.contingencies;
+      if (constSpendThisMonth <= 0) continue;
+      const drawdown = Math.min(constSpendThisMonth, totalCredito - drawn);
+      row.creditoEnlaceDrawdown = drawdown;
+      drawn += drawdown;
+    }
+
+    // Pase 2: repagos proporcional a escrituración post-recepción
+    const totalEscriPost = rows
+      .slice(monthReceptionInt)
+      .reduce((s, r) => s + r.revenueEscrituracion, 0);
+    let repaid = 0;
+    if (totalEscriPost > 0 && drawn > 0) {
+      for (let i = monthReceptionInt; i < rows.length; i++) {
+        const row = rows[i];
+        if (row.revenueEscrituracion <= 0) continue;
+        const share = row.revenueEscrituracion / totalEscriPost;
+        const repayment = Math.min(share * drawn, drawn - repaid);
+        row.creditoEnlaceRepayment = repayment;
+        repaid += repayment;
+      }
+      // Residual por redondeo → al último mes de escrituración
+      if (drawn - repaid > 0.01 && rows.length > 0) {
+        rows[rows.length - 1].creditoEnlaceRepayment += drawn - repaid;
+      }
+    }
+
+    // Pase 3: aplicar deltas al netCashFlow (cash in durante obra, cash out al repagar)
+    for (const row of rows) {
+      const delta = row.creditoEnlaceDrawdown - row.creditoEnlaceRepayment;
+      row.netCashFlow += delta;
+      row.netCashFlowLevered += delta;
+    }
+  }
+
   // Aplicar impuesto renta al mes de escrituración + 3 (trámite tributario anual)
   // monthEscrituracion puede ser fraccional (por MC fraccional); snap a entero.
   const taxMonth = Math.min(Math.round(monthEscrituracion + 3), rows.length - 1);
@@ -625,10 +675,10 @@ export function buildCashFlow(
     rows[taxMonth].netCashFlowLevered -= incomeTaxPayable;
   }
 
-  // Recalcular acumulados desde el taxMonth hacia adelante
-  let cumFix = taxMonth > 0 ? rows[taxMonth - 1].cumulativeCashFlow : 0;
-  let cumFixLev = taxMonth > 0 ? rows[taxMonth - 1].cumulativeCashFlowLevered : 0;
-  for (let i = taxMonth; i < rows.length; i++) {
+  // Recalcular acumulados desde el principio (crédito enlace afectó toda la serie)
+  let cumFix = 0;
+  let cumFixLev = 0;
+  for (let i = 0; i < rows.length; i++) {
     cumFix += rows[i].netCashFlow;
     cumFixLev += rows[i].netCashFlowLevered;
     rows[i].cumulativeCashFlow = cumFix;
@@ -1076,6 +1126,8 @@ export function deriveDefaults(
     decoracionPilotoUF: 0,
     vialContributionUFPerUnit: 18,
     commonAreaPct: 0.15,
+    creditoEnlaceOn: true,
+    creditoEnlaceUFPerUnit: 300,
   } : {};
 
   const houseOverrides = isHouseLike ? {

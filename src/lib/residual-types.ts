@@ -139,6 +139,12 @@ export interface ResidualInputs {
   constructionFinancingPct: number;
   interestRateAnnual: number;
 
+  // Crédito de Enlace (subsidio gobierno DS19): préstamo sin interés durante obra,
+  // repagado proporcional a escrituraciones post-recepción. Mejora TIR reduciendo
+  // capital negativo acumulado en la fase de construcción.
+  creditoEnlaceOn: boolean;
+  creditoEnlaceUFPerUnit: number;  // 300 UF/viv default para DS19
+
   // Income tax
   incomeTaxRate: number;           // 27%
 
@@ -207,6 +213,10 @@ export interface MonthlyCashFlowRow {
   financingRepayment: number;
   netCashFlowLevered: number;
   cumulativeCashFlowLevered: number;
+
+  // Crédito de Enlace (DS19) — desembolsos durante obra + repagos proporcional a escri
+  creditoEnlaceDrawdown: number;
+  creditoEnlaceRepayment: number;
 }
 
 // ── P&L Summary (EERR) — matches Excel row-by-row ────────────
@@ -438,6 +448,8 @@ export const DEFAULT_INPUTS: Omit<ResidualInputs, 'lotAreaM2' | 'lotFid' | 'prod
   landFinancingPct: 0,
   constructionFinancingPct: 0,             // 0 = activo puro; 1.0 = 100% financiado
   interestRateAnnual: 0.045,
+  creditoEnlaceOn: false,                  // OFF por default; DS19 lo activa automáticamente
+  creditoEnlaceUFPerUnit: 300,             // 300 UF/viv típico Chile DS19
   incomeTaxRate: 0.27,
   landContributionsUF: 1033,
   landBrokerageUF: 0,

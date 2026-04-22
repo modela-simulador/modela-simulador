@@ -795,6 +795,35 @@ export default function ResidualPage() {
                   </Section>
                 )}
 
+                {/* CRÉDITO DE ENLACE — DS19 subsidio estatal */}
+                <Section title="Crédito de Enlace (DS19)" accent="purple" collapsible>
+                  <label className="flex items-center gap-2 text-xs mb-2">
+                    <input type="checkbox" checked={inputs.creditoEnlaceOn}
+                      onChange={(e) => updateInput("creditoEnlaceOn", e.target.checked)}
+                      className="accent-purple-500" />
+                    <span className={inputs.creditoEnlaceOn ? "text-purple-300 font-semibold" : "text-zinc-400"}>
+                      Activar Crédito de Enlace
+                    </span>
+                  </label>
+                  {inputs.creditoEnlaceOn && (
+                    <>
+                      <SliderInput label="UF por vivienda" value={inputs.creditoEnlaceUFPerUnit} min={0} max={500} step={10}
+                        onChange={(v) => updateInput("creditoEnlaceUFPerUnit", v)} unit="UF/viv" />
+                      <div className="text-[10px] text-zinc-500 italic mt-2 space-y-1">
+                        <div>• Total disponible: <b className="text-purple-300">{fmt(inputs.creditoEnlaceUFPerUnit * inputs.totalUnits)} UF</b></div>
+                        <div>• Desembolsos: cubren los costos de obra mes a mes hasta agotar el cupo.</div>
+                        <div>• Repago: proporcional a las escrituraciones post-recepción (sin interés).</div>
+                        <div>• Efecto: libera capital de trabajo durante obra → mejora la TIR del activo puro.</div>
+                      </div>
+                    </>
+                  )}
+                  {!inputs.creditoEnlaceOn && product?.family === "ds19" && (
+                    <div className="text-[10px] text-amber-400 italic mt-1">
+                      ⚠ DS19 típicamente usa Crédito de Enlace. Activarlo mejora notablemente la TIR.
+                    </div>
+                  )}
+                </Section>
+
                 {/* TARGET — TIR activo puro (método residual dinámico clásico) */}
                 <Section title="Exigencia de Retorno" accent="red">
                   <SliderInput label="TIR objetivo (anual, activo puro)" value={inputs.targetTIRAnnual * 100} min={5} max={30} step={0.5}
