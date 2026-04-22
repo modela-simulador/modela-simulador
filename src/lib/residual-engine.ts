@@ -573,21 +573,17 @@ export function buildCashFlow(
       row.earthMovementCost +     // Movimiento de tierra
       row.indirectCosts +         // Indirectos de obra
       row.postVentaConstruction + // Post-venta constructora
-      row.constructorUtility +    // Utilidad constructora (es margen, pero es servicio)
+      row.constructorUtility +    // Utilidad constructora
       row.contingencies +         // Imprevistos
-      // ─ Estudios y diseños (honorarios de oficinas profesionales = empresas con IVA) ─
-      // 94% es estudios profesionales (IVA), 6% permisos municipales (exento)
+      // ─ Estudios profesionales 94% (6% permisos municipales exentos) ─
       row.studiesPermitsCost * 0.94 +
-      // ─ Inspección Técnica (ITO) — si la contrata empresa tiene IVA ─
       row.itoCost +
-      // ─ GAV: servicios contratados a terceros ─
-      row.salesCommission +       // Comisiones ventas (empresa corredora)
-      row.marketingCost +         // Marketing (agencia publicidad)
-      row.greenInsurance +        // Seguro venta en verde (compañía seguros)
-      row.postVentaGav +          // Post-venta inmobiliaria (servicio post-entrega)
-      row.stockMaintenance +      // Condominios y mantención stock
-      // ─ Tarifa gestión: solo 20% son servicios externos gravados (marketing, ads);
-      //   el 80% es compensación interna del equipo de gestión (no genera IVA) ─
+      row.salesCommission +
+      row.marketingCost +
+      row.greenInsurance +
+      row.postVentaGav +
+      row.stockMaintenance +
+      // Tarifa gestión: solo 20% son servicios externos gravados
       row.adminCost * 0.20;
       // EXENTOS (no se suman aquí):
       //   - row.landCost (compra terreno)
@@ -862,10 +858,19 @@ export function buildPnL(
   // "Gastos Fin. Crédito Construcción" queda en 0 para evitar DOBLE CONTEO.
   // Si el proyecto tuviera fees adicionales del crédito (comisiones, seguros), se agregarían aquí.
   const gastosFinCreditoConstruccion = 0;
+  // IVA NO RECUPERABLE (DS19 exento): el IVA pagado a proveedores que no se
+  // descarga contra débito SII queda como costo real de caja. En proyectos
+  // gravados normales, este número es 0 (pass-through perfecto).
+  const ivaProveedoresTotal = sum(r => r.ivaCreditoPaid);
+  const ivaDebitoTotal = sum(r => r.ivaDebitoReceived);
+  const pagoIVASII = sum(r => r.ivaPaid);
+  // Balance: pagado a proveedores - recibido de clientes + pagado a SII = IVA neto absorbido
+  const ivaNoRecuperable = Math.max(0, ivaProveedoresTotal - ivaDebitoTotal + pagoIVASII);
   const utilidadAntesImpuesto = resultadoExplotacion - gastosFinCreditoConstruccion;
   const impuestoRenta = sum(r => r.incomeTax);
-  const pagoIVA = sum(r => r.ivaPaid);
-  const utilidadEtapa = utilidadAntesImpuesto - impuestoRenta;
+  const pagoIVA = pagoIVASII;
+  // Utilidad después de tax e IVA no recuperable (realidad de caja)
+  const utilidadEtapa = utilidadAntesImpuesto - impuestoRenta - ivaNoRecuperable;
   // Utilidad desarrollador como REFERENCIA (no se descuenta como costo — lo maneja la TIR)
   // Es la utilidad acontecible, que es el residual natural del método
   const utilidadDesarrolladorPnL = utilidadEtapa; // acontecible = utilidad neta real
@@ -897,6 +902,7 @@ export function buildPnL(
     resultadoExplotacion,
     resultadoExplotacionPct: totalIngresosNet > 0 ? resultadoExplotacion / totalIngresosNet : 0,
     gastosFinCreditoConstruccion,
+    ivaNoRecuperable,
     utilidadDesarrollador: utilidadDesarrolladorPnL,
     utilidadDesarrolladorPct: totalIngresosNet > 0 ? utilidadDesarrolladorPnL / totalIngresosNet : 0,
     utilidadAntesImpuesto,

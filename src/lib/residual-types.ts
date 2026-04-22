@@ -301,6 +301,10 @@ export interface ProfitAndLoss {
   resultadoExplotacionPct: number;
 
   gastosFinCreditoConstruccion: number;
+  // IVA a proveedores NO recuperable: relevante solo para exentos (DS19).
+  // El desarrollador paga bruto a contratista/estudios/ITO pero no recupera
+  // contra débito (porque no hay débito). Costo de caja real no reflejado en NETO.
+  ivaNoRecuperable: number;
   utilidadDesarrollador: number;     // Honorarios fijos del desarrollador (% de ventas)
   utilidadDesarrolladorPct: number;
   utilidadAntesImpuesto: number;
