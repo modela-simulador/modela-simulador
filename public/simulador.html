@@ -3,12 +3,17 @@
 <head>
   <meta charset="UTF-8" />
   <title>Modela — Cargando plataforma…</title>
-  <meta http-equiv="refresh" content="0; url=./" />
-  <link rel="canonical" href="./" />
+  <meta http-equiv="refresh" content="0; url=/modela-simulador/" />
+  <link rel="canonical" href="/modela-simulador/" />
   <script>
-    // Redirección inmediata a la nueva landing (login + selector de herramientas).
-    // El simulador legacy queda accesible desde la tarjeta "Simulador Inmobiliario".
-    window.location.replace("./");
+    // Redirección dinámica a la nueva landing (login + selector).
+    // Funciona tanto en dev local (/simulador.html → /) como en Pages
+    // (/modela-simulador/simulador.html → /modela-simulador/).
+    (function () {
+      var target = window.location.pathname.replace(/simulador\.html$/, "");
+      if (!target) target = "/";
+      window.location.replace(target);
+    })();
   </script>
   <style>
     body {
