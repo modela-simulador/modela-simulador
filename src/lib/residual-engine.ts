@@ -1054,7 +1054,7 @@ export function deriveDefaults(
   //   casas / townhouses: 14 meses
   const constructionMonthsByFamily: Record<string, number> = {
     edificios: 16,
-    ds19: 15,
+    ds19: 16,
     casas: 14,
     townhouses: 14,
   };
@@ -1065,7 +1065,7 @@ export function deriveDefaults(
   const isHouseLike = product.family === 'casas' || product.family === 'townhouses';
 
   const ds19Overrides = isDs19 ? {
-    constructionCostUFm2: 16,
+    constructionCostUFm2: 16.5,
     estudioArquitecturaUFm2: 0.28,
     estudioCalculoUFm2: 0.05,
     salesCommissionPct: 0.008,
