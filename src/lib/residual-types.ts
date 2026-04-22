@@ -145,6 +145,15 @@ export interface ResidualInputs {
   creditoEnlaceOn: boolean;
   creditoEnlaceUFPerUnit: number;  // 300 UF/viv default para DS19
 
+  // Distribución temporal del pago a contratista (todos los productos):
+  // - Anticipo al inicio de obra (típico 15-20% del contrato)
+  // - SoPs mensuales siguiendo curva S (menos al inicio/final, peak en mitad)
+  // - Retención sobre cada SoP (típico 5%, liberada en recepción)
+  // - Recuperación del anticipo via descuento en cada SoP (típico 15%)
+  constructionAdvancePct: number;       // Anticipo a contratista (fracción del directo)
+  constructionRetencionPct: number;     // Retención por SoP (fracción)
+  anticipoRecoveryFromSoPPct: number;   // % del SoP que amortiza el anticipo
+
   // Income tax
   incomeTaxRate: number;           // 27%
 
@@ -450,6 +459,9 @@ export const DEFAULT_INPUTS: Omit<ResidualInputs, 'lotAreaM2' | 'lotFid' | 'prod
   interestRateAnnual: 0.045,
   creditoEnlaceOn: false,                  // OFF por default; DS19 lo activa automáticamente
   creditoEnlaceUFPerUnit: 300,             // 300 UF/viv típico Chile DS19
+  constructionAdvancePct: 0.15,            // 15% anticipo al contratista (default balanceado con recuperación)
+  constructionRetencionPct: 0.05,          // 5% retención por SoP
+  anticipoRecoveryFromSoPPct: 0.15,        // 15% del SoP descuenta anticipo (balance: anticipo=recuperación)
   incomeTaxRate: 0.27,
   landContributionsUF: 1033,
   landBrokerageUF: 0,

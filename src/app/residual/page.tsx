@@ -592,6 +592,22 @@ export default function ResidualPage() {
                   <SliderInput label="Imprevistos" value={inputs.contingenciesPct * 100} min={0} max={5} step={0.1}
                     onChange={(v) => updateInput("contingenciesPct", v / 100)} unit="%" />
 
+                  {/* Flujo contractual: anticipo + curva S + retención + recuperación */}
+                  <div className="mt-3 pt-3 border-t border-zinc-700 bg-amber-950/20 rounded-lg p-2 border border-amber-900/40">
+                    <div className="text-[10px] uppercase tracking-wider text-amber-400 font-semibold mb-1">Flujo contractual (curva S)</div>
+                    <SliderInput label="Anticipo contratista" value={inputs.constructionAdvancePct * 100} min={0} max={40} step={1}
+                      onChange={(v) => updateInput("constructionAdvancePct", v / 100)} unit="%" />
+                    <SliderInput label="Retención por SoP" value={inputs.constructionRetencionPct * 100} min={0} max={15} step={0.5}
+                      onChange={(v) => updateInput("constructionRetencionPct", v / 100)} unit="%" />
+                    <SliderInput label="Amortización anticipo" value={inputs.anticipoRecoveryFromSoPPct * 100} min={0} max={40} step={1}
+                      onChange={(v) => updateInput("anticipoRecoveryFromSoPPct", v / 100)} unit="%/SoP" />
+                    <div className="text-[10px] text-zinc-500 italic mt-1 space-y-0.5">
+                      <div>• Anticipo al inicio: <b className="text-amber-300">{fmt(Math.round(inputs.constructionAdvancePct * inputs.constructionCostUFm2 * inputs.totalSupConstruidaM2))} UF</b></div>
+                      <div>• SoPs mensuales via curva S. Cada SoP: {fmtPct(inputs.anticipoRecoveryFromSoPPct, 0)} descuento anticipo + {fmtPct(inputs.constructionRetencionPct, 0)} retención.</div>
+                      <div>• Retención total se libera en recepción municipal.</div>
+                    </div>
+                  </div>
+
                   {/* Costos bajo cota 0 — solo cuando subt activo */}
                   {inputs.subterraneoOn && (
                     <div className="mt-3 pt-3 border-t border-zinc-700 bg-cyan-950/20 rounded-lg p-2 border border-cyan-900/40">

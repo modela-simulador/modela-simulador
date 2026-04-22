@@ -250,6 +250,17 @@ export function buildCashFlow(
   // IMPORTANTE: revenuePerUnit en NETO para cash flow (coincide con Excel H71 "Total PxQ Neto").
   const revenuePerUnit = totalRevenueNet / totalUnits;
 
+  // ── Curva S para el costo directo de construcción ──
+  // smoothstep(t) = 3t² − 2t³ genera un perfil sigmoide clásico (menos inicio/final, peak mitad).
+  const smoothstep = (t: number): number => {
+    const c = Math.max(0, Math.min(1, t));
+    return 3 * c * c - 2 * c * c * c;
+  };
+  const anticipoAmount = directConstructionCost * inputs.constructionAdvancePct;
+  const mcStart = Math.round(monthConstructionStart);
+  let anticipoRemaining = anticipoAmount;
+  let retencionAccumulated = 0;
+
   // Studies & permits
   const totalStudies = totalSupConstruidaM2 * studiesDesignUFm2;
   const totalPermits = totalSupConstruidaM2 * permitsLicensesUFm2;
@@ -368,20 +379,44 @@ export function buildCashFlow(
       row.itoCost = itoUF / constructionMonths;
     }
 
-    // ── CONSTRUCTION COSTS (linear distribution) ──
-    if (m >= monthConstructionStart && m < monthConstructionStart + constructionMonths) {
-      row.constructionCost = directConstructionCost / constructionMonths;
-      row.indirectCosts = totalIndirectCosts / constructionMonths;
+    // ── CONSTRUCTION COSTS ──
+    // Anticipo al contratista: paga al mes de inicio de obra
+    if (m === mcStart) {
+      row.constructionCost += anticipoAmount;
+    }
 
+    // SoPs mensuales vía curva S sumando 100% del directo (invoice total al contratista).
+    // De cada SoP: retención (5%), recuperación del anticipo (15% hasta agotar).
+    // Cash pagado al contratista = gross − retención − recuperación.
+    // Balanceado: cuando anticipoPct = recuperaciónPct, la caja suma exacto al directo.
+    if (m >= mcStart && m < mcStart + constructionMonths) {
+      const i = m - mcStart;
+      const n = constructionMonths;
+      const share = smoothstep((i + 1) / n) - smoothstep(i / n);
+      const sopGross = directConstructionCost * share;
+      const recovery = Math.min(inputs.anticipoRecoveryFromSoPPct * sopGross, anticipoRemaining);
+      anticipoRemaining -= recovery;
+      const retencion = inputs.constructionRetencionPct * sopGross;
+      retencionAccumulated += retencion;
+      const paidToContractor = sopGross - recovery - retencion;
+      row.constructionCost += paidToContractor;
+
+      // Resto de costos (indirectos, urba, mov tierra, postventa, utilidad, imprevistos) siguen lineal
+      row.indirectCosts = totalIndirectCosts / constructionMonths;
       const urbMonths = Math.ceil(constructionMonths * 0.5);
-      if (m < monthConstructionStart + urbMonths) {
+      if (m < mcStart + urbMonths) {
         row.urbanizationCost = totalUrbanizationCost / urbMonths;
         row.earthMovementCost = totalEarthMovement / urbMonths;
       }
-
       row.postVentaConstruction = totalPostVentaConst / constructionMonths;
       row.constructorUtility = totalConstructorUtility / constructionMonths;
       row.contingencies = totalContingencies / constructionMonths;
+    }
+
+    // Liberación de retención al mes de recepción municipal
+    if (m === monthReceptionInt && retencionAccumulated > 0) {
+      row.constructionCost += retencionAccumulated;
+      retencionAccumulated = 0;
     }
 
     row.totalConstructionCost = row.constructionCost + row.urbanizationCost +
@@ -630,16 +665,22 @@ export function buildCashFlow(
   if (inputs.creditoEnlaceOn && inputs.creditoEnlaceUFPerUnit > 0) {
     const totalCredito = inputs.creditoEnlaceUFPerUnit * totalUnits;
 
-    // Pase 1: desembolsos durante obra (cubre costo mes a mes hasta agotar cap)
+    // Pase 1: desembolsos con lag de 60 días (2 meses).
+    // El Crédito Enlace se deposita al desarrollador 2 meses después del pago de obra
+    // correspondiente (reembolso estatal), hasta agotar el cupo total.
+    const ENLACE_LAG_MONTHS = 2;
     let drawn = 0;
-    for (const row of rows) {
+    for (let m = 0; m < rows.length; m++) {
       if (drawn >= totalCredito) break;
-      const constSpendThisMonth =
-        row.constructionCost + row.urbanizationCost + row.earthMovementCost +
-        row.indirectCosts + row.postVentaConstruction + row.constructorUtility + row.contingencies;
-      if (constSpendThisMonth <= 0) continue;
-      const drawdown = Math.min(constSpendThisMonth, totalCredito - drawn);
-      row.creditoEnlaceDrawdown = drawdown;
+      const sourceM = m - ENLACE_LAG_MONTHS;
+      if (sourceM < 0) continue;
+      const srcRow = rows[sourceM];
+      const sourceCost =
+        srcRow.constructionCost + srcRow.urbanizationCost + srcRow.earthMovementCost +
+        srcRow.indirectCosts + srcRow.postVentaConstruction + srcRow.constructorUtility + srcRow.contingencies;
+      if (sourceCost <= 0) continue;
+      const drawdown = Math.min(sourceCost, totalCredito - drawn);
+      rows[m].creditoEnlaceDrawdown = drawdown;
       drawn += drawdown;
     }
 
