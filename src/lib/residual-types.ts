@@ -409,8 +409,8 @@ export const DEFAULT_INPUTS: Omit<ResidualInputs, 'lotAreaM2' | 'lotFid' | 'prod
   contingenciesPct: 0.01,
   ivaRate: 0.19,
   escrituracionUFPerUnit: 12,
-  salesCommissionPct: 0.01,
-  marketingPct: 0.01,
+  salesCommissionPct: 0.012,             // 1.2% global para todos los productos
+  marketingPct: 0.012,
   decoracionPilotoUF: 1000,
   stockMaintenanceUFPerUnit: 4,
   postVentaGavPct: 0.006,
@@ -459,9 +459,9 @@ export const DEFAULT_INPUTS: Omit<ResidualInputs, 'lotAreaM2' | 'lotFid' | 'prod
   interestRateAnnual: 0.045,
   creditoEnlaceOn: false,                  // OFF por default; DS19 lo activa automáticamente
   creditoEnlaceUFPerUnit: 300,             // 300 UF/viv típico Chile DS19
-  constructionAdvancePct: 0.15,            // 15% anticipo al contratista (default balanceado con recuperación)
+  constructionAdvancePct: 0.20,            // 20% anticipo al contratista
   constructionRetencionPct: 0.05,          // 5% retención por SoP
-  anticipoRecoveryFromSoPPct: 0.15,        // 15% del SoP descuenta anticipo (balance: anticipo=recuperación)
+  anticipoRecoveryFromSoPPct: 0.20,        // 20% del SoP descuenta anticipo (balance: anticipo=recuperación)
   incomeTaxRate: 0.27,
   landContributionsUF: 1033,
   landBrokerageUF: 0,

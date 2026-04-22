@@ -585,7 +585,9 @@ export function buildCashFlow(
       row.greenInsurance +        // Seguro venta en verde (compañía seguros)
       row.postVentaGav +          // Post-venta inmobiliaria (servicio post-entrega)
       row.stockMaintenance +      // Condominios y mantención stock
-      row.adminCost;              // Tarifa gestión inmobiliaria (servicio administrativo)
+      // ─ Tarifa gestión: solo 20% son servicios externos gravados (marketing, ads);
+      //   el 80% es compensación interna del equipo de gestión (no genera IVA) ─
+      row.adminCost * 0.20;
       // EXENTOS (no se suman aquí):
       //   - row.landCost (compra terreno)
       //   - row.landContributions (contribuciones territoriales)
@@ -593,10 +595,12 @@ export function buildCashFlow(
       //   - row.afrVialCost (AFR, aportes viales al Estado)
       //   - row.escrituracionCost (servicios notariales)
       //   - row.financingInterest (intereses, servicios financieros exentos)
-    // DS19 exento: desarrollador no recupera IVA de construcción (no hay débito contra el cual descargar).
-    // Simplificación: ivaCredito = 0 para proyectos exentos (subestima ~CEEC 65%, futuro input).
-    const ivaCredito = exentoProject ? 0 : ivaCreditoBase * ivaRate;
-    const netoIVA = ivaDebito - ivaCredito;
+    // IVA realmente pagado a proveedores (siempre sale como caja, sin importar exento):
+    // el desarrollador paga BRUTO a quien le factura con IVA.
+    const ivaPaidToSuppliers = ivaCreditoBase * ivaRate;
+    // IVA recuperable contra SII: DS19 exento no recupera (no hay débito para descontar).
+    const ivaCreditoRecoverable = exentoProject ? 0 : ivaPaidToSuppliers;
+    const netoIVA = ivaDebito - ivaCreditoRecoverable;
 
     // Arrastre: saldo del mes = neto + saldo anterior (el pago del mes previo ya se restó)
     const ivaAcumulado = netoIVA + ivaAcumuladoPrev;
@@ -619,7 +623,9 @@ export function buildCashFlow(
 
     // ── Guardar IVA débito/crédito del mes (líneas separadas de cash flow) ──
     row.ivaDebitoReceived = ivaDebito;
-    row.ivaCreditoPaid = ivaCredito;
+    // Para DS19 exento: el IVA a proveedores SIGUE saliendo como caja (el desarrollador
+    // paga bruto al contratista/estudios/ITO) aunque no lo pueda recuperar vía SII.
+    row.ivaCreditoPaid = ivaPaidToSuppliers;
 
     // ── TOTAL COSTOS (NETO, sin IVA) ──
     // ivaPaid, débito y crédito se manejan como líneas separadas en cash flow
@@ -1078,10 +1084,8 @@ export function deriveDefaults(
 
   const lotAreaHa = lotAreaM2 / 10000;
   const effectiveEfficiency = getEffectiveEfficiency(productId, prcOn);
-  const totalUnits = Math.min(
-    Math.floor(lotAreaHa * effectiveEfficiency),
-    product.maxUnits
-  );
+  // Sin tope superior de unidades: la densidad del PRC manda (puede excederse maxUnits).
+  const totalUnits = Math.floor(lotAreaHa * effectiveEfficiency);
 
   // Default sellable surface (m²) per specific product id.
   // Edificios/Deptos: 60 m² (típico Chile medio)
@@ -1125,8 +1129,8 @@ export function deriveDefaults(
   let parkingPrice = 300;          // superficie
   let parkingPriceSubt = 400;      // subterráneo (más caro: producto techado)
   if (product.family === 'ds19') {
-    parkingPrice = 250;
-    parkingPriceSubt = 350;
+    parkingPrice = 220;
+    parkingPriceSubt = 320;
   } else if (product.family === 'casas' || product.family === 'townhouses') {
     parkingPerUnit = 0;
     parkingPrice = 0;
@@ -1162,17 +1166,17 @@ export function deriveDefaults(
   const isHouseLike = product.family === 'casas' || product.family === 'townhouses';
 
   const ds19Overrides = isDs19 ? {
-    constructionCostUFm2: 16.5,
-    estudioArquitecturaUFm2: 0.28,
-    estudioCalculoUFm2: 0.05,
-    salesCommissionPct: 0.008,
-    marketingPct: 0.008,
-    tarifaGestionInmobiliariaPct: 0.045,
+    constructionCostUFm2: 16.7,
+    estudioArquitecturaUFm2: 0.3,
+    estudioCalculoUFm2: 0.06,
+    // Ventas/marketing quedan en el default global (1.2% cada una)
+    tarifaGestionInmobiliariaPct: 0.055,
     escrituracionUFPerUnit: 6,
     contribucionesViviendasUFPerUnit: 5.8,
     decoracionPilotoUF: 0,
     vialContributionUFPerUnit: 18,
-    commonAreaPct: 0.15,
+    commonAreaPct: 0.18,
+    salesVelocity: 7.5,
     creditoEnlaceOn: true,
     creditoEnlaceUFPerUnit: 300,
   } : {};
@@ -1185,7 +1189,7 @@ export function deriveDefaults(
   } : {};
 
   // Recalcular supConstruida con el commonAreaPct efectivo de cada familia
-  const effectiveCommonArea = isDs19 ? 0.15 : isHouseLike ? 0 : commonAreaPct;
+  const effectiveCommonArea = isDs19 ? 0.18 : isHouseLike ? 0 : commonAreaPct;
   const effectiveSupConstruida = supVendible * (1 + effectiveCommonArea);
   const effectiveUnitModel: UnitModel = {
     ...unitModel,
