@@ -1000,22 +1000,38 @@ export default function ResidualPage() {
 
 // ── Timeline Chart (visualización Gantt: resultado del Timeline) ──
 function TimelineChart({ inputs, result }: { inputs: ResidualInputs; result: ResidualOutput }) {
-  // Inicio construcción efectivo (coincide con engine: auto por %preventas o manual)
-  const effectiveMonthConstructionStart = (() => {
-    if (!inputs.autoConstructionStart) return inputs.monthConstructionStart;
-    const unitsNeeded = inputs.totalUnits * inputs.preventasBeforeConstructionPct;
-    const monthsToReach = Math.ceil(unitsNeeded / Math.max(1, inputs.salesVelocity));
-    return inputs.monthPreSalesStart + monthsToReach;
-  })();
-  // Trenes clave (derivados)
-  const monthReception = effectiveMonthConstructionStart + inputs.constructionMonths + inputs.monthsAfterConstructionToReception;
-  const monthEscrituracion = monthReception + inputs.monthsAfterReceptionToEscrituracion;
-  const salesMonths = Math.ceil(inputs.totalUnits / inputs.salesVelocity);
-  const monthSalesEnd = inputs.monthPreSalesStart + salesMonths;
+  const isDualEtapa = inputs.numEtapas === 2;
+
+  // Velocidad efectiva: si son 2 etapas, ambas operan canibalizadas desde sus inicios
+  const effVel = isDualEtapa ? inputs.salesVelocity * 0.675 : inputs.salesVelocity;
+  const unitsE1 = isDualEtapa ? Math.floor(inputs.totalUnits / 2) : inputs.totalUnits;
+  const unitsE2 = isDualEtapa ? inputs.totalUnits - unitsE1 : 0;
+
+  // Etapa 1
+  const preventaUnitsE1 = unitsE1 * inputs.preventasBeforeConstructionPct;
+  const icE1 = inputs.autoConstructionStart
+    ? inputs.monthPreSalesStart + Math.ceil(preventaUnitsE1 / Math.max(0.1, effVel))
+    : inputs.monthConstructionStart;
+  const obraEndE1 = icE1 + inputs.constructionMonths;
+  const recepE1 = obraEndE1 + inputs.monthsAfterConstructionToReception;
+  const salesEndE1 = inputs.monthPreSalesStart + Math.ceil(unitsE1 / Math.max(0.1, effVel));
+
+  // Etapa 2 (derivada: IC calza con últimos `overlap` meses de obra E1)
+  let icE2 = 0, obraEndE2 = 0, recepE2 = 0, preSalesStartE2 = 0, salesEndE2 = 0;
+  if (isDualEtapa) {
+    const preventaUnitsE2 = unitsE2 * inputs.preventasBeforeConstructionPct;
+    icE2 = icE1 + inputs.constructionMonths - inputs.etapaOverlapMonths;
+    const preventaTimeE2 = Math.ceil(preventaUnitsE2 / Math.max(0.1, effVel));
+    preSalesStartE2 = Math.max(inputs.monthPreSalesStart, icE2 - preventaTimeE2);
+    obraEndE2 = icE2 + inputs.constructionMonths;
+    recepE2 = obraEndE2 + inputs.monthsAfterConstructionToReception;
+    salesEndE2 = preSalesStartE2 + Math.ceil(unitsE2 / Math.max(0.1, effVel));
+  }
+
   const lastEscriMonth = result.cashFlow.reduce((last, r, i) =>
     r.revenueEscrituracion > 0 ? i : last, 0);
-  const stockSaleEnd = Math.max(lastEscriMonth, monthSalesEnd);
-  const maxMonth = Math.max(stockSaleEnd + 2, result.totalMonths);
+  const stockSaleEnd = Math.max(lastEscriMonth, salesEndE1, salesEndE2);
+  const maxMonth = Math.max(stockSaleEnd + 2, result.totalMonths, isDualEtapa ? recepE2 + 4 : recepE1 + 4);
 
   const monthToLabel = (m: number) => {
     const mm = ((0 + m) % 12) + 1;
@@ -1023,13 +1039,40 @@ function TimelineChart({ inputs, result }: { inputs: ResidualInputs; result: Res
     return `${String(mm).padStart(2, "0")}/${String(yy).slice(2)}`;
   };
 
-  const tracks = [
-    { label: "Compra Terreno", start: inputs.monthLandPurchase, end: inputs.monthLandPurchase, color: "bg-amber-500", markerType: "point" as const, tooltip: `Mes ${inputs.monthLandPurchase} · ${monthToLabel(inputs.monthLandPurchase)}` },
-    { label: "Preventa", start: inputs.monthPreSalesStart, end: effectiveMonthConstructionStart, color: "bg-green-500/70", markerType: "bar" as const, tooltip: `Mes ${inputs.monthPreSalesStart} → ${effectiveMonthConstructionStart} · preventa hasta inicio de construcción @ ${inputs.salesVelocity}/mes` },
-    { label: "Venta", start: effectiveMonthConstructionStart, end: stockSaleEnd, color: "bg-blue-500/60", markerType: "bar" as const, tooltip: `Mes ${effectiveMonthConstructionStart} → ${stockSaleEnd} · venta en verde + stock post-recepción` },
-    { label: "Construcción", start: effectiveMonthConstructionStart, end: effectiveMonthConstructionStart + inputs.constructionMonths, color: "bg-orange-500/70", markerType: "bar" as const, tooltip: `Mes ${effectiveMonthConstructionStart} → ${effectiveMonthConstructionStart + inputs.constructionMonths} · ${inputs.constructionMonths} meses${inputs.autoConstructionStart ? " (auto: " + (inputs.preventasBeforeConstructionPct*100).toFixed(0) + "% preventa)" : ""}` },
-    { label: "Recepción Municipal", start: monthReception, end: monthReception, color: "bg-purple-500", markerType: "point" as const, tooltip: `Mes ${monthReception} · ${monthToLabel(monthReception)}` },
+  type Track = { label: string; start: number; end: number; color: string; markerType: "bar" | "point"; tooltip: string; group?: "e1" | "e2" | "terreno" };
+
+  const tracks: Track[] = [
+    { label: "Compra Terreno", start: inputs.monthLandPurchase, end: inputs.monthLandPurchase, color: "bg-amber-500", markerType: "point", tooltip: `Mes ${inputs.monthLandPurchase} · ${monthToLabel(inputs.monthLandPurchase)}`, group: "terreno" },
   ];
+
+  if (isDualEtapa) {
+    tracks.push(
+      // Etapa 1 — tonos cyan/azul
+      { label: "E1 · Preventa", start: inputs.monthPreSalesStart, end: icE1, color: "bg-cyan-500/70", markerType: "bar", tooltip: `Etapa 1 preventa @ ${effVel.toFixed(1)} un/mes (canibalizada) · ${unitsE1} viv`, group: "e1" },
+      { label: "E1 · Venta", start: icE1, end: salesEndE1, color: "bg-cyan-400/50", markerType: "bar", tooltip: `Etapa 1 ventas (verde + stock) · hasta mes ${salesEndE1}`, group: "e1" },
+      { label: "E1 · Construcción", start: icE1, end: obraEndE1, color: "bg-orange-500/70", markerType: "bar", tooltip: `Etapa 1 obra · ${inputs.constructionMonths} meses`, group: "e1" },
+      { label: "E1 · Recepción", start: recepE1, end: recepE1, color: "bg-purple-500", markerType: "point", tooltip: `E1 recepción municipal mes ${recepE1}`, group: "e1" },
+      // Etapa 2 — tonos emerald/verde
+      { label: "E2 · Preventa", start: preSalesStartE2, end: icE2, color: "bg-emerald-500/70", markerType: "bar", tooltip: `Etapa 2 preventa (calza con traslape ${inputs.etapaOverlapMonths}m obra E1) · ${unitsE2} viv`, group: "e2" },
+      { label: "E2 · Venta", start: icE2, end: salesEndE2, color: "bg-emerald-400/50", markerType: "bar", tooltip: `Etapa 2 ventas · hasta mes ${salesEndE2}`, group: "e2" },
+      { label: "E2 · Construcción", start: icE2, end: obraEndE2, color: "bg-rose-500/70", markerType: "bar", tooltip: `Etapa 2 obra · traslape con E1 = ${inputs.etapaOverlapMonths}m`, group: "e2" },
+      { label: "E2 · Recepción", start: recepE2, end: recepE2, color: "bg-fuchsia-500", markerType: "point", tooltip: `E2 recepción municipal mes ${recepE2}`, group: "e2" },
+    );
+  } else {
+    tracks.push(
+      { label: "Preventa", start: inputs.monthPreSalesStart, end: icE1, color: "bg-green-500/70", markerType: "bar", tooltip: `Mes ${inputs.monthPreSalesStart} → ${icE1} · preventa hasta inicio de construcción @ ${inputs.salesVelocity}/mes` },
+      { label: "Venta", start: icE1, end: stockSaleEnd, color: "bg-blue-500/60", markerType: "bar", tooltip: `Mes ${icE1} → ${stockSaleEnd} · venta en verde + stock post-recepción` },
+      { label: "Construcción", start: icE1, end: obraEndE1, color: "bg-orange-500/70", markerType: "bar", tooltip: `Mes ${icE1} → ${obraEndE1} · ${inputs.constructionMonths} meses${inputs.autoConstructionStart ? " (auto: " + (inputs.preventasBeforeConstructionPct*100).toFixed(0) + "% preventa)" : ""}` },
+      { label: "Recepción Municipal", start: recepE1, end: recepE1, color: "bg-purple-500", markerType: "point", tooltip: `Mes ${recepE1} · ${monthToLabel(recepE1)}` },
+    );
+  }
+
+  // Alias para mantener datos de summary abajo (referencia a etapa 1 como "principal")
+  const effectiveMonthConstructionStart = icE1;
+  const monthReception = recepE1;
+  const monthEscrituracion = monthReception + inputs.monthsAfterReceptionToEscrituracion;
+  const salesMonths = Math.ceil(inputs.totalUnits / Math.max(0.1, effVel));
+  const monthSalesEnd = inputs.monthPreSalesStart + salesMonths;
 
   const yearMarks: number[] = [];
   for (let m = 0; m <= maxMonth; m += 12) yearMarks.push(m);
@@ -1048,21 +1091,30 @@ function TimelineChart({ inputs, result }: { inputs: ResidualInputs; result: Res
         {tracks.map((t, idx) => {
           const leftPct = (t.start / maxMonth) * 100;
           const widthPct = Math.max(0.8, ((t.end - t.start) / maxMonth) * 100);
+          const prevGroup = idx > 0 ? tracks[idx - 1].group : undefined;
+          const showGroupSeparator = isDualEtapa && t.group && t.group !== prevGroup && idx > 0;
           return (
-            <div key={idx} className="flex items-center gap-2">
-              <div className="w-32 text-[10px] text-zinc-400 text-right shrink-0 truncate">{t.label}</div>
-              <div className="relative flex-1 h-5 bg-zinc-900/60 rounded border border-zinc-800">
-                {t.markerType === "bar" ? (
-                  <div className={`absolute top-0.5 bottom-0.5 ${t.color} rounded transition-all duration-200`} style={{ left: `${leftPct}%`, width: `${widthPct}%` }} title={t.tooltip} />
-                ) : (
-                  <div className={`absolute top-1/2 w-2.5 h-2.5 rounded-full ${t.color} ring-2 ring-zinc-900 transition-all duration-200`} style={{ left: `${leftPct}%`, transform: "translateX(-50%) translateY(-50%)" }} title={t.tooltip} />
-                )}
-                {t.markerType === "bar" && (
-                  <>
-                    <div className="absolute text-[8px] text-zinc-500" style={{ left: `${leftPct}%`, top: "100%", transform: "translateX(-50%)" }}>{t.start}</div>
-                    <div className="absolute text-[8px] text-zinc-500" style={{ left: `${leftPct + widthPct}%`, top: "100%", transform: "translateX(-50%)" }}>{t.end}</div>
-                  </>
-                )}
+            <div key={idx}>
+              {showGroupSeparator && (
+                <div className={`text-[9px] uppercase tracking-widest font-semibold pl-2 pt-1 pb-0.5 ${t.group === "e1" ? "text-cyan-400" : t.group === "e2" ? "text-emerald-400" : "text-zinc-500"}`}>
+                  {t.group === "e1" ? `── Etapa 1 (${unitsE1} viv)` : t.group === "e2" ? `── Etapa 2 (${unitsE2} viv)` : "──"}
+                </div>
+              )}
+              <div className="flex items-center gap-2">
+                <div className="w-32 text-[10px] text-zinc-400 text-right shrink-0 truncate">{t.label}</div>
+                <div className="relative flex-1 h-5 bg-zinc-900/60 rounded border border-zinc-800">
+                  {t.markerType === "bar" ? (
+                    <div className={`absolute top-0.5 bottom-0.5 ${t.color} rounded transition-all duration-200`} style={{ left: `${leftPct}%`, width: `${widthPct}%` }} title={t.tooltip} />
+                  ) : (
+                    <div className={`absolute top-1/2 w-2.5 h-2.5 rounded-full ${t.color} ring-2 ring-zinc-900 transition-all duration-200`} style={{ left: `${leftPct}%`, transform: "translateX(-50%) translateY(-50%)" }} title={t.tooltip} />
+                  )}
+                  {t.markerType === "bar" && (
+                    <>
+                      <div className="absolute text-[8px] text-zinc-500" style={{ left: `${leftPct}%`, top: "100%", transform: "translateX(-50%)" }}>{t.start}</div>
+                      <div className="absolute text-[8px] text-zinc-500" style={{ left: `${leftPct + widthPct}%`, top: "100%", transform: "translateX(-50%)" }}>{t.end}</div>
+                    </>
+                  )}
+                </div>
               </div>
             </div>
           );
@@ -1071,21 +1123,45 @@ function TimelineChart({ inputs, result }: { inputs: ResidualInputs; result: Res
 
       {/* Data summary table */}
       <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-[10px] bg-zinc-900/50 rounded p-2 border border-zinc-700">
-        <div className="text-zinc-400">Inicio Preventas:</div>
-        <div className="text-zinc-200 font-semibold">Mes {inputs.monthPreSalesStart} · {monthToLabel(inputs.monthPreSalesStart)}</div>
-        <div className="text-zinc-400">Inicio Construcción:</div>
-        <div className="text-zinc-200 font-semibold">Mes {effectiveMonthConstructionStart} · {monthToLabel(effectiveMonthConstructionStart)} {inputs.autoConstructionStart && <span className="text-cyan-400 text-[9px]">(auto)</span>}</div>
-        <div className="text-zinc-400">Recepción Municipal:</div>
-        <div className="text-zinc-200 font-semibold">Mes {monthReception} · {monthToLabel(monthReception)}</div>
-        <div className="text-zinc-400">Inicio Escrituración:</div>
-        <div className="text-zinc-200 font-semibold">Mes {monthEscrituracion} · {monthToLabel(monthEscrituracion)}</div>
-        <div className="text-zinc-400">Fin Ventas:</div>
-        <div className="text-zinc-200 font-semibold">Mes {monthSalesEnd} · {monthToLabel(monthSalesEnd)}</div>
-        <div className="text-zinc-400">Fin Escrituración Stock:</div>
-        <div className="text-zinc-200 font-semibold">Mes {stockSaleEnd} · {monthToLabel(stockSaleEnd)}</div>
+        {!isDualEtapa ? (
+          <>
+            <div className="text-zinc-400">Inicio Preventas:</div>
+            <div className="text-zinc-200 font-semibold">Mes {inputs.monthPreSalesStart} · {monthToLabel(inputs.monthPreSalesStart)}</div>
+            <div className="text-zinc-400">Inicio Construcción:</div>
+            <div className="text-zinc-200 font-semibold">Mes {effectiveMonthConstructionStart} · {monthToLabel(effectiveMonthConstructionStart)} {inputs.autoConstructionStart && <span className="text-cyan-400 text-[9px]">(auto)</span>}</div>
+            <div className="text-zinc-400">Recepción Municipal:</div>
+            <div className="text-zinc-200 font-semibold">Mes {monthReception} · {monthToLabel(monthReception)}</div>
+            <div className="text-zinc-400">Inicio Escrituración:</div>
+            <div className="text-zinc-200 font-semibold">Mes {monthEscrituracion} · {monthToLabel(monthEscrituracion)}</div>
+            <div className="text-zinc-400">Fin Ventas:</div>
+            <div className="text-zinc-200 font-semibold">Mes {monthSalesEnd} · {monthToLabel(monthSalesEnd)}</div>
+            <div className="text-zinc-400">Fin Escrituración Stock:</div>
+            <div className="text-zinc-200 font-semibold">Mes {stockSaleEnd} · {monthToLabel(stockSaleEnd)}</div>
+          </>
+        ) : (
+          <>
+            <div className="col-span-2 text-cyan-400 font-semibold uppercase tracking-wider text-[9px] pt-0.5">Etapa 1 · {unitsE1} viv</div>
+            <div className="text-zinc-400">Preventas → Construcción:</div>
+            <div className="text-zinc-200 font-semibold">Mes {inputs.monthPreSalesStart} → {icE1}</div>
+            <div className="text-zinc-400">Obra → Recepción:</div>
+            <div className="text-zinc-200 font-semibold">Mes {icE1} → {obraEndE1} → <span className="text-purple-300">{recepE1}</span></div>
+            <div className="text-zinc-400">Fin Ventas E1:</div>
+            <div className="text-zinc-200 font-semibold">Mes {salesEndE1}</div>
+            <div className="col-span-2 text-emerald-400 font-semibold uppercase tracking-wider text-[9px] pt-1 border-t border-zinc-700">Etapa 2 · {unitsE2} viv</div>
+            <div className="text-zinc-400">Preventas → Construcción:</div>
+            <div className="text-zinc-200 font-semibold">Mes {preSalesStartE2} → {icE2}</div>
+            <div className="text-zinc-400">Obra → Recepción:</div>
+            <div className="text-zinc-200 font-semibold">Mes {icE2} → {obraEndE2} → <span className="text-fuchsia-300">{recepE2}</span></div>
+            <div className="text-zinc-400">Fin Ventas E2:</div>
+            <div className="text-zinc-200 font-semibold">Mes {salesEndE2}</div>
+            <div className="col-span-2 text-amber-400 font-semibold uppercase tracking-wider text-[9px] pt-1 border-t border-zinc-700">Traslape obra E1 ⇄ E2</div>
+            <div className="text-zinc-400">Meses de traslape:</div>
+            <div className="text-amber-300 font-semibold">{inputs.etapaOverlapMonths} meses (mes {icE2} → {obraEndE1})</div>
+            <div className="text-zinc-400">Velocidad canibalizada:</div>
+            <div className="text-amber-300 font-semibold">{effVel.toFixed(1)} un/mes por etapa (base {inputs.salesVelocity}, 1.35× entre ambas)</div>
+          </>
+        )}
         <div className="text-zinc-400 pt-1 border-t border-zinc-700 col-span-2"></div>
-        <div className="text-zinc-400">Meses de Venta:</div>
-        <div className="text-green-400 font-semibold">{salesMonths} meses ({inputs.totalUnits} viv @ {inputs.salesVelocity}/mes)</div>
         <div className="text-zinc-400">Plazo Construcción:</div>
         <div className="text-orange-400 font-semibold">{inputs.constructionMonths} meses</div>
         <div className="text-zinc-400">Duración Total Proyecto:</div>
