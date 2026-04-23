@@ -592,14 +592,14 @@ export function buildCashFlow(
       //   - row.afrVialCost (AFR, aportes viales al Estado)
       //   - row.escrituracionCost (servicios notariales)
       //   - row.financingInterest (intereses, servicios financieros exentos)
-    // IVA proveedores:
-    //  - Proyecto gravado (deptos, casas, etc.): paga IVA bruto al proveedor y
-    //    lo recupera vía débito ventas. Cash neto = 0 (pass-through).
-    //  - Proyecto exento (DS19): el contrato se negocia BRUTO-inclusive con el
-    //    contratista (que absorbe el IVA al no existir CEEC). Para el desarrollador
-    //    no hay cash out adicional por IVA; el directo del contrato ya es final.
-    const ivaCredito = exentoProject ? 0 : ivaCreditoBase * ivaRate;
-    const netoIVA = ivaDebito - ivaCredito;
+    // IVA proveedores (desembolso real del desarrollador, siempre):
+    // el contratista factura NETO + 19% IVA → el desarrollador paga BRUTO.
+    const ivaPaidToSuppliers = ivaCreditoBase * ivaRate;
+    // Recuperación vía SII:
+    //  - Gravado: se descarga contra débito ventas → pass-through perfecto.
+    //  - Exento (DS19): no hay débito para descontar → IVA queda como costo.
+    const ivaCreditoRecoverable = exentoProject ? 0 : ivaPaidToSuppliers;
+    const netoIVA = ivaDebito - ivaCreditoRecoverable;
 
     // Arrastre: saldo del mes = neto + saldo anterior (el pago del mes previo ya se restó)
     const ivaAcumulado = netoIVA + ivaAcumuladoPrev;
@@ -622,9 +622,9 @@ export function buildCashFlow(
 
     // ── Guardar IVA débito/crédito del mes (líneas separadas de cash flow) ──
     row.ivaDebitoReceived = ivaDebito;
-    // Proyecto gravado: IVA proveedor es cash out (se recupera via SII).
-    // Proyecto exento: contrato bruto-inclusive → no hay cash out adicional por IVA.
-    row.ivaCreditoPaid = ivaCredito;
+    // ivaCreditoPaid: IVA desembolsado al proveedor (SIEMPRE, incluso para exentos).
+    // Para gravados se recupera via débito; para exentos queda absorbido como costo.
+    row.ivaCreditoPaid = ivaPaidToSuppliers;
 
     // ── TOTAL COSTOS (NETO, sin IVA) ──
     // ivaPaid, débito y crédito se manejan como líneas separadas en cash flow
@@ -659,8 +659,14 @@ export function buildCashFlow(
   const totalLandCostNet = rows.reduce((s, r) => s + r.landCost + r.landContributions, 0);
   const totalFinancingCost = rows.reduce((s, r) => s + r.financingInterest, 0);
 
+  // Para proyectos EXENTO (DS19): el IVA absorbido a proveedores se capitaliza
+  // como parte del costo (tratamiento tributario chileno para DFL-2). La base
+  // tributaria es utilidad sobre costo BRUTO, no NETO.
+  const totalIvaAbsorbido = exentoProject
+    ? rows.reduce((s, r) => s + r.ivaCreditoPaid - r.ivaDebitoReceived, 0)
+    : 0;
   const utilidadAntesImpuesto = totalRevNet - totalConstructionCostNet - totalGAVNet -
-    totalLandCostNet - totalFinancingCost;
+    totalLandCostNet - totalFinancingCost - totalIvaAbsorbido;
   const incomeTaxPayable = Math.max(0, utilidadAntesImpuesto * incomeTaxRate);
 
   // ── CRÉDITO DE ENLACE (DS19) ─────────────────────────────
@@ -827,7 +833,12 @@ export function buildPnL(
     inspeccionTecnica + interesesConstruccion;
 
   // ─── MARGEN ───
-  const margenExplotacion = totalIngresosNet - totalCostosExplotacionNet;
+  // Para proyectos EXENTO (DS19): la utilidad refleja el IVA absorbido como costo
+  // embebido en los items gravados (usa BRUTO en vez de NETO para esos items).
+  // Metodológicamente equivalente a decir: el 19% se aplica al final y queda en costo.
+  const margenExplotacion = exento
+    ? totalIngresosNet - totalCostosExplotacionGross
+    : totalIngresosNet - totalCostosExplotacionNet;
 
   // ─── GAV (orden Excel) ───
   const servicioEscrituracion = sum(r => r.escrituracionCost);
@@ -855,7 +866,10 @@ export function buildPnL(
     tarifaGestionInmobiliaria;
 
   // ─── RESULTADO ───
-  const resultadoExplotacion = margenExplotacion - totalGAVNet;
+  // Para exento: también usamos GAV BRUTO (IVA sobre servicios absorbido).
+  const resultadoExplotacion = exento
+    ? margenExplotacion - totalGAVGross
+    : margenExplotacion - totalGAVNet;
   // Intereses de construcción ya fueron contados en costos explotación (línea "Intereses de Construcción").
   // "Gastos Fin. Crédito Construcción" queda en 0 para evitar DOBLE CONTEO.
   // Si el proyecto tuviera fees adicionales del crédito (comisiones, seguros), se agregarían aquí.
