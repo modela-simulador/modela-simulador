@@ -596,6 +596,15 @@ export default function ResidualPage() {
 
                 {/* CONSTRUCTION */}
                 <Section title="Costos de Construcción" accent="orange" collapsible>
+                  {/* Nota cuando son 2 etapas */}
+                  {inputs.numEtapas === 2 && (
+                    <div className="bg-indigo-950/40 border border-indigo-700/40 rounded-lg p-2 mb-3 text-[10px] text-indigo-200 leading-tight">
+                      <div className="font-semibold text-indigo-300 uppercase tracking-wider mb-1">⚑ Modo 2 etapas · tratamiento por torre</div>
+                      Todos los inputs abajo (costo directo, plazo, anticipo, etc.) son <b>POR TORRE</b>.
+                      Los totales que ves en el bloque superior son la suma de ambas torres.
+                      Cada torre construye en {inputs.constructionMonths} meses con su propio anticipo, curva S y retención, traslapándose {inputs.etapaOverlapMonths} meses.
+                    </div>
+                  )}
                   {/* CONSOLIDADO NETO UF/m² — siempre visible arriba */}
                   {result && (
                     <div className="bg-gradient-to-r from-orange-950/50 to-zinc-900 rounded-lg p-3 border border-orange-800/50 mb-3">
@@ -613,6 +622,12 @@ export default function ResidualPage() {
                         <div className="text-zinc-500">Sup. TOTAL: <span className="text-orange-300 font-semibold">{fmt(result.supConstruidaTotal)} m²</span></div>
                         <div className="text-zinc-500">Costo total: <span className="text-orange-300 font-semibold">{fmt(Math.round(result.costoConstruccionNetoUFm2 * result.supConstruidaTotal))} UF</span></div>
                       </div>
+                      {inputs.numEtapas === 2 && (
+                        <div className="mt-2 pt-2 border-t border-orange-800/30 grid grid-cols-2 gap-2 text-[10px]">
+                          <div className="text-indigo-300">Sup. por torre: <b>{fmt(Math.round(inputs.totalSupConstruidaM2 / 2))} m²</b></div>
+                          <div className="text-indigo-300">Costo por torre: <b>{fmt(Math.round(result.costoConstruccionNetoUFm2 * result.supConstruidaTotal / 2))} UF</b></div>
+                        </div>
+                      )}
                     </div>
                   )}
                   {/* Plazo construcción — destacado arriba */}
@@ -642,11 +657,24 @@ export default function ResidualPage() {
                       onChange={(v) => updateInput("constructionRetencionPct", v / 100)} unit="%" />
                     <SliderInput label="Amortización anticipo" value={inputs.anticipoRecoveryFromSoPPct * 100} min={0} max={40} step={1}
                       onChange={(v) => updateInput("anticipoRecoveryFromSoPPct", v / 100)} unit="%/SoP" />
-                    <div className="text-[10px] text-zinc-500 italic mt-1 space-y-0.5">
-                      <div>• Anticipo al inicio: <b className="text-amber-300">{fmt(Math.round(inputs.constructionAdvancePct * inputs.constructionCostUFm2 * inputs.totalSupConstruidaM2))} UF</b></div>
-                      <div>• SoPs mensuales via curva S. Cada SoP: {fmtPct(inputs.anticipoRecoveryFromSoPPct, 0)} descuento anticipo + {fmtPct(inputs.constructionRetencionPct, 0)} retención.</div>
-                      <div>• Retención total se libera en recepción municipal.</div>
-                    </div>
+                    {(() => {
+                      const anticipoTotal = inputs.constructionAdvancePct * inputs.constructionCostUFm2 * inputs.totalSupConstruidaM2;
+                      const anticipoPerTorre = inputs.numEtapas === 2 ? anticipoTotal / 2 : anticipoTotal;
+                      return (
+                        <div className="text-[10px] text-zinc-500 italic mt-1 space-y-0.5">
+                          {inputs.numEtapas === 2 ? (
+                            <>
+                              <div>• Anticipo <b className="text-amber-300">por torre</b>: {fmt(Math.round(anticipoPerTorre))} UF (pagado al inicio de obra de cada etapa)</div>
+                              <div>• Anticipo total ambas torres: {fmt(Math.round(anticipoTotal))} UF</div>
+                            </>
+                          ) : (
+                            <div>• Anticipo al inicio: <b className="text-amber-300">{fmt(Math.round(anticipoTotal))} UF</b></div>
+                          )}
+                          <div>• SoPs mensuales via curva S (cada torre independiente). Cada SoP: {fmtPct(inputs.anticipoRecoveryFromSoPPct, 0)} descuento anticipo + {fmtPct(inputs.constructionRetencionPct, 0)} retención.</div>
+                          <div>• Retención se libera en recepción municipal de cada torre.</div>
+                        </div>
+                      );
+                    })()}
                   </div>
 
                   {/* Costos bajo cota 0 — solo cuando subt activo */}
