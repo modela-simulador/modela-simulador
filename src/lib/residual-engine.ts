@@ -676,22 +676,20 @@ export function buildCashFlow(
   if (inputs.creditoEnlaceOn && inputs.creditoEnlaceUFPerUnit > 0) {
     const totalCredito = inputs.creditoEnlaceUFPerUnit * totalUnits;
 
-    // Pase 1: desembolsos con lag de 60 días (2 meses).
-    // El Crédito Enlace se deposita al desarrollador 2 meses después del pago de obra
-    // correspondiente (reembolso estatal), hasta agotar el cupo total.
-    const ENLACE_LAG_MONTHS = 2;
+    // Pase 1: desembolsos del Crédito Enlace coinciden con cada pago de obra
+    // (incluido el anticipo al contratista en el mes de inicio). En la práctica
+    // DS19, el banco/gobierno deposita el enlace al desarrollador en el mismo
+    // momento que éste debe pagar al contratista — así evita descapitalizar.
     let drawn = 0;
     for (let m = 0; m < rows.length; m++) {
       if (drawn >= totalCredito) break;
-      const sourceM = m - ENLACE_LAG_MONTHS;
-      if (sourceM < 0) continue;
-      const srcRow = rows[sourceM];
-      const sourceCost =
-        srcRow.constructionCost + srcRow.urbanizationCost + srcRow.earthMovementCost +
-        srcRow.indirectCosts + srcRow.postVentaConstruction + srcRow.constructorUtility + srcRow.contingencies;
-      if (sourceCost <= 0) continue;
-      const drawdown = Math.min(sourceCost, totalCredito - drawn);
-      rows[m].creditoEnlaceDrawdown = drawdown;
+      const row = rows[m];
+      const cost =
+        row.constructionCost + row.urbanizationCost + row.earthMovementCost +
+        row.indirectCosts + row.postVentaConstruction + row.constructorUtility + row.contingencies;
+      if (cost <= 0) continue;
+      const drawdown = Math.min(cost, totalCredito - drawn);
+      row.creditoEnlaceDrawdown = drawdown;
       drawn += drawdown;
     }
 
