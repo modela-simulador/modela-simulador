@@ -302,7 +302,8 @@ export default function ResidualPage() {
   // ── Derived metrics for display ──
   const product = PRODUCTS.find((p) => p.id === productId);
   const effectiveEff = product ? getEffectiveEfficiency(productId, prcOn) : 0;
-  const estimatedUnits = selectedArea > 0 && product ? Math.min(Math.floor((selectedArea / 10000) * effectiveEff), product.maxUnits) : 0;
+  // Sin tope de unidades — la densidad PRC manda, puede superar product.maxUnits en lotes grandes.
+  const estimatedUnits = selectedArea > 0 && product ? Math.floor((selectedArea / 10000) * effectiveEff) : 0;
 
   return (
     <div className="flex h-screen bg-zinc-950 text-white">
