@@ -122,7 +122,8 @@ export interface ResidualInputs {
 
   // Revenue collection structure
   piePct: number;                  // 15% = down payment
-  pieMonths: number;               // months to pay PIE (from sale)
+  /** @deprecated PIE ahora se reparte automáticamente entre mes de venta y escrituración */
+  pieMonths: number;
   escrituracionCollectionPct: number; // 85%
   escrituracionLagMonths: number;  // months between sale and its escrituración (post-recepción stock)
 

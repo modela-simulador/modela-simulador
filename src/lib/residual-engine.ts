@@ -436,40 +436,52 @@ export function buildCashFlow(
       row.unitsSoldThisMonth = canSell;
       cumSold += canSell;
 
-      // Schedule PIE payments for these sales
-      const piePerUnit = revenuePerUnit * piePct;
-      const pieMonthly = piePerUnit / pieMonths;
-      for (let pm = 0; pm < pieMonths; pm++) {
-        pieSchedule.push({
-          month: m + pm + 1, // PIE starts month after sale
-          amount: pieMonthly * canSell,
-        });
-      }
-
-      // Schedule ESCRITURACIÓN for these sales:
-      //   - if sale BEFORE monthEscrituracion → accumulates in backlog, releases at monthEscrituracion
-      //   - if sale AFTER monthEscrituracion (stock post-recepción) → releases sale_month + lag
-      const escriAmount = canSell * revenuePerUnit * escrituracionCollectionPct;
-      // Escrituración de preventas: FIFO al ritmo de BACKLOG_MONTHLY_CAP un/mes
-      // (el banco procesa ~20 escrituras/mes). Las primeras preventas escrituran
-      // en monthEscrituracion; las últimas, algunos meses después.
-      // DS19: SERVIU tarda ~2 meses más en procesar el subsidio tras la escri.
+      // Determinar el mes de escrituración ANTES de programar el PIE,
+      // porque el PIE se reparte entre mes de venta y escrituración.
       const BACKLOG_MONTHLY_CAP = 20;
       const serviuLag = inputs.creditoEnlaceOn ? 2 : 0;
+      const isStockPostRecep = m >= monthReception;
       let escriMonth: number;
-      if (m < monthEscrituracion) {
-        const saleOrder = cumSold - canSell; // unidades vendidas ANTES de este batch
+      if (isStockPostRecep) {
+        // Stock post-recepción: venta con mutuo inmediato, lag bancario
+        escriMonth = m + inputs.escrituracionLagMonths + serviuLag;
+      } else {
+        // Preventa: backlog FIFO al ritmo de BACKLOG_MONTHLY_CAP un/mes
+        const saleOrder = cumSold - canSell;
         const backlogOffset = Math.floor(saleOrder / BACKLOG_MONTHLY_CAP);
         escriMonth = monthEscrituracionInt + backlogOffset + serviuLag;
-      } else {
-        // Stock post-recepción: lag bancario + lag SERVIU si aplica
-        escriMonth = m + inputs.escrituracionLagMonths + serviuLag;
       }
-      escrituracionSchedule.push({
-        month: escriMonth,
-        amount: escriAmount,
-        units: canSell,
-      });
+
+      // ── PIE y ESCRITURACIÓN ──
+      // Stock post-recepción: el banco aprueba mutuo inmediato → 100% al escriturar
+      // (no hay cuotas de PIE porque el edificio está recibido).
+      // Preventa: PIE repartido en cuotas desde mes posterior a promesa hasta escrituración,
+      // luego 85% restante al escriturar. Ventas tempranas = cuotas más pequeñas (más meses).
+      if (isStockPostRecep) {
+        escrituracionSchedule.push({
+          month: escriMonth,
+          amount: canSell * revenuePerUnit,  // 100% neto en un solo pago
+          units: canSell,
+        });
+      } else {
+        // PIE distribuido entre m+1 y escriMonth-1 (ambos inclusive)
+        const piePerUnit = revenuePerUnit * piePct;
+        const nCuotas = Math.max(1, escriMonth - m - 1);
+        const pieMonthly = piePerUnit / nCuotas;
+        for (let pm = 0; pm < nCuotas; pm++) {
+          pieSchedule.push({
+            month: m + pm + 1,
+            amount: pieMonthly * canSell,
+          });
+        }
+        // Escrituración: 85% restante
+        const escriAmount = canSell * revenuePerUnit * escrituracionCollectionPct;
+        escrituracionSchedule.push({
+          month: escriMonth,
+          amount: escriAmount,
+          units: canSell,
+        });
+      }
 
       // Green insurance at promesa
       row.greenInsurance = canSell * greenInsuranceUFPerUnit;
