@@ -45,6 +45,7 @@ function downloadCashFlowXLSX(result: ResidualOutput, inputs: ResidualInputs, lo
     ["RESULTADO TERRENO", ""],
     ["Land UF/m²", Number(result.landValueUFm2.toFixed(2))],
     ["Land total UF", Math.round(result.totalLandCostUF)],
+    ["UF / vivienda", inputs.totalUnits > 0 ? Math.round(result.totalLandCostUF / inputs.totalUnits * 10) / 10 : 0],
     ["Incidencia s/ viviendas", Number((result.incidencia * 100).toFixed(2)) / 100],
     ["Land por TIR 10%", Number(result.landByTIRUFm2.toFixed(2))],
     ["Land por Utility 10%", Number(result.landByMarginUFm2.toFixed(2))],
@@ -904,10 +905,14 @@ export default function ResidualPage() {
                         <span className="text-lg text-blue-300 font-semibold">UF/m²</span>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-3 mt-4 pt-3 border-t border-blue-800/50">
+                      <div className="grid grid-cols-3 gap-3 mt-4 pt-3 border-t border-blue-800/50">
                         <div>
                           <div className="text-[10px] uppercase tracking-wider text-zinc-400">Valor Total</div>
                           <div className="text-xl font-bold text-white tabular-nums">{fmt(result.totalLandCostUF)} <span className="text-sm text-zinc-400">UF</span></div>
+                        </div>
+                        <div>
+                          <div className="text-[10px] uppercase tracking-wider text-zinc-400">UF / viv</div>
+                          <div className="text-xl font-bold text-white tabular-nums">{fmt(inputs.totalUnits > 0 ? result.totalLandCostUF / inputs.totalUnits : 0, 1)}</div>
                         </div>
                         <div>
                           <div className="text-[10px] uppercase tracking-wider text-zinc-400">Incidencia s/ viv.</div>
@@ -1337,7 +1342,7 @@ function EerrModal({ result, inputs, lotFid, lotArea, onClose }: {
           <IVABreakdown result={result} inputs={inputs} />
 
           {/* Valor del terreno — mismo cálculo que Hero del sidebar (convención chilena: sólo viviendas) */}
-          <div className="mt-6 grid grid-cols-3 gap-3 bg-blue-950/40 rounded-lg p-4 border border-blue-700/50">
+          <div className="mt-6 grid grid-cols-4 gap-3 bg-blue-950/40 rounded-lg p-4 border border-blue-700/50">
             <div>
               <div className="text-[10px] uppercase text-blue-300">Valor Terreno (UF/m²)</div>
               <div className="text-lg font-bold text-white tabular-nums">{result.landValueUFm2.toLocaleString("es-CL", { maximumFractionDigits: 2 })}</div>
@@ -1345,6 +1350,12 @@ function EerrModal({ result, inputs, lotFid, lotArea, onClose }: {
             <div>
               <div className="text-[10px] uppercase text-blue-300">Valor Terreno Total (UF)</div>
               <div className="text-lg font-bold text-white tabular-nums">{result.totalLandCostUF.toLocaleString("es-CL", { maximumFractionDigits: 0 })}</div>
+            </div>
+            <div>
+              <div className="text-[10px] uppercase text-blue-300">UF / vivienda</div>
+              <div className="text-lg font-bold text-white tabular-nums">
+                {(inputs.totalUnits > 0 ? result.totalLandCostUF / inputs.totalUnits : 0).toLocaleString("es-CL", { maximumFractionDigits: 1 })}
+              </div>
             </div>
             <div>
               <div className="text-[10px] uppercase text-blue-300">Incidencia s/ viviendas</div>
