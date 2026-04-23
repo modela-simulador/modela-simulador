@@ -1112,7 +1112,14 @@ export function buildMultiEtapaCashFlow(
   const preventaTimeE2 = Math.ceil(preventaE2Units / Math.max(0.1, canibVel));
   const preSalesStartE2 = Math.max(inputs.monthPreSalesStart, icE2Target - preventaTimeE2);
 
-  // Etapa 2 — sin terreno, sin contribuciones, gastos generales reducidos por traslape
+  // Etapa 2 — sin terreno, sin contribuciones, + reducciones por traslape
+  // de costos de EQUIPO compartido (team fijo que maneja ambas etapas):
+  //   - Gastos generales obra (gerente, supervisión): un equipo para ambas
+  //   - Tarifa gestión inmobiliaria (5.5%): gerente inmobiliario único
+  //   - Post-venta inmobiliaria (0.6%): equipo interno compartido
+  //   - Marketing (1.2%): campañas/piloto compartidos
+  // NO se reducen: ventas (comisión por venta individual a corredoras externas),
+  // escrituración (notario por unidad), seguro verde (por viv), etc.
   const overlapFactor = Math.max(0, 1 - inputs.etapaOverlapMonths / inputs.constructionMonths);
   const e2Inputs: ResidualInputs = {
     ...inputs,
@@ -1129,6 +1136,10 @@ export function buildMultiEtapaCashFlow(
     landContributionsUF: 0,        // terreno pagado en E1
     landBrokerageUF: 0,
     indirectCostsUFMonth: inputs.indirectCostsUFMonth * overlapFactor,
+    // GAV equipo inmobiliario compartido durante traslape
+    tarifaGestionInmobiliariaPct: inputs.tarifaGestionInmobiliariaPct * overlapFactor,
+    postVentaGavPct: inputs.postVentaGavPct * overlapFactor,
+    marketingPct: inputs.marketingPct * overlapFactor,
   };
   const e2 = buildCashFlow(e2Inputs, 0);  // land = 0 para no doble contar
 
