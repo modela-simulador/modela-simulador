@@ -372,10 +372,10 @@ export default function ResidualPage() {
                   </button>
                 </div>
                 <div className="text-[10px] text-zinc-500 mt-1.5 italic">
-                  {product?.family === "edificios"
+                  {(product?.family === "edificios" || product?.family === "ds19")
                     ? prcOn
-                      ? "Edificios: 190 viv/ha (6 pisos con nuevo PRC)"
-                      : "Edificios: 150 viv/ha (4 pisos, norma actual)"
+                      ? `${product?.name}: 190 viv/ha (6 pisos con nuevo PRC)`
+                      : `${product?.name}: 150 viv/ha (4 pisos, norma actual)`
                     : `${product?.name}: ${effectiveEff} viv/ha (no afectado por PRC)`}
                 </div>
               </div>

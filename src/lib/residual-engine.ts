@@ -1282,13 +1282,14 @@ export function solveResidual(inputs: ResidualInputs): ResidualOutput {
 }
 
 // ── Effective efficiency based on PRC status ─────────────────
-// Sin PRC nuevo: deptos = 150 viv/ha (norma actual, 4 pisos)
-// Con PRC nuevo: deptos = 190 viv/ha (6 pisos, mayor densidad)
-// DS19 y otros mantienen su eficiencia base (no afectados por PRC)
+// Sin PRC nuevo: edificios y DS19 = 150 viv/ha (norma actual, 4 pisos)
+// Con PRC nuevo: edificios y DS19 = 190 viv/ha (6 pisos, mayor densidad)
+// Casas/townhouses: eficiencia base (no afectados por PRC, son productos extensos)
 export function getEffectiveEfficiency(productId: string, prcOn: boolean): number {
   const product = PRODUCTS.find(p => p.id === productId);
   if (!product) return 0;
-  if (product.family === "edificios") {
+  // DS19 sigue las mismas reglas urbanísticas que edificios (densidad por pisos del PRC)
+  if (product.family === "edificios" || product.family === "ds19") {
     return prcOn ? product.efficiency : 150;
   }
   return product.efficiency;
