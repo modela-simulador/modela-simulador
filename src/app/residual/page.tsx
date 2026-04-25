@@ -655,11 +655,12 @@ export default function ResidualPage() {
                       onChange={(v) => updateInput("constructionAdvancePct", v / 100)} unit="%" />
                     <SliderInput label="Retención por SoP" value={inputs.constructionRetencionPct * 100} min={0} max={15} step={0.5}
                       onChange={(v) => updateInput("constructionRetencionPct", v / 100)} unit="%" />
-                    <SliderInput label="Amortización anticipo" value={inputs.anticipoRecoveryFromSoPPct * 100} min={0} max={40} step={1}
-                      onChange={(v) => updateInput("anticipoRecoveryFromSoPPct", v / 100)} unit="%/SoP" />
+                    <SliderInput label="Amortización anticipo (mensual)" value={inputs.anticipoRecoveryFromSoPPct * 100} min={1} max={40} step={1}
+                      onChange={(v) => updateInput("anticipoRecoveryFromSoPPct", v / 100)} unit="%/mes" />
                     {(() => {
                       const anticipoTotal = inputs.constructionAdvancePct * inputs.constructionCostUFm2 * inputs.totalSupConstruidaM2;
                       const anticipoPerTorre = inputs.numEtapas === 2 ? anticipoTotal / 2 : anticipoTotal;
+                      const recoveryMonths = inputs.anticipoRecoveryFromSoPPct > 0 ? 1 / inputs.anticipoRecoveryFromSoPPct : 0;
                       return (
                         <div className="text-[10px] text-zinc-500 italic mt-1 space-y-0.5">
                           {inputs.numEtapas === 2 ? (
@@ -670,8 +671,9 @@ export default function ResidualPage() {
                           ) : (
                             <div>• Anticipo al inicio: <b className="text-amber-300">{fmt(Math.round(anticipoTotal))} UF</b></div>
                           )}
-                          <div>• SoPs mensuales via curva S (cada torre independiente). Cada SoP: {fmtPct(inputs.anticipoRecoveryFromSoPPct, 0)} descuento anticipo + {fmtPct(inputs.constructionRetencionPct, 0)} retención.</div>
-                          <div>• Retención se libera en recepción municipal de cada torre.</div>
+                          <div>• Amortización: cuota fija mensual = <b className="text-amber-300">{fmt(Math.round(anticipoPerTorre * inputs.anticipoRecoveryFromSoPPct))} UF/mes</b> ({(inputs.anticipoRecoveryFromSoPPct*100).toFixed(0)}% del anticipo). Recupero completo en <b>{recoveryMonths.toFixed(1)} meses</b>.</div>
+                          <div>• Retención por SoP ({fmtPct(inputs.constructionRetencionPct, 0)} de cada estado de pago) se libera en recepción municipal.</div>
+                          <div>• Costo total invariante = directConstructionCost (timing solo afecta TIR).</div>
                         </div>
                       );
                     })()}

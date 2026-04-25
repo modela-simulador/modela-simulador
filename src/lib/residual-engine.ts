@@ -259,6 +259,9 @@ export function buildCashFlow(
   };
   const anticipoAmount = directConstructionCost * inputs.constructionAdvancePct;
   const mcStart = Math.round(monthConstructionStart);
+  // Amortización mensual: cuota fija = anticipo × tasa%/mes.
+  // Con tasa 15%/mes recupero el anticipo en ~6.66 meses; con 20%/mes en 5 meses.
+  const monthlyAnticipoRecovery = anticipoAmount * inputs.anticipoRecoveryFromSoPPct;
   let anticipoRemaining = anticipoAmount;
   let retencionAccumulated = 0;
 
@@ -386,16 +389,19 @@ export function buildCashFlow(
       row.constructionCost += anticipoAmount;
     }
 
-    // SoPs mensuales vía curva S sumando 100% del directo (invoice total al contratista).
-    // De cada SoP: retención (5%), recuperación del anticipo (15% hasta agotar).
-    // Cash pagado al contratista = gross − retención − recuperación.
-    // Balanceado: cuando anticipoPct = recuperaciónPct, la caja suma exacto al directo.
+    // SoPs mensuales vía curva S (gross = % avance físico × directConstructionCost).
+    // De cada SoP se descuentan dos items independientes:
+    //   - Retención: % del SoP gross (post-venta), liberada en recepción
+    //   - Amortización: CUOTA FIJA mensual = anticipo × amortRate%/mes
+    //     (15%/mes → recupera el anticipo en 6.66 meses; 20%/mes → 5 meses)
+    // Caja al contratista = gross − retención − amortización
     if (m >= mcStart && m < mcStart + constructionMonths) {
       const i = m - mcStart;
       const n = constructionMonths;
       const share = smoothstep((i + 1) / n) - smoothstep(i / n);
       const sopGross = directConstructionCost * share;
-      const recovery = Math.min(inputs.anticipoRecoveryFromSoPPct * sopGross, anticipoRemaining);
+      // Recuperación: cuota fija mensual capped por anticipoRemaining y SoP del mes
+      const recovery = Math.min(monthlyAnticipoRecovery, anticipoRemaining, sopGross);
       anticipoRemaining -= recovery;
       const retencion = inputs.constructionRetencionPct * sopGross;
       retencionAccumulated += retencion;
