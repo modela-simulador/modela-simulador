@@ -227,7 +227,11 @@ export function buildCashFlow(
   const subtExtraMonths = inputs.subterraneoOn ? inputs.subterraneoConstructionMonths : 0;
   const totalIndirectCosts = indirectCostsUFMonth * (constructionMonths + subtExtraMonths);
 
-  const baseConstructionCost = directConstructionCost + totalUrbanizationCost + totalEarthMovement;
+  // Práctica chilena: la utilidad del contratista, post-venta e imprevistos
+  // se aplican sobre (Costo Directo + Gastos Generales). Urbanización y mov.
+  // tierra son contratos separados con su propia composición (su utilidad ya
+  // está incluida en sus precios UF/m²).
+  const baseConstructionCost = directConstructionCost + totalIndirectCosts;
   const totalPostVentaConst = baseConstructionCost * postVentaConstructionPct;
   const totalConstructorUtility = baseConstructionCost * constructorUtilityPct;
   const totalContingencies = baseConstructionCost * contingenciesPct;
