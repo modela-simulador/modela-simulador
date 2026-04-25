@@ -414,10 +414,22 @@ export function buildCashFlow(
       row.contingencies = totalContingencies / constructionMonths;
     }
 
-    // Liberación de retención al mes de recepción municipal
-    if (m === monthReceptionInt && retencionAccumulated > 0) {
-      row.constructionCost += retencionAccumulated;
-      retencionAccumulated = 0;
+    // Liberación de retención al mes de recepción municipal.
+    // Si la amortización fue insuficiente para recuperar el anticipo completo
+    // (caso típico: anticipo 20% + amortización 15% → 5% sin recuperar),
+    // el saldo se devuelve al desarrollador en recepción (vía boleta de
+    // garantía de fiel cumplimiento). Esto asegura que el costo total de
+    // construcción = directConstructionCost SIEMPRE, independiente del
+    // mix de anticipo/amortización (que solo cambia el TIMING de la caja).
+    if (m === monthReceptionInt) {
+      if (retencionAccumulated > 0) {
+        row.constructionCost += retencionAccumulated;
+        retencionAccumulated = 0;
+      }
+      if (anticipoRemaining > 0.01) {
+        row.constructionCost -= anticipoRemaining;  // refund al desarrollador
+        anticipoRemaining = 0;
+      }
     }
 
     row.totalConstructionCost = row.constructionCost + row.urbanizationCost +
