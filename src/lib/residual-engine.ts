@@ -1083,13 +1083,25 @@ export function buildMultiEtapaCashFlow(
     salesVelocity: canibVel,
   };
 
-  // Etapa 1 — lleva el terreno y contribuciones del proyecto completo
+  // Cada etapa toma su porción proporcional del lote para que los costos
+  // basados en lotAreaM2 (mov. tierra edificios, urbanización casas) NO se
+  // dupliquen al construir 2 cash flows independientes. El terreno total
+  // pagado se mantiene = landPrice × lotAreaM2 completo (suma de las dos partes).
+  const propE1 = unitsE1 / inputs.totalUnits;
+  const propE2 = unitsE2 / inputs.totalUnits;
+  const lotE1 = inputs.lotAreaM2 * propE1;
+  const lotE2 = inputs.lotAreaM2 * propE2;
+
+  // Etapa 1 — lleva su porción del terreno y contribuciones
   const e1Inputs: ResidualInputs = {
     ...inputs,
     ...etapaCommon,
     totalUnits: unitsE1,
     totalSupConstruidaM2: supConstE1,
     totalSupVendibleM2: supVendE1,
+    lotAreaM2: lotE1,
+    landContributionsUF: inputs.landContributionsUF * propE1,
+    landBrokerageUF: inputs.landBrokerageUF * propE1,
     unitModels: inputs.unitModels.map(m => ({
       ...m,
       count: unitsE1,
@@ -1127,21 +1139,23 @@ export function buildMultiEtapaCashFlow(
     totalUnits: unitsE2,
     totalSupConstruidaM2: supConstE2,
     totalSupVendibleM2: supVendE2,
+    lotAreaM2: lotE2,
+    landContributionsUF: inputs.landContributionsUF * propE2,
+    landBrokerageUF: inputs.landBrokerageUF * propE2,
     unitModels: inputs.unitModels.map(m => ({
       ...m,
       count: unitsE2,
       parkingCount: Math.round(m.parkingCount * unitsE2 / inputs.totalUnits),
     })),
     monthPreSalesStart: preSalesStartE2,
-    landContributionsUF: 0,        // terreno pagado en E1
-    landBrokerageUF: 0,
     indirectCostsUFMonth: inputs.indirectCostsUFMonth * overlapFactor,
     // GAV equipo inmobiliario compartido durante traslape
     tarifaGestionInmobiliariaPct: inputs.tarifaGestionInmobiliariaPct * overlapFactor,
     postVentaGavPct: inputs.postVentaGavPct * overlapFactor,
     marketingPct: inputs.marketingPct * overlapFactor,
   };
-  const e2 = buildCashFlow(e2Inputs, 0);  // land = 0 para no doble contar
+  // E2 paga su porción del terreno (mismo landPriceUFm2). Total terreno = E1 + E2 = full lot.
+  const e2 = buildCashFlow(e2Inputs, landPriceUFm2);
 
   // Fusionar mes a mes
   const maxLen = Math.max(e1.length, e2.length);
