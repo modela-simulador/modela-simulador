@@ -2801,20 +2801,17 @@ function handleLogin(evt) {
 }
 
 function handleLogout() {
+  // Limpia el token compartido y vuelve al chooser de Next.js (root).
+  // El chooser (página landing) detectará el sessionStorage vacío y
+  // mostrará su propia pantalla de login.
   sessionStorage.removeItem('modela_token');
   sessionStorage.removeItem('modela_user');
-  const sim = document.getElementById('simulator-app');
-  const lp  = document.getElementById('landing-page');
-  sim.classList.add('hidden');
-  sim.style.display = '';
-  lp.classList.remove('hidden');
-  lp.style.display = '';
-  window.scrollTo(0, 0);
-  document.getElementById('login-user').value = '';
-  document.getElementById('login-pass').value = '';
-  const errorEl = document.getElementById('login-error');
-  errorEl.style.display = 'none';
-  errorEl.textContent = 'Usuario o contraseña incorrectos';
+  // Path relativo a la raíz: simulador-legacy.html y la landing (index.html
+  // o /residual o /cabidas) viven en el mismo directorio bajo /modela-simulador/
+  // o en localhost:3000/. Resolver al pathname actual sin el archivo.
+  var target = window.location.pathname.replace(/simulador-legacy\.html$/, '');
+  if (!target) target = '/';
+  window.location.replace(target);
 }
 
 let _simInitialized = false;
@@ -2849,6 +2846,10 @@ function transitionToSimulator() {
 }
 
 // Check session on load
+// Si está autenticado: monta el simulador.
+// Si NO está autenticado: redirige al chooser (root) que es el ÚNICO punto
+// de login canónico. El login local del legacy queda como fallback solo
+// si el chooser no responde (improbable pero defensivo).
 (function checkAuthOnLoad() {
   if (isAuthenticated()) {
     const lp  = document.getElementById('landing-page');
@@ -2862,6 +2863,12 @@ function transitionToSimulator() {
       if (typeof runAndRender === 'function') runAndRender();
       if (typeof pducInit === 'function') pducInit();
     }, 0);
+  } else {
+    // Redirige al chooser/login del Next.js (mismo dominio, root).
+    // El chooser detectará la ausencia de token y mostrará su login.
+    var target = window.location.pathname.replace(/simulador-legacy\.html$/, '');
+    if (!target) target = '/';
+    window.location.replace(target);
   }
 })();
 

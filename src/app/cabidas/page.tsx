@@ -783,13 +783,14 @@ export default function Home() {
         <div className="absolute top-4 left-4 z-10">
           <div className="flex items-center gap-3 mb-1">
             <a
-              href={BASE_PATH || "/"}
-              className="flex items-center gap-1.5 text-zinc-500 hover:text-white text-xs transition-colors bg-zinc-900/70 backdrop-blur px-2 py-1 rounded-md border border-zinc-800 hover:border-zinc-600"
+              href={`${BASE_PATH}/`}
+              className="flex items-center gap-1.5 bg-zinc-900/90 backdrop-blur px-3 py-2 rounded-lg border border-zinc-700 hover:border-amber-500/50 hover:bg-zinc-800/90 transition text-sm font-semibold text-zinc-300 hover:text-amber-300"
+              title="Volver al menú principal"
             >
-              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <path d="M19 12H5M12 19l-7-7 7-7" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
-              Modela
+              Menú
             </a>
             <h1 className="text-xl font-bold text-white tracking-tight">
               Cabidas Automaticas

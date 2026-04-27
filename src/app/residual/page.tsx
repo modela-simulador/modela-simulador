@@ -582,8 +582,20 @@ export default function ResidualPage() {
       {/* MAP */}
       <div className="flex-1 relative">
         <div ref={mapContainer} className="w-full h-full" />
-        <div className="absolute top-4 left-4 bg-zinc-900/90 backdrop-blur px-4 py-2 rounded-lg border border-zinc-700">
-          <span className="text-sm font-semibold text-zinc-300">Simulador Residual Dinámico</span>
+        <div className="absolute top-4 left-4 flex items-center gap-2">
+          <a
+            href={`${BASE_PATH}/`}
+            className="bg-zinc-900/90 backdrop-blur px-3 py-2 rounded-lg border border-zinc-700 hover:border-amber-500/50 hover:bg-zinc-800/90 transition flex items-center gap-1.5 text-sm font-semibold text-zinc-300 hover:text-amber-300"
+            title="Volver al menú principal"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <path d="M19 12H5M12 19l-7-7 7-7" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            Menú
+          </a>
+          <div className="bg-zinc-900/90 backdrop-blur px-4 py-2 rounded-lg border border-zinc-700">
+            <span className="text-sm font-semibold text-zinc-300">Simulador Residual Dinámico</span>
+          </div>
         </div>
 
         {/* Panel flotante: instrucciones y acciones del Modo Cortar */}
