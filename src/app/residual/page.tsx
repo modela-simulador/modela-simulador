@@ -10,6 +10,15 @@ import { DEFAULT_INPUTS } from "@/lib/residual-types";
 import { BASE_PATH } from "@/lib/base-path";
 import type { ResidualInputs, ResidualOutput, UnitModel } from "@/lib/residual-types";
 import { applyCuts, executeCutOnCollection, type LotCollection, type LotCut } from "@/lib/lot-cuts";
+import {
+  saveRepresentante,
+  clearRepresentante,
+  loadAllRepresentantes,
+  familyForProductId,
+  FAMILY_LABELS,
+  type ProductFamily,
+  type Representante,
+} from "@/lib/representantes";
 
 // ── Helpers ──────────────────────────────────────────────────
 
@@ -217,6 +226,22 @@ export default function ResidualPage() {
   const [result, setResult] = useState<ResidualOutput | null>(null);
   const [computing, setComputing] = useState(false);
   const [eerrModalOpen, setEerrModalOpen] = useState(false);
+
+  // Representantes guardados para Monte Carlo (compartidos via localStorage con simulador-legacy.html)
+  const [savedReps, setSavedReps] = useState<Partial<Record<ProductFamily, Representante>>>({});
+  const [saveModalOpen, setSaveModalOpen] = useState(false);
+  const [saveFamily, setSaveFamily] = useState<ProductFamily>("edif_4p");
+
+  // Cargar representantes desde localStorage al montar
+  useEffect(() => {
+    setSavedReps(loadAllRepresentantes());
+  }, []);
+
+  // Cuando cambia el productId, sugerir familia por defecto en el modal
+  useEffect(() => {
+    const suggested = familyForProductId(productId);
+    if (suggested) setSaveFamily(suggested);
+  }, [productId]);
 
   // ── Map init ──
   useEffect(() => {
@@ -629,6 +654,47 @@ export default function ResidualPage() {
             </span>
           )}
         </div>
+
+        {/* Panel de representantes guardados (compartidos con simulador-legacy.html via localStorage) */}
+        {Object.keys(savedReps).length > 0 && (
+          <div className="bg-purple-950/30 border-b border-purple-800/40 p-3">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[10px] uppercase tracking-wider text-purple-300 font-semibold">
+                Representantes Guardados ({Object.keys(savedReps).length}/4)
+              </span>
+              <span className="text-[10px] text-purple-400/60 italic">
+                Disponibles en simulador macro
+              </span>
+            </div>
+            <div className="space-y-1">
+              {(Object.entries(savedReps) as [ProductFamily, Representante][]).map(([family, rep]) => (
+                <div
+                  key={family}
+                  className="flex items-center justify-between text-[11px] bg-zinc-900/50 rounded px-2 py-1 border border-purple-800/30"
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="text-purple-200 truncate font-semibold">
+                      {FAMILY_LABELS[family]}
+                    </div>
+                    <div className="text-zinc-500 text-[10px]">
+                      Lote {rep.lotFid} · {rep.productName} · Incidencia {fmtPct(rep.result.incidencia, 1)} · {rep.result.landValueUFm2.toFixed(1)} UF/m²
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      clearRepresentante(family);
+                      setSavedReps(loadAllRepresentantes());
+                    }}
+                    className="ml-2 text-zinc-500 hover:text-red-400 text-xs"
+                    title="Eliminar este representante"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Historial de cortes — visible solo si hay cortes */}
         {cuts.length > 0 && (
@@ -1380,6 +1446,15 @@ export default function ResidualPage() {
                       </button>
                     </div>
 
+                    {/* Guardar como representante para Monte Carlo */}
+                    <button
+                      onClick={() => setSaveModalOpen(true)}
+                      className="w-full py-2.5 bg-gradient-to-r from-purple-600 to-violet-700 hover:from-purple-500 hover:to-violet-600 text-white text-xs font-semibold rounded-lg transition-all shadow-lg shadow-purple-900/30 flex items-center justify-center gap-2"
+                      title="Guarda esta evaluación como representante de una familia de producto para usar en Monte Carlo del simulador macro"
+                    >
+                      💾 Guardar como representante
+                    </button>
+
                     <div className="text-xs text-zinc-600 text-center">
                       {result.converged ? "✓ Convergencia alcanzada" : "⚠ No convergió"} · {result.iterations} iteraciones · {result.totalMonths} meses
                     </div>
@@ -1400,6 +1475,102 @@ export default function ResidualPage() {
           lotArea={selectedArea}
           onClose={() => setEerrModalOpen(false)}
         />
+      )}
+
+      {/* GUARDAR COMO REPRESENTANTE — Modal */}
+      {saveModalOpen && result && inputs && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
+          onClick={() => setSaveModalOpen(false)}
+        >
+          <div
+            className="bg-zinc-900 border border-purple-700 rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-3 mb-4">
+              <span className="text-2xl">💾</span>
+              <h2 className="text-lg font-bold text-white">Guardar como representante</h2>
+            </div>
+
+            <p className="text-sm text-zinc-400 mb-4 leading-relaxed">
+              Guarda esta evaluación como caso típico de una familia de producto.
+              Quedará disponible en el simulador macro (Monte Carlo en Primeras Etapas)
+              para sensibilizar parámetros y propagar al VAN del AUDP.
+            </p>
+
+            <div className="bg-zinc-800/50 rounded-lg p-3 mb-4 border border-zinc-700">
+              <div className="text-[10px] uppercase tracking-wider text-zinc-500 font-semibold mb-1">
+                Resumen del representante
+              </div>
+              <div className="text-xs text-zinc-300 space-y-0.5">
+                <div>Lote {selectedFid} · {fmt(selectedArea)} m² ({(selectedArea / 10000).toFixed(2)} ha)</div>
+                <div>Producto: <span className="text-white">{inputs.unitModels[0]?.name || productId}</span></div>
+                <div>Incidencia: <span className="text-purple-300 font-semibold">{fmtPct(result.incidencia, 2)}</span></div>
+                <div>Land value: <span className="text-purple-300 font-semibold">{result.landValueUFm2.toFixed(2)} UF/m²</span> · {Math.round(result.totalLandCostUF).toLocaleString()} UF</div>
+                <div>TIR: <span className="text-emerald-300">{fmtPct(result.tirAnnual, 1)}</span> · VAN: {Math.round(result.vanUF).toLocaleString()} UF</div>
+              </div>
+            </div>
+
+            <div className="mb-4">
+              <label className="block text-[10px] uppercase tracking-wider text-zinc-500 font-semibold mb-2">
+                Familia que representa
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                {(Object.keys(FAMILY_LABELS) as ProductFamily[]).map((fam) => {
+                  const isSelected = saveFamily === fam;
+                  const isReplacing = !!savedReps[fam];
+                  return (
+                    <button
+                      key={fam}
+                      onClick={() => setSaveFamily(fam)}
+                      className={`py-2 px-3 rounded-lg text-xs font-semibold transition border ${
+                        isSelected
+                          ? "bg-purple-600 border-purple-400 text-white"
+                          : "bg-zinc-800 border-zinc-700 text-zinc-400 hover:bg-zinc-700"
+                      }`}
+                    >
+                      {FAMILY_LABELS[fam]}
+                      {isReplacing && (
+                        <span className={`block text-[9px] mt-0.5 ${isSelected ? "text-purple-200" : "text-amber-400"}`}>
+                          (reemplaza el actual)
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                onClick={() => setSaveModalOpen(false)}
+                className="flex-1 py-2.5 bg-zinc-700 hover:bg-zinc-600 text-white text-xs font-semibold rounded-lg transition"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={() => {
+                  const rep: Representante = {
+                    family: saveFamily,
+                    productId: productId,
+                    productName: inputs.unitModels[0]?.name || productId,
+                    lotFid: selectedFid || "",
+                    lotAreaM2: selectedArea,
+                    inputs,
+                    result,
+                    savedAt: new Date().toISOString(),
+                  };
+                  saveRepresentante(rep);
+                  setSavedReps(loadAllRepresentantes());
+                  setSaveModalOpen(false);
+                }}
+                className="flex-1 py-2.5 bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold rounded-lg transition shadow-lg shadow-purple-900/50"
+              >
+                💾 Guardar como {FAMILY_LABELS[saveFamily]}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

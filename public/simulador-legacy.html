@@ -2197,8 +2197,12 @@
           <tbody id="prod-table-body"></tbody>
         </table>
         </div>
-        <div style="margin-top:10px">
+        <div style="margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
           <button class="btn-add-product" onclick="addNewProduct()">+ Agregar Producto</button>
+          <button class="btn-add-product" id="btn-load-representantes" onclick="loadRepresentantesFromResidual()" style="background:#f3e8ff;border-color:#a855f7;color:#7c3aed" title="Carga las incidencias guardadas en /residual y las aplica a los productos correspondientes">
+            🔮 Cargar representantes desde Residual
+          </button>
+          <span id="representantes-status" style="font-size:11px;color:#7c3aed;font-weight:600"></span>
         </div>
       </div>
       <div class="prod-tab-content" id="tab-stock">
@@ -3899,6 +3903,95 @@ function escapeHTML(str) {
 function safeJSStr(str) {
   return String(str).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'\\"')
     .replace(/</g,'\\x3c').replace(/>/g,'\\x3e');
+}
+
+// ──────────────────────────────────────────────────────────────
+// Representantes desde /residual (compartidos via localStorage)
+// ──────────────────────────────────────────────────────────────
+//
+// El simulador residual (Next.js, mismo dominio) puede guardar hasta 4
+// "representantes" — uno por familia (edif_4p, ds19, casa, townhouse) —
+// con sus parámetros completos e incidencia calculada. Esta función
+// los lee y los aplica a la tabla PRODUCTS:
+//   - edif_4p   → Deptos 1/2/3 (todos comparten incidencia; ticket y
+//                                velVenta del representante van al tier base)
+//   - ds19      → DS19 (1:1, todo se reemplaza)
+//   - casa      → Casas 1/2/3 (igual que Deptos)
+//   - townhouse → Townhouses 1/2/3 (igual)
+function loadRepresentantesFromResidual() {
+  const STORAGE_KEY = 'modela_representantes_v1';
+  let store;
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    store = raw ? JSON.parse(raw) : {};
+  } catch (e) {
+    alert('No se pudieron leer los representantes del almacenamiento local: ' + e.message);
+    return;
+  }
+
+  const families = Object.keys(store).filter((k) => store[k]);
+  if (families.length === 0) {
+    alert(
+      'No hay representantes guardados.\n\n' +
+      'Para crearlos, abre el Simulador Residual Dinámico, evalúa una familia ' +
+      '(Edificio 4p, DS19, Casa o Townhouse), y usa el botón "💾 Guardar como representante".'
+    );
+    return;
+  }
+
+  // Mapeo familia → lista de productNames a actualizar (en orden, base primero)
+  const FAMILY_TO_PRODUCTS = {
+    edif_4p:   ['Deptos 1', 'Deptos 2', 'Deptos 3'],
+    ds19:      ['DS19'],
+    casa:      ['Casas 1', 'Casas 2', 'Casas 3'],
+    townhouse: ['Townhouses 1', 'Townhouses 2', 'Townhouses 3'],
+  };
+  const FAMILY_LABELS = {
+    edif_4p:   'Edificio 4-6 pisos',
+    ds19:      'DS19',
+    casa:      'Casa',
+    townhouse: 'Townhouse',
+  };
+
+  let updated = [];
+  let skipped = [];
+
+  for (const fam of families) {
+    const rep = store[fam];
+    if (!rep || !rep.result) continue;
+
+    const targets = FAMILY_TO_PRODUCTS[fam];
+    if (!targets) { skipped.push(fam); continue; }
+
+    const incidencia = Math.max(0.01, Math.min(0.5, +rep.result.incidencia));
+    // El ticket y velocidad del representante van al tier "base" (índice 0).
+    // Para el resto, solo actualizamos la incidencia (cada tier mantiene su
+    // ticket/velocidad propios — son anchors de mercado por segmento).
+    const baseTicket = rep.inputs?.unitModels?.[0]
+      ? Math.round(rep.inputs.unitModels[0].priceUFm2 * rep.inputs.unitModels[0].supVendibleM2)
+      : null;
+    const baseVel = +rep.inputs?.salesVelocity || null;
+
+    targets.forEach((prodName, idx) => {
+      if (!PRODUCTS[prodName]) return;
+      PRODUCTS[prodName].incidencia = incidencia;
+      if (idx === 0) {
+        if (baseTicket && baseTicket > 100) PRODUCTS[prodName].ticket = baseTicket;
+        if (baseVel && baseVel > 0) PRODUCTS[prodName].velVenta = baseVel;
+      }
+      updated.push(prodName);
+    });
+  }
+
+  // Refrescar tabla y mostrar status
+  if (typeof renderProductsTable === 'function') renderProductsTable();
+  const statusEl = document.getElementById('representantes-status');
+  if (statusEl) {
+    const list = families.map((f) => FAMILY_LABELS[f] || f).join(', ');
+    statusEl.textContent = '✓ Cargados: ' + list + ' (' + updated.length + ' productos actualizados)';
+    setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 8000);
+  }
+  console.log('[representantes] applied:', { families, updated, skipped });
 }
 
 function renderProductsTable() {
