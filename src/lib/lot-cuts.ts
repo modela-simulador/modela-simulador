@@ -85,6 +85,42 @@ export function geometryAreaM2(geom: GeoJSON.Polygon | GeoJSON.MultiPolygon): nu
 }
 
 /**
+ * polygon-splitter devuelve un Feature<MultiPolygon> donde cada elemento
+ * de geometry.coordinates es uno de los polígonos resultantes del corte.
+ * Esta función normaliza ese resultado a un array de geometrías Polygon.
+ *
+ * Si el corte no produjo división (la línea no atravesó el polígono),
+ * devuelve null.
+ */
+function splitToPolygons(
+  geom: GeoJSON.Polygon | GeoJSON.MultiPolygon,
+  line: GeoJSON.LineString
+): GeoJSON.Polygon[] | null {
+  let result: GeoJSON.Feature<GeoJSON.MultiPolygon>;
+  try {
+    // Algunos polígonos del archivo vienen como MultiPolygon de 1 parte;
+    // los normalizamos a Polygon para evitar bugs de la librería con
+    // wrappers innecesarios.
+    const normalized: GeoJSON.Polygon | GeoJSON.MultiPolygon =
+      geom.type === "MultiPolygon" && geom.coordinates.length === 1
+        ? { type: "Polygon", coordinates: geom.coordinates[0] }
+        : geom;
+    result = polygonSplitter(normalized, line);
+  } catch (e) {
+    console.warn("[lot-cuts] polygon-splitter exception:", e);
+    return null;
+  }
+  // Formato esperado: Feature con geometry MultiPolygon. Cada coord es un poly cortado.
+  const mp = result?.geometry;
+  if (!mp || mp.type !== "MultiPolygon") return null;
+  if (!Array.isArray(mp.coordinates) || mp.coordinates.length < 2) return null;
+  return mp.coordinates.map((polyCoords) => ({
+    type: "Polygon" as const,
+    coordinates: polyCoords,
+  }));
+}
+
+/**
  * Aplica un solo corte: encuentra el feature por FID, lo divide con
  * la línea, y devuelve la lista de features actualizada (con los
  * polígonos hijos en lugar del padre).
@@ -99,22 +135,11 @@ export function applySingleCut(
   if (targetIdx === -1) return null;
   const target = features[targetIdx];
 
-  let result: GeoJSON.FeatureCollection;
-  try {
-    result = polygonSplitter(target.geometry, cut.line) as GeoJSON.FeatureCollection;
-  } catch (e) {
-    console.warn(`[lot-cuts] split failed for fid=${cut.targetFid}`, e);
-    return null;
-  }
+  const pieces = splitToPolygons(target.geometry, cut.line);
+  if (!pieces) return null;
 
-  if (!result?.features || result.features.length < 2) {
-    // No produjo un corte válido (línea no atraviesa el polígono)
-    return null;
-  }
-
-  const children: LotFeature[] = result.features.map((f, i) => {
+  const children: LotFeature[] = pieces.map((geom, i) => {
     const fid = cut.resultingFids[i] ?? `${cut.targetFid}.${i + 1}`;
-    const geom = f.geometry as GeoJSON.Polygon | GeoJSON.MultiPolygon;
     return {
       type: "Feature",
       geometry: geom,
@@ -242,24 +267,15 @@ export function executeCutOnCollection(
     const lotBbox = bboxOfGeometry(feature.geometry);
     if (!bboxesIntersect(lineBbox, lotBbox)) continue;
 
-    let result: GeoJSON.FeatureCollection;
-    try {
-      result = polygonSplitter(feature.geometry, extendedLine) as GeoJSON.FeatureCollection;
-    } catch (e) {
-      console.warn(`[lot-cuts] split exception fid=${feature.properties.fid}`, e);
-      continue;
-    }
-    if (!result?.features || result.features.length < 2) continue;
+    const pieces = splitToPolygons(feature.geometry, extendedLine);
+    if (!pieces) continue;
 
-    const childCount = result.features.length;
-    const fids = nextChildFids(feature.properties.fid, childCount);
-    const areas = result.features.map((f) =>
-      Math.round(geometryAreaM2(f.geometry as GeoJSON.Polygon | GeoJSON.MultiPolygon))
-    );
+    const fids = nextChildFids(feature.properties.fid, pieces.length);
+    const areas = pieces.map((geom) => Math.round(geometryAreaM2(geom)));
     newCuts.push({
       id: `${Date.now()}-${feature.properties.fid}`,
       targetFid: feature.properties.fid,
-      line: extendedLine, // guardamos la línea extendida (la que efectivamente cortó)
+      line: extendedLine,
       resultingFids: fids,
       resultingAreas: areas,
     });
