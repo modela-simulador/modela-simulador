@@ -153,22 +153,100 @@ export function nextChildFids(parentFid: string, count: number): string[] {
 }
 
 /**
+ * Extiende los extremos de una polilínea N metros en la dirección del primer
+ * y último segmento. Esto garantiza que polygon-splitter "ve" entrada y salida
+ * del polígono incluso si el usuario dibujó endpoints dentro o muy cerca del
+ * borde — la librería falla cuando los endpoints caen dentro del polígono.
+ *
+ * Usamos conversión grados↔metros aproximada (suficiente para escala de lote):
+ *   1° lat ≈ 111 km
+ *   1° lon ≈ 111 km × cos(lat)
+ */
+export function extendLineMeters(coords: number[][], extensionMeters = 50): number[][] {
+  if (coords.length < 2) return coords;
+  const result = coords.map((c) => [...c]);
+
+  const extendEnd = (anchor: number[], towards: number[], reverse: boolean): number[] => {
+    const lat = anchor[1];
+    const cosLat = Math.cos((lat * Math.PI) / 180);
+    const dxDeg = towards[0] - anchor[0];
+    const dyDeg = towards[1] - anchor[1];
+    const dxM = dxDeg * 111000 * cosLat;
+    const dyM = dyDeg * 111000;
+    const lenM = Math.hypot(dxM, dyM);
+    if (lenM === 0) return anchor;
+    const sign = reverse ? -1 : 1;
+    const fxM = (dxM / lenM) * extensionMeters * sign;
+    const fyM = (dyM / lenM) * extensionMeters * sign;
+    return [
+      anchor[0] + fxM / (111000 * cosLat),
+      anchor[1] + fyM / 111000,
+    ];
+  };
+
+  // Extremo inicial: extender hacia atrás respecto al segundo punto
+  result[0] = extendEnd(result[0], result[1], true);
+  // Extremo final: extender hacia adelante respecto al penúltimo
+  const last = result.length - 1;
+  result[last] = extendEnd(result[last], result[last - 1], true);
+  return result;
+}
+
+/** Bounding box [minLon, minLat, maxLon, maxLat] de un conjunto de coords */
+function bboxOfCoords(coords: number[][]): [number, number, number, number] {
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const c of coords) {
+    if (c[0] < minX) minX = c[0];
+    if (c[0] > maxX) maxX = c[0];
+    if (c[1] < minY) minY = c[1];
+    if (c[1] > maxY) maxY = c[1];
+  }
+  return [minX, minY, maxX, maxY];
+}
+
+function bboxOfGeometry(geom: GeoJSON.Polygon | GeoJSON.MultiPolygon): [number, number, number, number] {
+  const all: number[][] = [];
+  if (geom.type === "Polygon") {
+    geom.coordinates.forEach((ring) => ring.forEach((c) => all.push(c)));
+  } else {
+    geom.coordinates.forEach((poly) => poly.forEach((ring) => ring.forEach((c) => all.push(c))));
+  }
+  return bboxOfCoords(all);
+}
+
+function bboxesIntersect(a: [number, number, number, number], b: [number, number, number, number]): boolean {
+  return !(a[2] < b[0] || b[2] < a[0] || a[3] < b[1] || b[3] < a[1]);
+}
+
+/**
  * Ejecuta un corte sobre el estado actual (varios polígonos pueden ser
  * atravesados por la misma línea). Devuelve un array de cortes a registrar
  * en el historial — uno por cada lote afectado.
+ *
+ * Antes de pasar a polygon-splitter, extiende automáticamente los extremos
+ * de la línea ~50 m, así el usuario puede dibujar "dentro" del lote sin
+ * preocuparse por la matemática.
  */
 export function executeCutOnCollection(
   current: LotCollection,
-  line: GeoJSON.LineString
+  line: GeoJSON.LineString,
+  extensionMeters = 50
 ): LotCut[] {
   const newCuts: LotCut[] = [];
-  // Iteramos sobre snapshot — los cortes se registran contra los FIDs
-  // tal cual están en `current`.
+  const extendedCoords = extendLineMeters(line.coordinates, extensionMeters);
+  const extendedLine: GeoJSON.LineString = { type: "LineString", coordinates: extendedCoords };
+  const lineBbox = bboxOfCoords(extendedCoords);
+
   for (const feature of current.features) {
+    // Prefiltro por bbox: salta lotes que no intersectan el bbox de la línea
+    const lotBbox = bboxOfGeometry(feature.geometry);
+    if (!bboxesIntersect(lineBbox, lotBbox)) continue;
+
     let result: GeoJSON.FeatureCollection;
     try {
-      result = polygonSplitter(feature.geometry, line) as GeoJSON.FeatureCollection;
-    } catch {
+      result = polygonSplitter(feature.geometry, extendedLine) as GeoJSON.FeatureCollection;
+    } catch (e) {
+      console.warn(`[lot-cuts] split exception fid=${feature.properties.fid}`, e);
       continue;
     }
     if (!result?.features || result.features.length < 2) continue;
@@ -181,7 +259,7 @@ export function executeCutOnCollection(
     newCuts.push({
       id: `${Date.now()}-${feature.properties.fid}`,
       targetFid: feature.properties.fid,
-      line,
+      line: extendedLine, // guardamos la línea extendida (la que efectivamente cortó)
       resultingFids: fids,
       resultingAreas: areas,
     });

@@ -196,6 +196,10 @@ export default function ResidualPage() {
   const cutModeRef = useRef(false);
   const currentLineRef = useRef<number[][]>([]);
   const confirmCutRef = useRef<() => void>(() => {});
+  // Drag de vértices: índice del vértice arrastrándose, y flag para suprimir
+  // el click subsiguiente (que de otro modo agregaría un vértice nuevo).
+  const draggingVertexIdxRef = useRef<number | null>(null);
+  const suppressNextClickRef = useRef(false);
   useEffect(() => { cutModeRef.current = cutMode; }, [cutMode]);
   useEffect(() => { currentLineRef.current = currentLine; }, [currentLine]);
 
@@ -262,7 +266,15 @@ export default function ResidualPage() {
 
       // Click global — en modo Cortar agrega vértice; si no, selecciona lote
       m.on("click", (e) => {
+        // Si acabamos de soltar un vértice arrastrado, no agregamos vértice nuevo
+        if (suppressNextClickRef.current) {
+          suppressNextClickRef.current = false;
+          return;
+        }
         if (cutModeRef.current) {
+          // Si el click cayó sobre un vértice existente (no se movió), no agrega otro encima
+          const onVertex = m.queryRenderedFeatures(e.point, { layers: ["cut-draft-points"] }).length > 0;
+          if (onVertex) return;
           const next = [...currentLineRef.current, [e.lngLat.lng, e.lngLat.lat]];
           setCurrentLine(next);
           return;
@@ -286,6 +298,66 @@ export default function ResidualPage() {
         e.preventDefault();
         confirmCutRef.current();
       });
+
+      // ── Drag de vértices ──
+      // Hover sobre vértice: cursor "grab"
+      m.on("mouseenter", "cut-draft-points", () => {
+        if (cutModeRef.current && draggingVertexIdxRef.current === null) {
+          m.getCanvas().style.cursor = "grab";
+        }
+      });
+      m.on("mouseleave", "cut-draft-points", () => {
+        if (cutModeRef.current && draggingVertexIdxRef.current === null) {
+          m.getCanvas().style.cursor = "crosshair";
+        }
+      });
+
+      // Iniciar drag: mousedown sobre punto identifica qué vértice y bloquea el pan
+      m.on("mousedown", "cut-draft-points", (e) => {
+        if (!cutModeRef.current || !e.features?.[0]) return;
+        e.preventDefault();
+        const clicked = (e.features[0].geometry as GeoJSON.Point).coordinates;
+        // Encuentra el índice del vértice más cercano al punto clickeado
+        const line = currentLineRef.current;
+        let bestIdx = -1;
+        let bestDist = Infinity;
+        for (let i = 0; i < line.length; i++) {
+          const dx = line[i][0] - clicked[0];
+          const dy = line[i][1] - clicked[1];
+          const d = dx * dx + dy * dy;
+          if (d < bestDist) { bestDist = d; bestIdx = i; }
+        }
+        if (bestIdx >= 0) {
+          draggingVertexIdxRef.current = bestIdx;
+          m.dragPan.disable();
+          m.getCanvas().style.cursor = "grabbing";
+        }
+      });
+
+      // Mover: actualizar posición del vértice mientras se arrastra
+      m.on("mousemove", (e) => {
+        const idx = draggingVertexIdxRef.current;
+        if (idx === null) return;
+        setCurrentLine((prev) => {
+          if (idx >= prev.length) return prev;
+          const next = prev.slice();
+          next[idx] = [e.lngLat.lng, e.lngLat.lat];
+          return next;
+        });
+      });
+
+      // Soltar: terminar drag, suprimir el click subsiguiente
+      const endDrag = () => {
+        if (draggingVertexIdxRef.current !== null) {
+          draggingVertexIdxRef.current = null;
+          m.dragPan.enable();
+          m.getCanvas().style.cursor = cutModeRef.current ? "crosshair" : "";
+          suppressNextClickRef.current = true;
+        }
+      };
+      m.on("mouseup", endDrag);
+      // Si el cursor sale del mapa con el botón presionado, igual liberamos
+      m.getCanvas().addEventListener("mouseleave", endDrag);
 
       setMapLoaded(true);
     });
@@ -359,8 +431,9 @@ export default function ResidualPage() {
     const newCuts = executeCutOnCollection(displayLots, line);
     if (newCuts.length === 0) {
       alert(
-        "La línea no atravesó ningún lote completamente.\n\n" +
-        "Sugerencia: extiéndela claramente más allá de los bordes del lote por ambos extremos."
+        "La línea no produjo ningún corte válido.\n\n" +
+        "Asegúrate de que la línea atraviese el lote (no que pase tangente a un borde, " +
+        "ni que termine exactamente sobre un vértice del polígono)."
       );
       return;
     }
@@ -492,12 +565,12 @@ export default function ResidualPage() {
               <span className="text-sm font-bold text-amber-100">Modo Cortar activo</span>
             </div>
             <div className="text-xs text-amber-200/90 mb-3 leading-relaxed">
-              Click en el mapa para agregar puntos a la línea de corte. Extiende la línea
-              <b> claramente más allá de los bordes</b> del lote por ambos extremos.
+              Click en el mapa para agregar puntos. <b>Arrastra cualquier vértice</b> para ajustarlo.
+              La línea se extiende automáticamente para asegurar el corte.
               <div className="mt-1 text-amber-300/70">
                 <kbd className="px-1 bg-amber-950/50 rounded">Enter</kbd> o doble-click confirmar ·{" "}
                 <kbd className="px-1 bg-amber-950/50 rounded">Esc</kbd> cancelar ·{" "}
-                <kbd className="px-1 bg-amber-950/50 rounded">⌫</kbd> quitar último punto
+                <kbd className="px-1 bg-amber-950/50 rounded">⌫</kbd> quitar último
               </div>
             </div>
             <div className="flex items-center justify-between text-xs">
