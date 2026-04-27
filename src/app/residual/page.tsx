@@ -230,6 +230,10 @@ export default function ResidualPage() {
       pitchWithRotate: false,
     });
     m.addControl(new mapboxgl.NavigationControl(), "top-right");
+    // Desactiva el zoom rectangular con Shift+drag — entra en conflicto con
+    // Shift+Click para combinar lotes (Mapbox captura el shift+mousedown y
+    // suprime el click subsiguiente).
+    m.boxZoom.disable();
     m.on("load", () => {
       // Lotes — fuente vacía, los datos llegan vía setData() cuando se carga el JSON
       const emptyFC: GeoJSON.FeatureCollection = { type: "FeatureCollection", features: [] };
