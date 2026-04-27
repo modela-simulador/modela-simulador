@@ -9,6 +9,7 @@ import { solveResidual, deriveDefaults, getEffectiveEfficiency } from "@/lib/res
 import { DEFAULT_INPUTS } from "@/lib/residual-types";
 import { BASE_PATH } from "@/lib/base-path";
 import type { ResidualInputs, ResidualOutput, UnitModel } from "@/lib/residual-types";
+import { applyCuts, executeCutOnCollection, type LotCollection, type LotCut } from "@/lib/lot-cuts";
 
 // ── Helpers ──────────────────────────────────────────────────
 
@@ -177,9 +178,31 @@ export default function ResidualPage() {
   const map = useRef<mapboxgl.Map | null>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
 
-  // Selection
-  const [selectedFid, setSelectedFid] = useState<string | null>(null);
-  const [selectedArea, setSelectedArea] = useState(0);
+  // Selection — array de lotes seleccionados (Shift+Click suma)
+  const [selectedLots, setSelectedLots] = useState<Array<{ fid: string; area: number }>>([]);
+  const selectedFid = selectedLots.length > 0 ? selectedLots.map((l) => l.fid).join("+") : null;
+  const selectedArea = selectedLots.reduce((sum, l) => sum + l.area, 0);
+
+  // ── Cortes de lotes ─────────────────────────────────────────
+  // originalLots: GeoJSON cargado del archivo, inmutable.
+  // cuts: historial ordenado de cortes; displayLots = applyCuts(original, cuts).
+  // Esto permite deshacer cualquier corte sin perder los demás.
+  const [originalLots, setOriginalLots] = useState<LotCollection | null>(null);
+  const [cuts, setCuts] = useState<LotCut[]>([]);
+  const [cutMode, setCutMode] = useState(false);
+  const [currentLine, setCurrentLine] = useState<number[][]>([]);
+
+  // Refs para handlers registrados una vez en map init (que no capturen estado obsoleto)
+  const cutModeRef = useRef(false);
+  const currentLineRef = useRef<number[][]>([]);
+  const confirmCutRef = useRef<() => void>(() => {});
+  useEffect(() => { cutModeRef.current = cutMode; }, [cutMode]);
+  useEffect(() => { currentLineRef.current = currentLine; }, [currentLine]);
+
+  const displayLots = useMemo<LotCollection | null>(() => {
+    if (!originalLots) return null;
+    return applyCuts(originalLots, cuts);
+  }, [originalLots, cuts]);
 
   // Inputs
   const [productId, setProductId] = useState("deptos1");
@@ -204,8 +227,9 @@ export default function ResidualPage() {
     });
     m.addControl(new mapboxgl.NavigationControl(), "top-right");
     m.on("load", () => {
-      // Lotes
-      m.addSource("lotes", { type: "geojson", data: `${BASE_PATH}/data/lotes.geojson`, promoteId: "fid" });
+      // Lotes — fuente vacía, los datos llegan vía setData() cuando se carga el JSON
+      const emptyFC: GeoJSON.FeatureCollection = { type: "FeatureCollection", features: [] };
+      m.addSource("lotes", { type: "geojson", data: emptyFC, promoteId: "fid" });
       m.addLayer({ id: "lotes-fill", type: "fill", source: "lotes", paint: { "fill-color": ["case", ["boolean", ["feature-state", "selected"], false], "#3B82F6", LAYER_COLORS.lotes], "fill-opacity": ["case", ["boolean", ["feature-state", "selected"], false], 0.5, 0.15] } });
       m.addLayer({ id: "lotes-line", type: "line", source: "lotes", paint: { "line-color": ["case", ["boolean", ["feature-state", "selected"], false], "#60A5FA", "#94a3b8"], "line-width": ["case", ["boolean", ["feature-state", "selected"], false], 2.5, 0.8] } });
       // Areas verdes
@@ -218,9 +242,15 @@ export default function ResidualPage() {
       m.addSource("cerco", { type: "geojson", data: `${BASE_PATH}/data/cercos.geojson` });
       m.addLayer({ id: "cerco-line", type: "line", source: "cerco", paint: { "line-color": LAYER_COLORS.cerco, "line-width": 1.5, "line-dasharray": [4, 3] } });
 
-      // Hover tooltip
+      // Capa de borrador para el modo Cortar (línea + vértices)
+      m.addSource("cut-draft", { type: "geojson", data: emptyFC });
+      m.addLayer({ id: "cut-draft-line", type: "line", source: "cut-draft", filter: ["==", ["geometry-type"], "LineString"], paint: { "line-color": "#F59E0B", "line-width": 3, "line-dasharray": [2, 1.2] } });
+      m.addLayer({ id: "cut-draft-points", type: "circle", source: "cut-draft", filter: ["==", ["geometry-type"], "Point"], paint: { "circle-color": "#F59E0B", "circle-radius": 5, "circle-stroke-color": "#0f172a", "circle-stroke-width": 2 } });
+
+      // Hover tooltip — solo fuera del modo Cortar
       const popup = new mapboxgl.Popup({ closeButton: false, closeOnClick: false, className: "lot-popup" });
       m.on("mousemove", "lotes-fill", (e) => {
+        if (cutModeRef.current) return;
         if (e.features?.[0]) {
           const f = e.features[0];
           const area = (f.properties?.Area as number) || 0;
@@ -228,17 +258,33 @@ export default function ResidualPage() {
           m.getCanvas().style.cursor = "pointer";
         }
       });
-      m.on("mouseleave", "lotes-fill", () => { popup.remove(); m.getCanvas().style.cursor = ""; });
+      m.on("mouseleave", "lotes-fill", () => { popup.remove(); if (!cutModeRef.current) m.getCanvas().style.cursor = ""; });
 
-      // Click
-      m.on("click", "lotes-fill", (e) => {
-        if (e.features?.[0]) {
-          const f = e.features[0];
-          const fid = String(f.properties?.fid || f.id);
-          const area = (f.properties?.Area as number) || 0;
-          setSelectedFid(fid);
-          setSelectedArea(area);
+      // Click global — en modo Cortar agrega vértice; si no, selecciona lote
+      m.on("click", (e) => {
+        if (cutModeRef.current) {
+          const next = [...currentLineRef.current, [e.lngLat.lng, e.lngLat.lat]];
+          setCurrentLine(next);
+          return;
         }
+        const features = m.queryRenderedFeatures(e.point, { layers: ["lotes-fill"] });
+        if (features.length === 0) return;
+        const f = features[0];
+        const fid = String(f.properties?.fid || f.id);
+        const area = (f.properties?.Area as number) || 0;
+        const shift = e.originalEvent.shiftKey;
+        setSelectedLots((prev) => {
+          if (!shift) return [{ fid, area }];
+          const exists = prev.find((l) => l.fid === fid);
+          return exists ? prev.filter((l) => l.fid !== fid) : [...prev, { fid, area }];
+        });
+      });
+
+      // Doble click confirma el corte (en modo Cortar)
+      m.on("dblclick", (e) => {
+        if (!cutModeRef.current) return;
+        e.preventDefault();
+        confirmCutRef.current();
       });
 
       setMapLoaded(true);
@@ -247,18 +293,141 @@ export default function ResidualPage() {
     return () => { m.remove(); map.current = null; };
   }, []);
 
-  // ── Highlight selected lot ──
+  // ── Carga inicial del GeoJSON de lotes ──
+  useEffect(() => {
+    fetch(`${BASE_PATH}/data/lotes.geojson`)
+      .then((r) => r.json())
+      .then((data: LotCollection) => setOriginalLots(data))
+      .catch((err) => console.error("[residual] error cargando lotes.geojson", err));
+  }, []);
+
+  // ── Empuja displayLots al mapa cuando cambia (carga inicial o nuevo corte) ──
+  useEffect(() => {
+    if (!map.current || !mapLoaded || !displayLots) return;
+    const src = map.current.getSource("lotes") as mapboxgl.GeoJSONSource | undefined;
+    if (src) src.setData(displayLots);
+  }, [displayLots, mapLoaded]);
+
+  // ── Empuja la línea borrador (vértices + segmento) al mapa ──
+  useEffect(() => {
+    if (!map.current || !mapLoaded) return;
+    const src = map.current.getSource("cut-draft") as mapboxgl.GeoJSONSource | undefined;
+    if (!src) return;
+    const features: GeoJSON.Feature[] = [];
+    if (currentLine.length >= 2) {
+      features.push({
+        type: "Feature",
+        geometry: { type: "LineString", coordinates: currentLine },
+        properties: {},
+      });
+    }
+    currentLine.forEach((c) => {
+      features.push({
+        type: "Feature",
+        geometry: { type: "Point", coordinates: c },
+        properties: {},
+      });
+    });
+    src.setData({ type: "FeatureCollection", features });
+  }, [currentLine, mapLoaded]);
+
+  // ── Cursor + double-click zoom según modo Cortar ──
+  useEffect(() => {
+    if (!map.current) return;
+    const m = map.current;
+    if (cutMode) {
+      m.getCanvas().style.cursor = "crosshair";
+      m.doubleClickZoom.disable();
+    } else {
+      m.getCanvas().style.cursor = "";
+      m.doubleClickZoom.enable();
+    }
+  }, [cutMode]);
+
+  // ── Acciones de corte ──
+  const cancelCut = useCallback(() => {
+    setCutMode(false);
+    setCurrentLine([]);
+  }, []);
+
+  const confirmCut = useCallback(() => {
+    if (currentLine.length < 2 || !displayLots) {
+      cancelCut();
+      return;
+    }
+    const line: GeoJSON.LineString = { type: "LineString", coordinates: currentLine };
+    const newCuts = executeCutOnCollection(displayLots, line);
+    if (newCuts.length === 0) {
+      alert(
+        "La línea no atravesó ningún lote completamente.\n\n" +
+        "Sugerencia: extiéndela claramente más allá de los bordes del lote por ambos extremos."
+      );
+      return;
+    }
+    setCuts((prev) => [...prev, ...newCuts]);
+    setCutMode(false);
+    setCurrentLine([]);
+    setSelectedLots([]); // los FIDs seleccionados pueden haber dejado de existir
+  }, [currentLine, displayLots, cancelCut]);
+
+  // Mantener confirmCutRef apuntando a la última versión (para handlers de mapa registrados una vez)
+  useEffect(() => { confirmCutRef.current = confirmCut; }, [confirmCut]);
+
+  const undoCut = useCallback((cutId: string) => {
+    setCuts((prev) => prev.filter((c) => c.id !== cutId));
+    setSelectedLots([]);
+  }, []);
+
+  const undoAllCuts = useCallback(() => {
+    if (cuts.length === 0) return;
+    if (confirm(`¿Eliminar los ${cuts.length} cortes y volver al estado original?`)) {
+      setCuts([]);
+      setSelectedLots([]);
+    }
+  }, [cuts.length]);
+
+  const exportGeoJSON = useCallback(() => {
+    if (!displayLots) return;
+    const blob = new Blob([JSON.stringify(displayLots, null, 2)], { type: "application/geo+json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `lotes-modificado-${new Date().toISOString().slice(0, 10)}.geojson`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [displayLots]);
+
+  // ── Atajos de teclado en modo Cortar (Esc cancela, Enter confirma) ──
+  useEffect(() => {
+    if (!cutMode) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        cancelCut();
+      } else if (e.key === "Enter") {
+        e.preventDefault();
+        confirmCut();
+      } else if (e.key === "Backspace" && currentLine.length > 0) {
+        // Quita el último vértice
+        e.preventDefault();
+        setCurrentLine((prev) => prev.slice(0, -1));
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [cutMode, currentLine.length, cancelCut, confirmCut]);
+
+  // ── Highlight selected lots (uno o varios) ──
   useEffect(() => {
     if (!map.current || !mapLoaded) return;
     const m = map.current;
     const source = m.getSource("lotes") as mapboxgl.GeoJSONSource;
     if (!source) return;
-    // Clear all feature states then set selected
     m.removeFeatureState({ source: "lotes" });
-    if (selectedFid) {
-      m.setFeatureState({ source: "lotes", id: selectedFid }, { selected: true });
-    }
-  }, [selectedFid, mapLoaded]);
+    selectedLots.forEach((l) => {
+      m.setFeatureState({ source: "lotes", id: l.fid }, { selected: true });
+    });
+  }, [selectedLots, mapLoaded]);
 
   // ── Derive inputs when lot or product changes ──
   useEffect(() => {
@@ -314,13 +483,122 @@ export default function ResidualPage() {
         <div className="absolute top-4 left-4 bg-zinc-900/90 backdrop-blur px-4 py-2 rounded-lg border border-zinc-700">
           <span className="text-sm font-semibold text-zinc-300">Simulador Residual Dinámico</span>
         </div>
+
+        {/* Panel flotante: instrucciones y acciones del Modo Cortar */}
+        {cutMode && (
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-amber-900/95 border border-amber-500 backdrop-blur px-4 py-3 rounded-lg shadow-lg max-w-md">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-amber-300">✂</span>
+              <span className="text-sm font-bold text-amber-100">Modo Cortar activo</span>
+            </div>
+            <div className="text-xs text-amber-200/90 mb-3 leading-relaxed">
+              Click en el mapa para agregar puntos a la línea de corte. Extiende la línea
+              <b> claramente más allá de los bordes</b> del lote por ambos extremos.
+              <div className="mt-1 text-amber-300/70">
+                <kbd className="px-1 bg-amber-950/50 rounded">Enter</kbd> o doble-click confirmar ·{" "}
+                <kbd className="px-1 bg-amber-950/50 rounded">Esc</kbd> cancelar ·{" "}
+                <kbd className="px-1 bg-amber-950/50 rounded">⌫</kbd> quitar último punto
+              </div>
+            </div>
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-amber-200">{currentLine.length} {currentLine.length === 1 ? "punto" : "puntos"}</span>
+              <div className="flex gap-2">
+                <button
+                  onClick={cancelCut}
+                  className="px-3 py-1.5 bg-zinc-700 hover:bg-zinc-600 text-white rounded text-xs font-semibold"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={confirmCut}
+                  disabled={currentLine.length < 2}
+                  className="px-3 py-1.5 bg-amber-500 hover:bg-amber-400 disabled:bg-zinc-700 disabled:text-zinc-500 text-amber-950 rounded text-xs font-bold"
+                >
+                  Confirmar corte
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* SIDEBAR */}
-      <div className="w-[500px] border-l border-zinc-800 overflow-y-auto bg-zinc-900">
+      <div className="w-[500px] border-l border-zinc-800 overflow-y-auto bg-zinc-900 flex flex-col">
+        {/* Barra de herramientas — siempre visible */}
+        <div className="bg-zinc-950/80 border-b border-zinc-800 p-3 flex items-center gap-2 sticky top-0 z-10">
+          <button
+            onClick={() => setCutMode((v) => !v)}
+            className={`flex-1 py-2 px-3 rounded text-xs font-semibold transition flex items-center justify-center gap-1.5 ${
+              cutMode
+                ? "bg-amber-500 text-amber-950 hover:bg-amber-400"
+                : "bg-zinc-800 text-zinc-300 hover:bg-zinc-700 border border-zinc-700"
+            }`}
+            title="Activa el modo Cortar para subdividir lotes con una línea"
+          >
+            <span>✂</span>
+            <span>{cutMode ? "Salir modo Cortar" : "Modo Cortar"}</span>
+          </button>
+          <button
+            onClick={exportGeoJSON}
+            disabled={!displayLots}
+            className="py-2 px-3 rounded text-xs font-semibold bg-zinc-800 text-zinc-300 hover:bg-zinc-700 border border-zinc-700 disabled:opacity-40"
+            title="Descarga el GeoJSON con los cortes aplicados"
+          >
+            ⤓ GeoJSON
+          </button>
+          {cuts.length > 0 && (
+            <span className="text-[10px] text-amber-400 font-semibold whitespace-nowrap">
+              {cuts.length} {cuts.length === 1 ? "corte" : "cortes"}
+            </span>
+          )}
+        </div>
+
+        {/* Historial de cortes — visible solo si hay cortes */}
+        {cuts.length > 0 && (
+          <div className="bg-amber-950/20 border-b border-amber-800/30 p-3">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[10px] uppercase tracking-wider text-amber-400 font-semibold">
+                Historial de cortes
+              </span>
+              <button
+                onClick={undoAllCuts}
+                className="text-[10px] text-amber-400/70 hover:text-amber-300 underline"
+              >
+                Deshacer todos
+              </button>
+            </div>
+            <div className="space-y-1 max-h-40 overflow-y-auto">
+              {cuts.map((c, idx) => (
+                <div
+                  key={c.id}
+                  className="flex items-center justify-between text-[11px] bg-zinc-900/50 rounded px-2 py-1 border border-zinc-800"
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="text-zinc-300 truncate">
+                      <span className="text-zinc-500">#{idx + 1}</span> Lote {c.targetFid} → {c.resultingFids.join(", ")}
+                    </div>
+                    <div className="text-zinc-500 text-[10px]">
+                      {c.resultingAreas.map((a) => `${fmt(a)} m²`).join(" + ")}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => undoCut(c.id)}
+                    className="ml-2 text-zinc-500 hover:text-red-400 text-xs"
+                    title="Deshacer este corte"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {!selectedFid ? (
-          <div className="flex items-center justify-center h-full text-zinc-500 text-sm px-8 text-center">
-            Selecciona un lote en el mapa para iniciar la evaluación residual
+          <div className="flex-1 flex items-center justify-center text-zinc-500 text-sm px-8 text-center">
+            Selecciona un lote en el mapa para iniciar la evaluación residual.
+            <br />
+            <span className="text-zinc-600 text-xs mt-2 block">Shift+Click para combinar varios lotes.</span>
           </div>
         ) : (
           <div className="p-4 space-y-4">
@@ -328,15 +606,39 @@ export default function ResidualPage() {
             <div className="bg-zinc-800/50 rounded-lg p-3 border border-zinc-700">
               <div className="flex justify-between items-center">
                 <div>
-                  <div className="text-xs text-zinc-500 uppercase tracking-wider font-semibold">Lote seleccionado</div>
-                  <div className="text-lg font-bold">FID {selectedFid}</div>
+                  <div className="text-xs text-zinc-500 uppercase tracking-wider font-semibold">
+                    {selectedLots.length === 1 ? "Lote seleccionado" : `${selectedLots.length} lotes combinados`}
+                  </div>
+                  <div className="text-lg font-bold">
+                    {selectedLots.length === 1
+                      ? `FID ${selectedLots[0].fid}`
+                      : `FID ${selectedLots.map((l) => l.fid).join(" + ")}`}
+                  </div>
+                  {selectedLots.length > 1 && (
+                    <button
+                      onClick={() => setSelectedLots([selectedLots[0]])}
+                      className="text-[10px] text-zinc-500 hover:text-zinc-300 mt-1 underline"
+                    >
+                      Limpiar combinación
+                    </button>
+                  )}
                 </div>
                 <div className="text-right">
-                  <div className="text-xs text-zinc-500">Superficie</div>
+                  <div className="text-xs text-zinc-500">Superficie {selectedLots.length > 1 ? "total" : ""}</div>
                   <div className="text-lg font-bold text-blue-400">{fmt(selectedArea)} m²</div>
                   <div className="text-xs text-zinc-500">{(selectedArea / 10000).toFixed(2)} ha</div>
                 </div>
               </div>
+              {selectedLots.length > 1 && (
+                <div className="mt-2 pt-2 border-t border-zinc-700 text-[10px] text-zinc-500 space-y-0.5">
+                  {selectedLots.map((l) => (
+                    <div key={l.fid} className="flex justify-between">
+                      <span>Lote {l.fid}</span>
+                      <span>{fmt(l.area)} m² ({(l.area / 10000).toFixed(2)} ha)</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* PRODUCT SELECTOR */}
