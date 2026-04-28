@@ -2,7 +2,7 @@
 title: "Modelo Factorial Estocástico para Valoración de AUDPs"
 subtitle: "Documento Técnico para Directorio · Modela"
 author: "Equipo Modela"
-date: "Abril 2026"
+date: "Abril 2026 (versión 3)"
 geometry: "margin=2.5cm"
 fontsize: 11pt
 mainfont: "Helvetica Neue"
@@ -15,715 +15,716 @@ documentclass: article
 
 \newpage
 
-# Resumen Ejecutivo
+# Resumen para el Directorio
 
-## Propósito del modelo
+## ¿Qué hicimos?
 
-Este documento describe el **Modelo Factorial Estocástico** desarrollado por Modela para sensibilizar el Valor Actual Neto (VAN) del flujo financiero de Áreas Urbanas de Desarrollo Prioritario (AUDPs) frente a escenarios macroeconómicos chilenos. El modelo opera como capa estadística sobre el simulador macro existente, permitiendo:
+Construimos una herramienta que **evalúa proyectos AUDP no con un solo número, sino con un rango de resultados posibles**. La diferencia es como pasar de un pronóstico del tiempo que dice "mañana 22°C" a uno que dice "mañana 18°C a 26°C, lo más probable 22°C". El segundo es honesto sobre la incertidumbre real; el primero da falsa precisión.
 
-1. **Cuantificar el rango plausible del VAN** bajo distintas trayectorias macroeconómicas, no solo el valor central.
-2. **Replicar episodios históricos** (Crisis Subprime 2009, Estallido + COVID 2019-2020, Boom post-COVID 2021, Slowdown 2023) usando los valores macro reales de cada período.
-3. **Identificar las variables más sensibles** mediante análisis tornado, concentrando la atención del management en las palancas de mayor impacto.
-4. **Auditar las hipótesis** vía la trazabilidad completa a fuentes oficiales (Banco Central de Chile, INE, Cámara Chilena de la Construcción) y a una base de datos transaccional de 124.531 observaciones de mercado inmobiliario.
+Para construirla, **cruzamos dos fuentes de datos chilenas**:
 
-## Características principales
+1. **TINSA**: 124.526 proyectos inmobiliarios reales con sus precios, velocidades de venta, plazos y tamaños. La mayor base de datos disponible del mercado chileno.
+2. **Macros oficiales**: 401 trimestres de IMACEC (BCCh), tasa hipotecaria, desempleo (INE), IPV (BCCh) e ICOI (CChC). Lo que efectivamente pasó en la economía chilena 2010-2024.
 
-| Atributo | Detalle |
-|---|---|
-| **Calibración empírica** | 124.531 observaciones TINSA + 401 trimestres macro 2010–2024 |
-| **Variables sampleadas** | 5 macros (IMACEC, Δ tasa hipo, Δ desempleo, IPV, ICOI) |
-| **Variables propagadas** | 4 shocks de proyecto (precio, costo, velocidad, plazo) |
-| **Familias de producto** | 4 (Edificio 4–6 pisos, DS19, Casa, Townhouse) |
-| **Distribuciones marginales** | Empíricas con 99 percentiles densos |
-| **Estructura de dependencia** | t-cópula (ν=4) calibrada con Iman-Conover |
-| **Iteraciones** | 500 a 10.000 configurables |
-| **Reproducibilidad** | Seed determinista; mismo input → mismo output |
-| **Tiempo de cómputo** | ~110 s para 10.000 iteraciones |
+Las cruzamos por trimestre y descubrimos cómo se mueven juntas las variables económicas y los resultados de los proyectos.
+
+## ¿Qué encontramos?
+
+Los hallazgos más importantes del análisis profundo:
+
+1. **El IPV oficial chileno se anticipa al precio observado en TINSA por 2-3 trimestres**. Es decir, si hoy el IPV sube 2%, los precios TINSA suelen subir 2-4% nueve meses después. Esto cambia cómo deberíamos usar el IPV en el modelo.
+
+2. **La comuna donde está el proyecto explica el 49% del precio por m²**. Es la variable más importante de todas. Más que la familia de producto (10%) o el año (24%).
+
+3. **El IMACEC alto baja la velocidad de venta de cada proyecto individual** con un trimestre de lag (correlación -0.38). Suena contraintuitivo pero tiene sentido: cuando la economía está bien, todos los developers lanzan proyectos al mismo tiempo y la competencia entre ellos baja la velocidad de cada uno.
+
+4. **Las familias de producto se comportan distinto**: el signo de la relación velocidad-IMACEC cambia entre Casa (+0.16, no significativo), Edificio (-0.39) y Townhouse (-0.66). Esto justifica mantener la estratificación por familia, aunque la próxima iteración debería incluir también la comuna.
+
+5. **Las macros explican entre 62% y 75% de la varianza** de las variables TINSA cuando usamos modelos no-lineales (Random Forest), versus solo 5-40% con regresiones lineales tradicionales. **Hay relaciones no-lineales importantes que el modelo actual está perdiendo**.
+
+## ¿Qué decisiones podemos tomar con esta herramienta?
+
+✓ **Comparar dos AUDPs** bajo el mismo escenario macro y ver cuál es más resiliente.
+
+✓ **Identificar las palancas de gestión activa**: qué variables del proyecto, si se mejoran, mueven más el VAN.
+
+✓ **Cuantificar el riesgo de cola**: ¿qué tan malo puede ser el VAN bajo escenarios adversos plausibles?
+
+✓ **Auditar las hipótesis** ante consultores externos o auditores: cada componente del modelo es trazable a fuentes oficiales y reproducible con scripts en el repositorio.
+
+✗ **No predice el VAN futuro con precisión**. Eso requiere predecir las macros futuras, que es por definición incierto.
+
+✗ **No captura riesgos idiosincráticos del proyecto** (ejecución del developer, marketing específico). Esos quedan como ruido en el modelo.
+
+✗ **No modela rupturas estructurales** (cambio regulatorio mayor, salto tecnológico). Si hay un evento sin precedente histórico, el modelo no lo verá venir.
 
 \newpage
 
 # 1. ¿Qué es Monte Carlo y por qué lo usamos?
 
-## 1.1 La pregunta que motiva la simulación
+## 1.1 La pregunta detrás del modelo
 
-Cuando se evalúa la inversión en un AUDP que tomará 15-30 años en madurar, la pregunta natural del Directorio no es **"¿cuál es el VAN?"** sino **"¿qué rango de VANes es plausible y cuál es la probabilidad de que el AUDP sea rentable?"**.
+Cuando se evalúa la inversión en un AUDP que tomará 15-30 años en madurar, la pregunta importante para el Directorio no es **"¿cuál es el VAN?"** sino:
 
-El simulador determinista anterior respondía la primera pregunta: dada una trayectoria fija de tasas, precios, costos y velocidades, computa el VAN. Es útil, pero **falsamente preciso**: presenta un número como si fuera la realidad, cuando en verdad es solo el resultado de una asunción.
+- **¿Qué rango de VANes es plausible?**
+- **¿Qué probabilidad hay de que el AUDP sea rentable?**
+- **¿Qué tan resiliente es el VAN frente a escenarios adversos?**
 
-La realidad económica es **incierta**. Las tasas suben y bajan, los precios fluctúan, las crisis ocurren. Un proyecto rentable bajo el escenario base puede ser desastroso bajo un escenario adverso plausible. Sin entender el rango y la distribución de posibles VANes, el Directorio toma decisiones con visibilidad parcial.
+El simulador anterior respondía la primera pregunta dando un solo número bajo asunciones fijas. Es útil pero **falsamente preciso**: presenta un valor como si fuera la realidad, cuando en verdad es solo el resultado de una asunción específica.
 
 ## 1.2 ¿Qué es una simulación Monte Carlo?
 
-El método Monte Carlo es una técnica de simulación numérica que **estima distribuciones de outcomes** muestreando aleatoriamente las variables de entrada un gran número de veces.
+Monte Carlo es una técnica que **simula muchos escenarios posibles** y calcula el VAN en cada uno. Al final, en lugar de un número, tenés una **distribución completa** que muestra:
 
-**Procedimiento general**:
+- VAN promedio
+- VAN en el 5% peor caso (riesgo de cola)
+- VAN en el 95% mejor caso (oportunidad)
+- Probabilidad de que VAN sea negativo
+
+**Procedimiento**:
 
 ```
-Para i = 1 hasta N (típicamente N = 3.000 a 10.000):
-  1. Sortear un valor para cada variable de entrada según su distribución
-     y respetando las correlaciones entre ellas
-  2. Calcular el output (en nuestro caso: VAN del AUDP) bajo esos inputs
+Para i = 1 hasta N (típicamente 3.000 a 10.000 iteraciones):
+  1. Sortear valores para todas las variables económicas, respetando
+     que se muevan juntas como en la realidad (correlaciones)
+  2. Calcular el VAN del AUDP con esos valores
   3. Almacenar el resultado
 
-Al final tienes N resultados → distribución empírica del output
-Se calculan percentiles, promedios, probabilidades de eventos
+Al final tenés N valores → distribución del VAN
 ```
 
-El nombre "Monte Carlo" proviene del casino del Principado de Mónaco — fue acuñado en la década de 1940 por Stanislaw Ulam y John von Neumann durante el desarrollo de la bomba atómica en Los Alamos, para referirse a una técnica donde se "juega a los dados" para estimar el comportamiento de neutrones que ningún cálculo cerrado podía resolver.
+El nombre "Monte Carlo" viene del casino de Mónaco. Lo acuñaron Stanislaw Ulam y John von Neumann en los años 40 durante el desarrollo de la bomba atómica, para describir una técnica donde "se juega a los dados" y se observan los resultados promedio.
 
-## 1.3 ¿Cuándo se aplica Monte Carlo?
+## 1.3 ¿Cuándo es apropiado usar Monte Carlo?
 
-El Monte Carlo es la herramienta apropiada cuando se cumplen **todas estas condiciones**:
+Cuando se cumplen **estas cinco condiciones**:
 
-1. **El modelo es complejo**: el output depende de muchas variables de entrada con relaciones no triviales (lineales, no-lineales, condicionales, secuenciales).
-2. **No hay solución analítica cerrada**: no existe una fórmula que dé directamente la distribución del output.
-3. **Las variables de entrada son inciertas**: tienen distribuciones de probabilidad razonablemente estimables.
-4. **Las correlaciones importan**: las variables de entrada no son independientes.
-5. **Las decisiones se toman bajo incertidumbre**: el decisor necesita entender el rango de outcomes, no solo el central.
+1. **El modelo es complejo**: muchas variables interactúan.
+2. **No hay fórmula cerrada**: no podés derivar la respuesta con álgebra.
+3. **Las variables tienen incertidumbre**: tienen distribuciones razonablemente estimables.
+4. **Las correlaciones importan**: las variables no son independientes.
+5. **El decisor necesita el rango**: no le sirve solo el valor central.
 
-El simulador AUDP cumple los cinco criterios:
+El simulador AUDP cumple las cinco. Por eso Monte Carlo es la herramienta apropiada.
 
-1. ✓ El flujo de caja AUDP depende de unidades vendidas por año, precios, plazos, costos urbanización, mitigaciones, sanitaria, factibilización, indicador de descuento, y la incidencia (que a su vez depende del residual de cada producto). Decenas de variables interactúan.
+## 1.4 ¿Quién más usa Monte Carlo en finanzas y real estate?
 
-2. ✓ No hay fórmula cerrada para "VAN dado distribuciones de N inputs correlacionados".
-
-3. ✓ Las macros chilenas tienen distribuciones empíricas estimables desde 2002–2024 (BCCh, INE, CChC).
-
-4. ✓ Las correlaciones son críticas: PIB ↑ → desempleo ↓ → demanda ↑ → velocidad ↑. Sortear independientes generaría escenarios irreales.
-
-5. ✓ Cada AUDP compromete capital de magnitud relevante por décadas. El Directorio necesita el rango, no un punto.
-
-## 1.4 Aplicaciones típicas del Monte Carlo en finanzas y real estate
-
-| Aplicación | Empresa/Institución | Propósito |
+| Aplicación | Quién | Para qué |
 |---|---|---|
-| Pricing de derivados financieros | Goldman Sachs, JP Morgan | Valorar opciones complejas sin solución analítica |
-| Riesgo operacional | Basel III bancos | Estimar VaR para capital regulatorio |
-| Planeación de carteras de inversión | Fondos pensiones | Probabilidad de fondear obligaciones a 30 años |
+| Pricing de derivados financieros | Bancos de inversión globales | Valorar opciones complejas |
+| Riesgo regulatorio Basel III | Bancos comerciales | Capital regulatorio |
+| Stress testing CCAR | Federal Reserve (USA) | Resistencia a escenarios adversos |
 | Valuación de proyectos petroleros | Shell, ExxonMobil | VAN bajo precios crudo inciertos |
-| **Valuación de proyectos inmobiliarios** | **Real estate developers** | **VAN bajo escenarios de demanda/costo inciertos** |
-| Reserving de aseguradoras | Solvency II | Capital regulatorio para liability streams |
-| Stress testing CCAR Federal Reserve | Bancos US | Resistencia bajo escenarios macro adversos |
-| Análisis de proyectos infraestructura | Bancos multilaterales | Probabilidad de repago concesiones |
+| **Evaluación de proyectos inmobiliarios** | **Real estate developers globales** | **VAN bajo escenarios de demanda inciertos** |
+| Solvency II | Aseguradoras europeas | Capital regulatorio para liabilities |
+| Análisis de concesiones | Bancos multilaterales | Probabilidad de repago |
 
-En real estate específicamente, el uso de Monte Carlo está documentado en literatura desde los años 90 y es estándar entre los principales developers internacionales. El Modelo Factorial Estocástico de Modela aplica esta técnica con calibración empírica chilena.
+En real estate específicamente, el uso es estándar entre los principales developers internacionales desde los años 90.
 
 ## 1.5 ¿Qué NO hace Monte Carlo?
 
-Es importante manejar expectativas:
+Es importante manejar expectativas realistas:
 
-- **Monte Carlo NO predice el futuro**. No dice "el VAN será X". Dice "dada nuestra creencia sobre la distribución de los inputs, el VAN tiene esta distribución probable".
-- **La calidad del output depende de la calidad de las distribuciones de input**. Garbage in, garbage out — por eso la calibración con datos reales es crítica.
-- **No captura "cisnes negros"**: eventos sin precedente histórico (cambio regulatorio mayor, salto tecnológico) están fuera del modelo por construcción.
-- **No reemplaza el juicio cualitativo**: complementa pero no sustituye el análisis del contexto regulatorio, comercial y geográfico específico.
-
-\newpage
-
-# 2. Contexto y motivación específica del modelo
-
-## 2.1 Limitaciones del modelo determinista anterior
-
-El simulador macro de Modela (`simulador-legacy.html`) producía hasta hace pocos meses un **valor único** de VAN bajo asunciones fijas. Los inputs típicos eran:
-
-- Velocidad de venta: valor central por tipología (e.g. 2.7 unidades/mes para Casas 1).
-- Ticket promedio: valor central por tier de producto.
-- Incidencia de terreno: valor central calculado por método residual.
-- Tasa de descuento: 8% real anual.
-
-Bajo estas asunciones, el modelo respondía a la pregunta: *"si todo evoluciona según el escenario base, ¿cuál es el VAN?"* — una pregunta válida pero insuficiente para decisiones que comprometen capital de magnitud relevante en horizontes multidécada.
-
-Las preguntas que el directorio usualmente formula y que el modelo determinista **no podía responder** incluyen:
-
-1. ¿Cuál es la probabilidad de que el VAN sea negativo bajo escenarios plausibles?
-2. ¿Qué tan malo puede ser el VAN si replicamos las condiciones macro de la pandemia 2020?
-3. ¿Qué tan robusto es el VAN frente a una caída del 30% en velocidad de venta combinada con un alza del 10% en costos de construcción?
-4. ¿Cuál de dos AUDPs candidatos es más resiliente al estrés macro?
-
-## 2.2 Tres modos del Monte Carlo actual
-
-El simulador hoy implementa tres modos de Monte Carlo, cada uno con propósito y nivel de sofisticación distintos:
-
-| Modo | Filosofía | Uso recomendado |
-|---|---|---|
-| **Paramétrico** (legacy) | Distribuciones Normal/Triangular independientes | Sanity check, reproducir análisis previos |
-| **Empírico CIDU** | Cópula t (ν=4) sobre marginales empíricas TINSA, sin macros | Cuando se quiere fidelidad a la distribución observada |
-| **Factor Macro** ✓ default | Shocks directos desde IPV (BCCh) e ICOI (CChC) + regresión velocidad + cópula entre 5 macros | **Decisiones económicas estratégicas, stress testing** |
+- **No predice el futuro**. Dice "dada la información histórica, el VAN tiene esta distribución". No dice "el VAN será X".
+- **La calidad del output depende de la calidad de los inputs**. Si las distribuciones de entrada son malas, los outputs lo serán también.
+- **No captura "cisnes negros"**: eventos sin precedente histórico (cambio regulatorio mayor, salto tecnológico) están fuera del modelo.
+- **No reemplaza el juicio cualitativo**: es complemento, no sustituto del análisis del contexto regulatorio, comercial y geográfico específico.
 
 \newpage
 
-# 3. Arquitectura del modelo: 3 capas
+# 2. ¿Cómo conectamos los datos?
 
-## 3.1 Diagrama conceptual
+Esta sección explica con detalle cómo se cruzaron las dos fuentes de datos principales del modelo.
 
-![Arquitectura de 3 capas del modelo](figures/09_arquitectura_3_capas.png){ width=100% }
+## 2.1 Las dos fuentes
 
-El modelo conceptualiza el sistema económico-inmobiliario en **tres capas jerárquicas** según la **velocidad de cambio** de las variables:
+### Fuente 1: TINSA — proyectos inmobiliarios reales
 
-### Capa 3 — Estructural decadal (NO se sortea)
+TINSA es una empresa que compila información del mercado inmobiliario chileno. Su base de datos contiene **124.526 observaciones activas** de proyectos. Cada observación es un **proyecto-trimestre**: un proyecto específico observado en un trimestre específico, con métricas como:
 
-Variables que cambian en escalas de **décadas, no de trimestres**: demografía, fertilidad, educación. En la versión actual estas variables **no se sortean estocásticamente** — se utilizan como anclaje del escenario base (qué demanda cabe esperar a 20+ años). Su variabilidad anual es tan baja que sortarlas con noise produciría escenarios irreales (e.g., "fertilidad sube 30% en un trimestre").
+- Precio promedio por m² vendible (UFM2P)
+- Velocidad de venta en unidades por mes (UMESP)
+- Tamaño promedio de unidad (SUPP)
+- Stock disponible al inicio del trimestre (OFEPER)
+- Unidades vendidas en el trimestre (UVEND)
+- Meses estimados para agotar el stock (MAGOST)
+- Comuna (NCOM), número de pisos (NPISOS), tipología (TCAT)
+- Tipo de subsidio (TSUB) — DS19, DS01, sin subsidio
+- Ubicación geográfica X, Y
+- Distancia al CBD (DCBD)
+- Indicadores de Bienestar Humano Territorial (BHT)
 
-### Capa 2 — Cíclica estocástica (AQUÍ ocurre el Monte Carlo)
+### Fuente 2: Macros oficiales chilenas
 
-Variables macro que **fluctúan trimestralmente** y son las que mueven el ciclo económico-inmobiliario: IMACEC, tasas, IPV, ICOI. Esta es la capa donde **opera el Monte Carlo del Factor Macro**: se samplean las 5 macros conjuntamente con t-cópula y luego se propagan a la Capa 1.
+Series temporales de indicadores económicos publicados por instituciones oficiales:
 
-### Capa 1 — Producto/Proyecto (variables derivadas)
+| Variable | Fuente | Frecuencia | Cobertura |
+|---|---|---|---|
+| IMACEC variación % anual | BCCh | Mensual | 1997-presente |
+| Tasa hipotecaria UF | BCCh-CMF | Mensual | 2002-presente |
+| Tasa desempleo nacional | INE-NESI | Trimestral móvil | 2010-presente |
+| IPV (Índice Precios Vivienda) | BCCh | Anual | 2002-presente |
+| ICOI (Índice Costos Construcción) | CChC | Anual | 2013-presente |
 
-Las 4 variables del proyecto (precio, costo, velocidad, plazo) **no se sortean directamente** desde sus distribuciones marginales TINSA. En su lugar, se **derivan de las macros sampleadas** mediante:
+## 2.2 El cruce: por trimestre
 
-- **Shocks directos** para precio (proxy IPV) y costo (proxy ICOI) — ambas variables tienen índices oficiales.
-- **Regresión OLS** para velocidad — no existe índice oficial, así que la macro aporta predicción.
-- **Shock idiosincrático** para plazo — la macro no determina el plazo de obra.
+El cruce entre ambas fuentes se hace **por trimestre calendario**. Cada observación TINSA tiene un atributo `PEAÑO` (formato `1P 2014` por ejemplo). Lo convertimos al formato `2014-Q1` que también usa la grilla macro.
 
-\newpage
+**Pasos del cruce**:
 
-# 4. Variables del modelo: catálogo detallado
+1. Las macros mensuales (IMACEC, tasa hipo, desempleo) las **agregamos a trimestre** tomando el promedio de los 3 meses.
+2. Las macros anuales (IPV, ICOI) las **interpolamos linealmente a trimestre** (Q1 = valor anual; Q2, Q3 = interpolación; Q4 = valor anual del año siguiente).
+3. Las variaciones interanuales (YoY %) se calculan comparando con el mismo trimestre del año anterior, no con el trimestre previo. Esto elimina el efecto de estacionalidad.
 
-## 4.1 Variables macro sampleadas (Capa 2)
+**Resultado**: una tabla maestra con 401 trimestres (2002-Q1 a 2026-Q1) donde cada fila tiene:
 
-Las siguientes variables se samplean **conjuntamente** en cada iteración del Monte Carlo, respetando sus correlaciones empíricas mediante t-cópula.
+- Macros del trimestre
+- Macros con lag 1 trim, 2 trim, 3 trim, 4 trim (valores del mismo período del año pasado)
+- Agregaciones TINSA del trimestre (precio promedio ponderado por unidades vendidas, velocidad promedio, etc.)
 
-### 4.1.1 IMACEC variación interanual
+## 2.3 ¿Por qué ponderar por unidades vendidas (UVEND)?
 
-| Atributo | Valor |
-|---|---|
-| **Símbolo en código** | `imacec_var_pct` |
-| **Unidad de medida** | Porcentaje (%) |
-| **Significado** | Variación interanual del Indicador Mensual de Actividad Económica desestacionalizado. Mide el crecimiento del PIB chileno mes a mes comparado con el mismo mes del año anterior. |
-| **Frecuencia natural** | Mensual (agregada a trimestral por mean) |
-| **Fuente** | Banco Central de Chile, base de datos pública [si3.bcentral.cl](https://si3.bcentral.cl) |
-| **Cobertura usada** | 1997-Q1 a 2026-Q1 (117 trimestres) |
-| **Cómo interpretar valores típicos** | +2.5% = crecimiento moderado típico chileno; +5% = boom; 0% a +1% = lento; negativo = recesión técnica |
-| **Distribución empírica** | Mean +2.89%, σ 4.48%, p10 −2.77%, p50 +2.51%, p90 +8.77% |
-| **Razón de inclusión** | Es el indicador macro de referencia en Chile. Captura el ciclo PIB en alta frecuencia. Correlaciona con demanda de vivienda con lag de 6-12 meses. |
+Antes la agregación TINSA por trimestre era por **mediana**. La cambiamos a **media ponderada por UVEND** (unidades vendidas en el trimestre). Razones:
 
-### 4.1.2 Δ Tasa hipotecaria (cambio interanual en puntos porcentuales)
+1. **Refleja el peso real del mercado**: si el trimestre tuvo 5 proyectos pequeños y 1 mega-proyecto que vendió 200 unidades, la mediana lo trata igual que si fueran 6 proyectos chicos. La media ponderada da el peso correcto.
 
-| Atributo | Valor |
-|---|---|
-| **Símbolo en código** | `d_tasa_hipo` |
-| **Unidad de medida** | Puntos porcentuales (pp) |
-| **Significado** | Cambio del nivel promedio de la tasa de crédito hipotecario UF (a 20 años) respecto al mismo trimestre del año anterior. **No es el nivel de tasa, sino su variación**. |
-| **Frecuencia natural** | Mensual (agregada a trimestral) |
-| **Fuente** | BCCh con datos de la CMF |
-| **Cobertura usada** | 2002 a presente (97 trimestres) |
-| **Interpretación** | +1pp = la tasa subió 100 bps en el año (e.g., de 4% a 5%); −0.5pp = la tasa cayó 50 bps |
-| **Distribución empírica** | Mean −0.05pp, σ 0.48pp, p10 −0.85pp, p50 −0.06pp, p90 +0.77pp |
-| **Razón de inclusión** | La tasa hipotecaria determina la cuota mensual de los compradores → afecta directamente la demanda. Usar el **cambio** en lugar del nivel evita confundir tendencia secular con shock cíclico. |
+2. **El IPV oficial usa metodología similar**: BCCh pondera por valor de transacción, no por número de proyectos.
 
-### 4.1.3 Δ Tasa de desempleo (cambio interanual en pp)
-
-| Atributo | Valor |
-|---|---|
-| **Símbolo en código** | `d_desempleo` |
-| **Unidad de medida** | Puntos porcentuales (pp) |
-| **Significado** | Cambio interanual de la tasa de desempleo nacional (NESI). **No es el nivel sino el cambio**. |
-| **Frecuencia natural** | Trimestre móvil INE |
-| **Fuente** | INE, NESI |
-| **Cobertura usada** | 2010 a presente (65 trimestres) |
-| **Interpretación** | +1pp = el desempleo subió desde p.ej. 7% al 8% en el año; −0.5pp = se redujo 50 bps |
-| **Distribución empírica** | Mean −0.01pp, σ 0.83pp |
-| **Razón de inclusión** | Variable contracíclica con IMACEC. Afecta la capacidad de pago de compradores y la confianza para tomar deuda hipotecaria de largo plazo. |
-
-### 4.1.4 IPV YoY % por familia
-
-| Atributo | Valor |
-|---|---|
-| **Símbolo** | `ipv_deptos_nuevos_yoy` o `ipv_casas_nuevas_yoy` |
-| **Unidad** | Porcentaje (%) variación interanual |
-| **Significado** | Variación interanual del Índice de Precios de Vivienda específico por tipología (deptos nuevos o casas nuevas). El IPV es construido por BCCh con metodología tipo Laspeyres controlando por composición. |
-| **Frecuencia natural** | Anual (interpolado a trimestral) |
-| **Fuente** | BCCh, serie IPV desglosada |
-| **Cobertura** | 2002 a presente (24 años) |
-| **Interpretación deptos** | Mean +1.87%, σ 1.65%, p10 −0.14%, p90 +5.35% |
-| **Interpretación casas** | Mean +2.40%, σ 2.60%, p10 0%, p90 +8.19% |
-| **Mapeo familia → variante usada** | Edif 4-6p y DS19 → IPV deptos nuevos; Casa y Townhouse → IPV casas nuevas |
-| **Razón de inclusión** | Es el **shock directo de precio** del modelo. En lugar de regresar el precio TINSA contra IPV (que sería tautológico), usamos IPV directamente como driver del shock. |
-
-### 4.1.5 ICOI YoY %
-
-| Atributo | Valor |
-|---|---|
-| **Símbolo** | `icoi_yoy` |
-| **Unidad** | Porcentaje (%) variación interanual |
-| **Significado** | Variación interanual del Índice de Costos de Construcción de Edificación. Mide la inflación de insumos clave: cemento, fierro, mano de obra, transporte. |
-| **Frecuencia natural** | Anual (interpolado a trimestral) |
-| **Fuente** | Cámara Chilena de la Construcción |
-| **Cobertura** | 2013 a presente (10 puntos anuales) |
-| **Distribución empírica** | Mean +2.47%, σ 11.53%, p10 −13.23%, p50 +0.80%, p90 +25.24% |
-| **Interpretación** | El ICOI es muy volátil (σ 11.5%). Refleja shocks de commodities (acero, cobre) y dólar. En 2023 cayó 16% (recesión global de costos), en 2021-2022 subió >20% (post-COVID supply chain) |
-| **Razón de inclusión** | Es el **shock directo de costo construcción** del modelo. Al igual que IPV para precio, ICOI es el índice oficial específicamente diseñado para esta variable. |
+3. **Reduce el ruido de muestreo**: trimestres con poca actividad ya tienen pesos chicos automáticamente.
 
 \newpage
 
-## 4.2 Variables del proyecto derivadas (Capa 1)
+# 3. Análisis profundo: ¿qué descubrimos cuando cruzamos los datos?
 
-Estas variables **no se sortean directamente**. Se derivan de los shocks macro mediante propagación.
+Esta sección presenta los hallazgos del análisis exhaustivo de las correlaciones entre TINSA y macros, considerando lags (efectos retardados) hasta 4 trimestres.
 
-### 4.2.1 Precio de venta (precio_yoy %)
+## 3.1 La correlación más fuerte: el IPV oficial **anticipa** el precio TINSA
 
-**Fórmula**:
+![Top 6 correlaciones más fuertes en el dataset](figures/13_top_correlations_scatter.png){ width=100% }
 
-$$\text{precio\_yoy}_{\text{familia}} = \text{IPV\_familiar\_sampleado} + \varepsilon_{\text{precio}}$$
+La correlación más fuerte de todo el análisis es **IPV general en t-3 → Precio TINSA en t**, con ρ Spearman = +0.55 (p < 0.001, n=53 trimestres).
 
-donde
+**¿Qué significa?** El IPV oficial del Banco Central **se anticipa al precio observado en TINSA por aproximadamente 9 meses (3 trimestres)**.
 
-$$\varepsilon_{\text{precio}} \sim \mathcal{N}(0, \sigma_{\text{idio}})$$
+**¿Por qué pasa esto?**
 
-| Atributo | Valor |
-|---|---|
-| **Unidad** | Variación interanual % |
-| **Significado** | Cuánto cambia el precio promedio (UF/m² vendible) del producto en cuestión, respecto al mismo trimestre del año anterior. |
-| **σ idiosincrático por familia** | Edif 4-6p: 9.80pp · DS19: 5.16pp · Casa: 6.40pp · TH: 17.17pp |
+Hay tres explicaciones plausibles:
 
-**Justificación de σ por familia**: calculado como `std(precio_yoy_TINSA_familia − IPV_familiar_yoy)` sobre 80–141 trimestres por familia. Captura la variabilidad real entre el precio agregado de TINSA y el índice oficial. La σ alta de townhouses (17pp) refleja que la categoría tiene pocas observaciones y mayor heterogeneidad por proyecto.
+1. **El IPV captura un ciclo de mercado** que después se traduce a precios efectivos en TINSA con cierto lag. Cuando los compradores y vendedores anticipan condiciones más favorables, el IPV sube primero (por revaluaciones, expectativas), y luego los precios de transacción TINSA se ajustan.
 
-### 4.2.2 Costo de construcción (costo_yoy %)
+2. **Diferencia metodológica entre las fuentes**: el IPV se construye sobre TODAS las transacciones registradas en el SII. TINSA captura proyectos específicos que están en venta. El IPV es más amplio y captura tendencias antes que TINSA específica.
 
-**Fórmula**:
+3. **El IPV es una medida más "estable"** (controlada por composición), mientras TINSA refleja el mix de proyectos en venta cada trimestre.
 
-$$\text{costo\_yoy} = \text{ICOI\_sampleado} + \varepsilon_{\text{costo}}, \quad \varepsilon_{\text{costo}} \sim \mathcal{N}(0, 3.0\, \text{pp})$$
+**Implicancia para el modelo**: la versión actual usa IPV contemporáneo. Debería usar IPV con lag 2-3 trimestres para predecir mejor. Esta es una **mejora pendiente identificada** del análisis profundo.
 
-| Atributo | Valor |
-|---|---|
-| **Unidad** | Variación interanual % |
-| **Significado** | Cuánto cambia el costo de construcción directo (UF/m² construido) que el developer paga al contratista, respecto al año anterior. |
-| **σ idiosincrático** | 3.0 pp (parámetro económico, no calibrado de TINSA) |
+## 3.2 Heatmap de correlaciones con lags
 
-El **σ = 3.0 pp** es un parámetro económico fijo (no calibrado de TINSA porque TINSA no contiene costos del developer). Representa la dispersión típica del costo de un proyecto específico vs. el índice ICOI nacional — esencialmente el margen del contrato de construcción y diferencias regionales/escalares.
+![Correlación TINSA × Macros en 5 lags distintos](figures/10_lagged_correlations_pooled.png){ width=100% }
 
-### 4.2.3 Velocidad de venta (velocidad_yoy %) — variable acoplada
-
-**Fórmula**:
-
-$$\text{velocidad\_yoy} = \alpha + \sum_{i=1}^{5} \beta_i \cdot \text{macro}_i + \varepsilon_{\text{vel}}$$
-
-donde $\varepsilon_{\text{vel}} \sim \mathcal{N}(0, \sigma_{\text{res,OLS}})$
-
-| Atributo | Valor |
-|---|---|
-| **Unidad** | Variación interanual % de unidades vendidas/mes |
-| **Significado** | Cuánto cambia la velocidad de venta del producto. **Velocidad de venta = unidades vendidas por mes**. Por ejemplo, si la velocidad de Casas 1 baseline es 2.7 uds/mes y velocidad_yoy = +20%, la velocidad sampleada en esa iteración es 2.7 × 1.20 = 3.24 uds/mes. |
-
-**Importante: la velocidad ES UNA SOLA VARIABLE con DOS efectos económicos acoplados** (ver Sección 5).
-
-### 4.2.4 Plazo de obra (plazo_yoy %)
-
-**Fórmula**:
-
-$$\text{plazo\_yoy} = \varepsilon_{\text{plazo}} \sim \mathcal{N}(0, \sigma_{\text{hist}})$$
-
-con clamping a ±25 pp.
-
-| Atributo | Valor |
-|---|---|
-| **Unidad** | Variación interanual % de meses de obra |
-| **Significado** | Cuánto cambia la duración de la construcción del producto. Si el plazo baseline es 18 meses y plazo_yoy = +10%, el plazo sampleado es 19.8 meses. |
-
-No se regresa contra macros porque el plazo lo decide el developer en función de su pipeline interno, no de la macro nacional. Solo aplica shock idiosincrático.
-
-\newpage
-
-# 5. La velocidad de venta: UNA variable, DOS efectos económicos acoplados
-
-## 5.1 La pregunta que motiva esta sección
-
-Una pregunta razonable y crítica es: *"si la velocidad de venta es una sola variable, ¿por qué aparece afectando dos cosas distintas (incidencia y plazo macro del proyecto)?"*. La respuesta requiere entender los dos canales económicos por los que opera la misma variable.
-
-![Velocidad: una variable con dos efectos acoplados](figures/07_velocidad_acoplamiento.png){ width=100% }
-
-## 5.2 Efecto 1 — Sobre la incidencia del terreno (vía residual)
-
-El **modelo residual** computa la incidencia del terreno como el % de la venta total que el desarrollador puede pagar por el terreno **manteniendo su TIR objetivo**. La velocidad de venta entra al residual de la siguiente forma:
-
-```
-Velocidad ↑ → unidades se venden más rápido → flujo de caja del PIE
-              llega antes → menor capital circulante necesario →
-              menor costo financiero → mayor margen disponible →
-              MÁS UF que el desarrollador puede pagar por el terreno →
-              INCIDENCIA SUBE
-```
-
-Cuantitativamente: la sensibilidad ∂incidencia/∂velocidad calibrada en el residual chileno es **+0.05 a +0.15** (depende de la familia). Es decir, si la velocidad sube 10%, la incidencia sube 0.5pp a 1.5pp.
-
-## 5.3 Efecto 2 — Sobre el flujo de caja AUDP (vía timing)
-
-Independientemente de la incidencia, una velocidad mayor implica que el AUDP **vende su tierra más rápido**. Si el AUDP tenía proyectado vender 100 ha en 20 años a velocidad baseline, una velocidad +20% implica vender las mismas 100 ha en 16-17 años.
-
-```
-Velocidad ↑ → ingresos de tierra del AUDP llegan ANTES en el tiempo →
-              al descontar al 8% real anual, los ingresos cercanos
-              valen más que los lejanos → VAN AUDP SUBE
-```
-
-## 5.4 Cómo el modelo propaga la velocidad de manera acoplada
-
-En el código de la simulación, la **misma variable `vel`** sampleada en cada iteración se aplica a ambos efectos consistentemente:
-
-```javascript
-// En sampleOne (modo Factor Macro)
-const draw = sampler.sampleOne(rng);
-const vel = draw.velocidad_yoy;  // UNA muestra de velocidad
-
-// EFECTO 1: aplicar a la incidencia vía sensibilidades del residual
-_applyResidualShocks({ vel, tm, costoMult, plazoMult });
-// → modifica PRODUCTS[fam].incidencia según ∂i/∂vel * (vel/100)
-
-// EFECTO 2: aplicar al flujo AUDP via peVelocidadPct
-peVelocidadPct = vel;
-peResimulate();
-// → cambia el timing de ventas en el AUDP
-```
-
-El usuario del modelo no ve la separación: para él/ella, "velocidad +20%" es un único shock que se propaga consistentemente a ambos canales.
-
-## 5.5 Validación: ¿por qué esto es correcto y no doble conteo?
-
-Una preocupación legítima: ¿no estamos contabilizando el efecto de velocidad dos veces?
-
-**No**, porque los dos efectos operan sobre **dos flujos de caja distintos**:
-
-- **Flujo del proyecto** (vivienda terminada al comprador): la velocidad ↑ baja el costo financiero del PIE → mejora la incidencia → el desarrollador puede pagar más por el terreno.
-- **Flujo del AUDP** (Modela vende tierra al desarrollador): la velocidad ↑ implica que los desarrolladores compran tierra más rápido → AUDP recibe pagos antes → mejora NPV.
-
-Ambos efectos son reales y operan sobre **caja distinta**. La suma es la respuesta correcta del VAN AUDP.
-
-\newpage
-
-# 6. Análisis visual: validación de las relaciones empíricas
-
-Esta sección presenta las correlaciones del modelo en formato visual, permitiendo validar que las relaciones identificadas son económicamente coherentes.
-
-## 6.1 Matriz de correlación entre macros
-
-![Correlación Spearman entre variables macro](figures/01_corr_macros.png){ width=95% }
+Cada panel muestra cómo se correlaciona una variable TINSA (columnas: precio, velocidad, plazo, tamaño, unidades vendidas) con las 5 macros principales en 5 lags (filas).
 
 **Lectura del heatmap**:
-- Verde intenso = correlación positiva fuerte
-- Rojo intenso = correlación negativa fuerte
+- Verde intenso = correlación positiva fuerte (cuando una sube, la otra también)
+- Rojo intenso = correlación negativa fuerte (cuando una sube, la otra baja)
 - Blanco = correlación cercana a cero
 
-**Validación de signos económicos** (todos correctos):
+**Patrones interesantes**:
 
-| Par | Valor | Esperado teóricamente | ¿Concuerda? |
+1. **Precio × IPV**: la correlación crece de 0.34 (lag 0) a 0.55 (lag 3). El IPV se anticipa.
+
+2. **Velocidad × IMACEC**: significativa solo en lag 1, con signo negativo (-0.38). El boom económico baja la velocidad individual al aumentar la oferta competidora.
+
+3. **Plazo × IPV**: relación negativa creciente con lag (lag 4: ρ=-0.37). En mercados que están subiendo, los plazos de obra se acortan.
+
+4. **Unidades vendidas × IPV (lag 4)**: ρ=+0.37. Mercado caliente arrastra unidades vendidas con un año de lag.
+
+## 3.3 Variable importance: ¿qué realmente mueve el modelo?
+
+![Variable importance por Random Forest para cada target TINSA](figures/12_variable_importance.png){ width=100% }
+
+Random Forest ajusta un modelo no-lineal que captura interacciones entre variables. Para cada variable TINSA (precio, velocidad, plazo, tamaño, unidades), el algoritmo calcula qué predictores macro (con sus lags) son los más importantes.
+
+**Hallazgos clave**:
+
+| Target TINSA | Predictor #1 | Predictor #2 | R² Random Forest |
 |---|---|---|---|
-| IMACEC ↔ Δ desempleo | −0.26 | Negativa (boom = menos desempleo) | ✓ |
-| IMACEC ↔ Δ tasa hipo | +0.20 | Positiva (BCCh sube tasa en boom) | ✓ |
-| Δ desempleo ↔ Δ tasa hipo | −0.29 | Negativa (recesión = tasas bajan) | ✓ |
-| IPV deptos ↔ IPV casas | +0.65 | Positiva fuerte (mismo mercado) | ✓ |
-| ICOI ↔ otras macros | ~0.05-0.10 | Débil (ICOI depende de commodities globales) | ✓ |
+| **Precio YoY** | IPV general (t-1) | IPV general (t-2) | **0.745** |
+| **Velocidad YoY** | IMACEC (t) | ICOI (t-1) | **0.622** |
+| **Plazo YoY** | IMACEC (t) | IPV general (t-2) | **0.676** |
+| **Tamaño YoY** | IPV general (t-2) | ICOI (t-1) | **0.673** |
+| **Unidades vendidas YoY** | IPV general (t-2) | IMACEC (t) | **0.643** |
 
-La matriz es **internamente consistente** con la teoría macroeconómica. Esto valida la calibración del modelo: si los signos hubieran salido invertidos, sería una alerta de error en el pipeline.
+**Interpretación**:
 
-## 6.2 Validación visual de pares clave (scatter plots)
+1. **Las macros explican entre 62% y 75% de la varianza** de cada variable TINSA. Esto es **mucho más** que lo que indicaba el modelo OLS lineal anterior (R²=0.05-0.40).
 
-![Validación visual: scatter plots de pares clave](figures/04_scatter_macros.png){ width=100% }
+2. **La diferencia OLS vs Random Forest revela no-linealidades importantes**: el efecto de IMACEC sobre la velocidad cambia según otras variables (es no-lineal).
 
-Cada panel muestra la nube de puntos de un par de variables macro junto con su correlación Spearman ρ y la regresión lineal en línea roja punteada. Los signos coinciden con la expectativa económica anotada en el subtítulo de cada panel.
+3. **El IPV (con lags) aparece como predictor #1 o #2 en 3 de 5 targets**: es la macro más informativa.
 
-## 6.3 Trayectoria histórica de las macros
-
-![Series temporales de macros con períodos clave marcados](figures/05_timeseries_macros.png){ width=100% }
-
-Los rectángulos coloreados marcan los períodos correspondientes a los presets históricos:
-
-- **Naranja**: Subprime 2008-2010 (impacto leve en Chile)
-- **Rojo**: Estallido + COVID 2019Q4-2020 (caída IMACEC −10%, alza desempleo +3pp)
-- **Verde**: Boom post-COVID 2021 (rebote IMACEC +12%, desempleo −2pp)
-- **Morado**: Slowdown 2023 (ICOI cayó −16%, IMACEC +0.7%)
-
-Esta visualización permite ver que **los presets cargados al modelo replican condiciones reales**, no escenarios sintéticos.
-
-## 6.4 Distribuciones marginales con presets marcados
-
-![Histogramas de macros con presets históricos marcados](figures/03_hist_macros_presets.png){ width=100% }
-
-Cada panel muestra el histograma de la distribución empírica de una macro. Las **líneas verticales coloreadas** marcan los valores de cada preset histórico.
-
-**Lectura**: en el panel de IMACEC, la línea roja (Estallido + COVID) está claramente en la cola inferior izquierda, mientras la línea verde (Boom 2021) está en la cola derecha. Esto valida visualmente que los presets capturan **régimes distintos** de la distribución, no son perturbaciones cosméticas.
+4. **El ICOI con lag 1 es importante para velocidad y tamaño**: el costo construcción afecta decisiones de inversión y mix de productos con un trimestre de retraso.
 
 \newpage
 
-## 6.5 Correlación entre variables del producto (TINSA)
+## 3.4 La velocidad de venta por familia: las correlaciones cambian
 
-![Correlación Spearman entre variables del producto por familia](figures/02_corr_producto.png){ width=100% }
+![Velocidad por familia × lags de macros](figures/11_velocidad_lags_familia.png){ width=100% }
 
-Estos cuatro heatmaps muestran las correlaciones empíricas entre las 5 variables del producto **dentro de cada familia**.
+Esta visualización muestra cómo las correlaciones cambian según la familia de producto. La pregunta clave era: ¿podemos pool todas las familias juntas o hay que mantener la estratificación?
 
-**Hallazgos económicamente interpretables**:
+**Caso ilustrativo: la velocidad ↔ IMACEC**:
 
-1. **Precio ↔ Velocidad** es **negativa** en todas las familias residenciales (−0.33 a −0.39): productos más caros venden más lento. El DS19 es la excepción (−0.16) por su precio acotado por subsidio.
+| Familia | Lag óptimo | ρ | p-value | n |
+|---|---|---|---|---|
+| Edificio 4-6p | 2 trim | **-0.39** | 0.046 | 27 |
+| DS19 | 0 trim | -0.22 | 0.228 | 32 |
+| Casa | 0 trim | **+0.16** | 0.247 | 53 |
+| Townhouse | 2 trim | **-0.66** | 0.001 | 23 |
 
-2. **Precio ↔ Tamaño** es **positiva** en Edif/Casa/TH (+0.34 a +0.55): productos más grandes son más caros, lo esperado.
+**El signo cambia entre familias**: en Casa la correlación es positiva (no significativa, pero positiva). En Edificio y Townhouse es negativa fuerte.
 
-3. **DS19 invierte la relación Precio ↔ Tamaño** (−0.39): porque al subsidio se reparte sobre más m², cada m² adicional reduce el UF/m² promedio del proyecto. Es un efecto regulatorio único del DS19.
+**¿Por qué? Posible explicación económica**:
 
-4. **Precio ↔ Plazo** es **positiva** en Edif y Casa (+0.28 a +0.40): productos premium tardan más en construirse. Townhouse no muestra esta relación (+0.03) porque la categoría es heterogénea.
+- **Edificios y Townhouses**: en boom económico hay muchos lanzamientos simultáneos (los developers anticipan demanda y entran al mercado). Más oferta competidora baja la velocidad de cada uno.
+- **Casas**: el segmento es más fragmentado, menos correlacionado con el ciclo macro inmediato. Posiblemente la elasticidad de la demanda es distinta.
 
-## 6.6 Distribuciones marginales del producto
+**Conclusión**: la estratificación por familia **sí es necesaria**, aunque introduce complejidad. Pooling perdería esta información heterogénea entre familias.
 
-![Distribuciones empíricas de variables del producto por familia](figures/06_marginales_producto.png){ width=100% }
+## 3.5 La dimensión más importante NO es la familia
 
-La grilla muestra cómo se distribuyen las 4 variables clave del producto en cada una de las 4 familias. Observaciones:
+![Dimensiones adicionales TINSA: comuna, pisos, distancia CBD, BHT](figures/14_dimensiones_extra.png){ width=100% }
 
-1. **Precio (UF/m²)**: TH tiene la cola derecha más amplia (precios premium); DS19 tiene la distribución más concentrada (precio acotado por subsidio).
+Hicimos un análisis de varianza explicada por cada dimensión del Excel TINSA. Resultado:
 
-2. **Velocidad (uds/mes)**: distribuciones fuertemente sesgadas a la derecha en todas las familias (la mayoría de proyectos vende lento, pocos venden muy rápido). DS19 tiene la cola más amplia hacia velocidades altas (proyectos masivos pueden vender 10+ uds/mes en su mejor mes).
-
-3. **Plazo**: distribuciones aproximadamente unimodales centradas en 18-25 meses según familia. DS19 tiende a plazos más largos (27 meses mediana).
-
-4. **Tamaño**: DS19 muy concentrado (43-62 m² por subsidio); TH y Casa muestran amplias colas hacia productos grandes (>180 m²).
-
-\newpage
-
-# 7. Cópulas: teoría y aplicación
-
-## 7.1 ¿Qué es una cópula y por qué importa?
-
-Una **cópula** es una función matemática que describe la **estructura de dependencia** entre variables aleatorias, separadamente de sus distribuciones marginales individuales.
-
-Formalmente (teorema de Sklar, 1959): para cualquier distribución conjunta $H(x_1, ..., x_n)$ con marginales $F_i(x_i)$, existe una cópula $C$ tal que:
-
-$$H(x_1, ..., x_n) = C(F_1(x_1), F_2(x_2), ..., F_n(x_n))$$
-
-La cópula **toma valores en [0,1]^n** y describe únicamente cómo las variables se relacionan, no cómo se distribuyen individualmente. Esto permite:
-
-1. Modelar marginales empíricas (sin asumir Normal/Triangular) **separadamente** de las correlaciones.
-2. Especificar correlaciones distintas para distintas regiones de las distribuciones (e.g., correlación más fuerte en colas que en el centro).
-3. Construir distribuciones conjuntas multivariadas con cualquier mezcla de tipos marginales.
-
-## 7.2 Cópula Gaussiana vs. cópula t
-
-### Cópula Gaussiana
-
-La cópula Gaussiana es la más simple. Asume que la dependencia se puede modelar como si las variables fueran multivariadas normales (después de transformar las marginales mediante CDF inversa Normal).
-
-**Propiedad clave**: bajo cópula Gaussiana, eventos extremos en distintas variables son **asintóticamente independientes**:
-
-$$\lim_{q \to 0} \mathbb{P}(X_2 < q | X_1 < q) = 0$$
-
-para cualquier correlación $|\rho| < 1$.
-
-**Implicancia económica**: bajo Gaussiana, la probabilidad de "todas las macros caen al P5 simultáneamente" tiende a cero asintóticamente, **incluso si las correlaciones son −0.5**. Esto **subestima dramáticamente el riesgo de crisis** sistémicas.
-
-Esto fue uno de los factores que contribuyó a la subestimación del riesgo en CDOs hipotecarios pre-2008 (David Li, *On Default Correlation: A Copula Function Approach*, 2000) y motivó la migración de la industria financiera hacia cópulas con tail dependence.
-
-### Cópula t (Student)
-
-La cópula t deriva de la distribución t multivariada. Tiene un parámetro extra ν (grados de libertad) y captura **tail dependence**:
-
-$$\lim_{q \to 0} \mathbb{P}(X_2 < q | X_1 < q) = 2 \cdot t_{\nu+1}\left(-\sqrt{\frac{(\nu+1)(1-\rho)}{1+\rho}}\right) > 0$$
-
-para $\nu < \infty$.
-
-**Para ν=4 y ρ=0.5**, esta probabilidad es ≈ 0.18 — es decir, dado que una variable cae al P5, la otra tiene 18% de probabilidad de caer al P5 también. Bajo Gaussiana sería 0.
-
-**Convergencia**: cuando ν → ∞, la cópula t converge a la Gaussiana. Para ν pequeño, las colas son más pesadas y más dependientes.
-
-**Elección de ν=4 en este modelo**:
-
-- Estándar industria para riesgo de crédito y operacional (S&P, Moody's, modelos Basel III).
-- Aplicable a real estate por similar comportamiento de tail (eventos extremos correlacionados).
-- ν < 4 produce demasiada masa en colas; ν > 8 colapsa hacia Gaussiana.
-
-## 7.3 Conversión Spearman → Pearson
-
-La cópula se calibra con la matriz de correlación **Spearman**, no Pearson. Razones:
-
-1. **Spearman es invariante a transformaciones monótonas** de las variables — útil cuando las marginales no son normales.
-2. **Spearman captura dependencia de rangos**, lo apropiado para cópulas.
-3. La conversión Spearman → Pearson para cópulas elípticas (Gaussiana, t) es exacta:
-
-$$\rho_{\text{Pearson}} = 2 \sin\left(\frac{\pi}{6} \rho_{\text{Spearman}}\right)$$
-
-## 7.4 Calibración Iman-Conover
-
-La conversión Spearman → Pearson vía la fórmula del seno es **exacta para cópula Gaussiana**. Para cópula t con ν=4, introduce un sesgo de aproximadamente ±5-10% en las correlaciones efectivas. La técnica **Iman-Conover** (1982) corrige este sesgo iterativamente:
-
-```
-Algoritmo Iman-Conover:
-1. Construir R_p inicial vía fórmula del seno desde Spearman target
-2. Repetir hasta convergencia:
-   a. Cholesky-decomponer R_p actual → L
-   b. Samplear N draws con t-cópula(L, ν=4)
-   c. Calcular Spearman observado en los N samples
-   d. Actualizar: R_p ← R_p + α·(Spearman_target − Spearman_observado)
-3. Devolver R_p calibrada
-```
-
-En la implementación del modelo: 4 iteraciones, α = 0.85, N = 3.000 draws internos. **Error máximo de correlación post-calibración**: < 0.06 (vs. ~0.10 sin calibración).
-
-\newpage
-
-# 8. Validación empírica del modelo
-
-## 8.1 Test de respuesta a presets históricos
-
-Para verificar que el factor model produce distribuciones distintas para distintos escenarios macro, se ejecutó un test integrado con 3.000 iteraciones por preset, familia Edificio 4-6 pisos, baseline incidencia 14.0%:
-
-| Preset | Incidencia mean | Δ vs base | Interpretación económica |
-|---|---|---|---|
-| base_esperado | 15.07% | – | Centro empírico 2010-2024 |
-| subprime_2009 | 13.58% | −1.49 pp | Crisis suave (Chile aguantó bien 2009) |
-| **estallido_covid_2019_2020** | **13.02%** | **−2.05 pp** | **Crisis con costos altos: margen comprime** |
-| boom_post_covid_2021 | 14.71% | −0.36 pp | Boom pero con poco impacto en costos |
-| **slowdown_2023** | **22.45%** | **+7.38 pp** | **ICOI cayó −16%: gran alivio de costos → mejor margen** |
-
-**Validación de signo económico**:
-
-- Crisis con shock de costo (+5.7% ICOI en COVID) → margen comprime → incidencia cae **−2 pp** → land value cae ~14%.
-- Slowdown con caída de costos (−16% ICOI en 2023) → margen alivia → incidencia sube **+7 pp** → land value sube ~50%.
-
-Ambos comportamientos son **económicamente correctos y robustos**.
-
-## 8.2 Test de marginales empíricas
-
-Validación de que las marginales sampleadas reproducen las observadas en TINSA (por familia, 5.000 draws):
-
-### Edificio 4-6 pisos (n=15.633 obs)
-
-| Variable | Sampleado (mean / p10 / p50 / p90) | Empírico TINSA | Δ mean |
-|---|---|---|---|
-| precio_uf_m2 | 72.20 / 38.5 / 73.3 / 105.0 | 72.26 / 37.0 / 72.9 / 105.0 | −0.1% |
-| velocidad_uds_mes | 0.82 / 0.30 / 0.40 / 1.70 | 0.82 / 0.30 / 0.40 / 1.70 | −0.9% |
-| plazo_construccion_meses | 24.96 / 12.5 / 24.3 / 38.5 | 24.76 / 12.5 / 23.8 / 38.5 | +0.8% |
-| descuento_pct | 0.02 / 0.0 / 0.0 / 0.08 | 0.02 / 0.0 / 0.0 / 0.08 | −4.7% |
-| sup_promedio_m2 | 105.4 / 47.9 / 80.5 / 187.6 | 104.7 / 47.9 / 80.1 / 187.6 | +0.7% |
-
-Diferencias < 1.5% en mean para todas las variables principales. La cópula reproduce fielmente las marginales empíricas.
-
-## 8.3 Tornado de sensibilidad esperado
-
-![Tornado de sensibilidad esperado en modo Factor Macro](figures/08_tornado_esperado.png){ width=100% }
-
-| Variable | Coeficiente Spearman con VAN | Contribución a varianza |
-|---|---|---|
-| Ticket multiplier | +0.55 | ~30-40% |
-| Costo construcción (residual) | −0.40 | ~20-25% |
-| Plazo obra (residual) | −0.30 | ~15-20% |
-| Velocidad venta | +0.25 | ~8-12% |
-| Tasa descuento | −0.15 | ~3-5% |
-| Resto (plusvalía, PRC, costos infra/mit/san) | varios | ~10% |
-
-**Comparación con modo paramétrico** (versión anterior): el ticket dominaba 92.6% de la varianza por la falta de costo y plazo como variables. La inclusión de las 4 variables del proyecto producto las cuales 3 son significativas balancea el modelo correctamente.
-
-\newpage
-
-# 9. Bugs detectados durante la calibración (transparencia)
-
-Durante el proceso de validación se detectaron y corrigieron **dos bugs críticos** en versiones previas del modelo. Se documentan aquí con fines de transparencia y trazabilidad.
-
-## 9.1 Bug 1: Bias positivo aplastando los presets
-
-### Síntoma
-
-Las distribuciones de precio_yoy entre presets (Base vs. COVID vs. Boom) eran prácticamente idénticas. El test estadístico Cohen d entre Boom 2021 y COVID 2020 daba **0.06** — efecto despreciable, cuando se esperaba uno significativo dado el contraste macro.
-
-### Causa raíz
-
-La calibración inicial del shock de precio incluía un término de bias:
-
-$$\text{precio\_yoy} = \text{IPV\_sampleado} + \mathbf{\text{bias}_{\text{histórico}}} + \varepsilon$$
-
-donde `bias_histórico = mean(precio_yoy_TINSA - IPV_familiar_yoy)` — para Edif 4p, este bias era **+7.09 pp**.
-
-El bias representa el **drift composicional** entre TINSA agregada (que captura mix cambiante de proyectos: más premium con el tiempo) y el IPV controlado por composición. Es una **tendencia secular**, no un shock cíclico — y al sumarse en cada iteración independientemente del preset, dominaba sobre los shifts que los presets buscaban inducir.
-
-### Resolución
-
-El bias fue removido. Ahora:
-
-$$\text{precio\_yoy} = \text{IPV\_sampleado} + \varepsilon$$
-
-El drift composicional ahora queda absorbido en el baseline del residual (representante guardado en el simulador residual), donde corresponde estructuralmente.
-
-## 9.2 Bug 2: Sensibilidades faltantes en representantes guardados
-
-### Síntoma
-
-El usuario reportó que distintos presets seguían dando "los mismos resultados" en VAN, incluso después del fix del bug 1.
-
-### Causa raíz
-
-El motor del Monte Carlo aplica los shocks de costo y plazo a la incidencia mediante **sensibilidades pre-calculadas** (∂incidencia/∂param) almacenadas con cada representante en localStorage. El cálculo de sensibilidades fue agregado posteriormente al guardado original. **Si el representante fue guardado antes de esa implementación, los shocks de costo y plazo se descartaban silenciosamente**.
-
-### Resolución
-
-1. **Sensibilidades default** por familia (calibradas a partir de la sensibilidad típica del residual chileno).
-2. **Panel de diagnóstico en UI** que indica el estado de los representantes (verde / amarillo / rojo).
-3. **Recálculo automático en `/residual`** vía `computeSensitivities()` que perturba ±5% cada parámetro.
-
-\newpage
-
-# 10. Análisis crítico de validez estadística
-
-## 10.1 Fortalezas
-
-| Atributo | Implementación |
+| Dimensión | R² (% varianza precio explicada) |
 |---|---|
-| **Calibración con datos reales** | 124.531 obs TINSA + 401 trimestres macro |
-| **Marginales empíricas** | 99 percentiles densos por variable, sin asunciones paramétricas |
-| **Cópula tail-aware** | t (ν=4) calibrada con Iman-Conover (4 iter, error final < 0.06) |
-| **Signos económicamente coherentes** | Verificados ex post (precio↔velocidad −0.38, IMACEC↔desempleo −0.26) |
-| **Reproducibilidad** | Seed reproducible, mismo input → mismo output bit-exacto |
-| **Auditabilidad** | Cada componente trazable a fuente oficial o calibración Python reproducible |
-| **Stress testing histórico** | 5 presets centrados en macros reales 2009/2020/2021/2023 |
-| **Velocidad acoplada correctamente** | Misma muestra MC → ambos efectos (residual e AUDP) |
+| **Comuna (NCOM)** | **49.2%** |
+| Año | 23.7% |
+| Tipología (TCAT) | 17.1% |
+| # Pisos | 13.7% |
+| **Familia** | **10.0%** |
 
-## 10.2 Limitaciones explícitas
+**La COMUNA explica casi 50% de la varianza del precio** — es la variable más informativa de todas. La familia (la dimensión que el modelo actual usa para estratificar) solo explica 10%.
+
+**Implicación**: la próxima versión del modelo debería **filtrar TINSA por comunas relevantes al AUDP** en lugar de (o además de) estratificar por familia. Para AUDP Batuco, las comunas referencia serían Lampa, Buin, Padre Hurtado, Colina — proyectos en zonas similares de expansión periurbana de Santiago.
+
+**Por ahora**, el modelo mantiene la estratificación por familia como aproximación. La incorporación de la dimensión comunal queda identificada como **prioridad #1 para la próxima iteración**.
+
+\newpage
+
+# 4. ¿Por qué cópulas y cuáles aplicamos?
+
+## 4.1 El problema que resuelven las cópulas
+
+Cuando hacemos Monte Carlo, necesitamos sortear valores para múltiples variables a la vez. **Si las sorteamos independientemente**, generamos escenarios irreales:
+
+- Por ejemplo: "PIB sube 12% Y desempleo sube 3pp simultáneamente". En la realidad, esto rara vez pasa: cuando el PIB sube, el desempleo cae.
+
+**Las cópulas permiten samplear variables conjuntamente respetando sus correlaciones empíricas**.
+
+## 4.2 ¿Qué es una cópula?
+
+Una cópula es una **función matemática** que describe **cómo se relacionan las variables entre sí**, separadamente de cómo se distribuye cada una individualmente.
+
+**Ejemplo intuitivo**: si tomamos altura y peso de personas:
+- La distribución de altura es una cosa (curva normal con cierta media y desviación)
+- La distribución de peso es otra
+- Pero altura y peso están correlacionados: gente alta tiende a pesar más
+
+La cópula es lo que captura esa última relación. Permite combinar las dos distribuciones individuales (altura, peso) preservando la dependencia entre ellas.
+
+Formalmente (teorema de Sklar, 1959): cualquier distribución conjunta puede descomponerse en (a) las marginales individuales × (b) una cópula que captura la dependencia.
+
+## 4.3 ¿Por qué cópula t y no Gaussiana?
+
+Hay muchos tipos de cópulas. Las dos más usadas son la **Gaussiana** y la **t (Student)**.
+
+**Diferencia clave**: la cópula Gaussiana **subestima la probabilidad de eventos extremos correlacionados**.
+
+Imaginá que precio y velocidad están correlacionados negativamente con ρ = -0.5. Bajo cópula Gaussiana, la probabilidad de "precio cae al 5% peor Y velocidad sube al 5% mejor" tiende a CERO en los extremos. Bajo cópula t (con grados de libertad bajos), esa probabilidad es **significativamente mayor**.
+
+Esto es **crítico para análisis de riesgo**: la cópula Gaussiana fue uno de los factores que llevó a la subestimación del riesgo en CDOs hipotecarios pre-crisis 2008. La industria financiera migró a cópulas con "tail dependence" (dependencia en colas) — la t-cópula es la elección estándar.
+
+**Nuestro modelo usa t-cópula con ν=4 grados de libertad**:
+- ν=4 es estándar industria para riesgo de crédito y operacional (S&P, Moody's, modelos Basel III)
+- ν<4 produce demasiada masa en colas (mercado en crisis perpetua)
+- ν>10 colapsa hacia Gaussiana
+
+## 4.4 ¿Qué cópulas tiene actualmente el modelo?
+
+### Cópula 1: entre las 5 macros sampleadas
+
+Las 5 variables macro (IMACEC, Δ tasa hipotecaria, Δ desempleo, IPV, ICOI) **se samplean conjuntamente** con t-cópula. La matriz de correlaciones es la observada empíricamente en 401 trimestres 2010-2024.
+
+![Matriz de correlación Spearman entre macros](figures/01_corr_macros.png){ width=85% }
+
+**Validación visual**: los signos son todos económicamente correctos (boom = menos desempleo, BCCh sube tasas en boom, etc.).
+
+### Cópula 2: entre variables del producto en TINSA (modo Empírico CIDU)
+
+En el modo "Empírico CIDU" (que se usa cuando NO se quieren incluir macros explícitas), hay una segunda t-cópula sobre las 5 variables del producto en TINSA:
+
+![Correlaciones entre variables del producto por familia](figures/02_corr_producto.png){ width=100% }
+
+Calibrada con Iman-Conover sobre 124k observaciones.
+
+## 4.5 ¿Qué cópulas DEBERÍAMOS agregar (próxima iteración)?
+
+El análisis profundo identifica oportunidades para cópulas adicionales:
+
+1. **Cópula entre macros y sus lags**: en lugar de samplear solo macros contemporáneas, samplear (IMACEC_t, IMACEC_{t-1}, IMACEC_{t-2}) conjuntamente. Captura la **persistencia temporal** de los shocks macro.
+
+2. **Cópula expandida**: integrar las 5 macros + sus lags principales (de los hallazgos: IPV t-2, IMACEC t-1, ICOI t-1) en **una sola cópula de mayor dimensión**. Esto permitiría samplear escenarios donde el lag y el contemporáneo se mueven coherentemente.
+
+3. **Cópula con dimensión comunal**: si la comuna explica 49% de la varianza, una próxima versión podría agregar un "factor comunal" que se samplee independientemente del macro nacional, capturando heterogeneidad geográfica.
+
+\newpage
+
+# 5. ¿Cómo se conectan los datos macro con el VAN del AUDP?
+
+Esta sección explica el flujo end-to-end del modelo.
+
+## 5.1 El recorrido de un sample en el Monte Carlo
+
+```
+PASO 1: Sortear shocks macro
+─────────────────────────────────────────
+Sample joint con t-cópula respetando correlaciones empíricas:
+- IMACEC variación %       (e.g., -2.5%)
+- Δ Tasa hipotecaria pp    (e.g., +0.8pp)
+- Δ Desempleo pp           (e.g., +1.2pp)
+- IPV YoY %                (e.g., +1.0%)
+- ICOI YoY %               (e.g., +5.7%)
+
+         ↓
+
+PASO 2: Propagar a variables del proyecto (Capa 1)
+─────────────────────────────────────────
+Por cada familia (edif, ds19, casa, townhouse):
+  precio_yoy   = IPV_familiar_sampleado + ε       (shock directo + ruido)
+  costo_yoy   = ICOI_sampleado + ε                (shock directo + ruido)
+  velocidad   = α + β·macros + ε                  (regresión OLS)
+  plazo_yoy   = ε                                 (ruido idiosincrático)
+
+         ↓
+
+PASO 3: Convertir a multipliers
+─────────────────────────────────────────
+tm         = 1 + precio_yoy/100      (multiplicador ticket)
+vel        = velocidad_yoy            (% sobre baseline)
+costoMult  = 1 + costo_yoy/100
+plazoMult  = 1 + plazo_yoy/100
+
+         ↓
+
+PASO 4: Aplicar a la incidencia del residual
+─────────────────────────────────────────
+Para cada familia con representante guardado:
+  Δincidencia = ∂i/∂ticket × (tm-1) +
+                ∂i/∂vel × (vel/100) +
+                ∂i/∂costo × (costoMult-1) +
+                ∂i/∂plazo × (plazoMult-1)
+  PRODUCTS[fam].incidencia = baseline + Δincidencia
+
+         ↓
+
+PASO 5: Re-correr peResimulate del flujo AUDP
+─────────────────────────────────────────
+Con los nuevos valores en PRODUCTS:
+- Velocidad cambiada (peVelocidadPct = vel)
+- Ticket multiplicado (tm aplica a revenue)
+- Incidencia ajustada (vía Δincidencia)
+- Costos triangulares (infra, mit, san)
+- Tasa descuento sortado uniforme
+
+Calcula el flujo de caja del AUDP año a año.
+
+         ↓
+
+PASO 6: Calcular VAN del AUDP
+─────────────────────────────────────────
+VAN = Σ flujo_t / (1 + discRate)^t
+
+         ↓
+
+PASO 7: Almacenar resultado
+─────────────────────────────────────────
+Guardar VAN en lista de resultados.
+```
+
+Este ciclo se repite N veces (típicamente 3.000-10.000), y al final tenemos la **distribución completa del VAN AUDP** bajo los escenarios sampleados.
+
+## 5.2 Sobre la velocidad: una variable, dos efectos
+
+![Velocidad: una variable con dos efectos económicos acoplados](figures/07_velocidad_acoplamiento.png){ width=100% }
+
+Una pregunta crítica: si la velocidad es una sola variable, ¿por qué afecta a la incidencia Y al timing del AUDP por separado?
+
+**Respuesta**: es UNA variable con DOS efectos económicos sobre flujos distintos:
+
+- **Efecto 1 (vía residual del proyecto)**: velocidad ↑ → menor costo financiero del PIE → margen del developer mejora → puede pagar MÁS por el terreno → **incidencia sube**
+- **Efecto 2 (vía AUDP cash flow)**: velocidad ↑ → AUDP vende su tierra antes → ingresos llegan antes → **VAN AUDP sube por NPV @ 8%**
+
+**No es doble conteo**: ambos efectos operan sobre **flujos de caja distintos** (proyecto vs. AUDP). La suma es el efecto total correcto.
+
+En el código del MC, **la misma muestra de velocidad** se aplica consistentemente a ambos canales. Esto es la integración correcta de la variable.
+
+\newpage
+
+# 6. Variables del modelo: catálogo detallado
+
+Esta sección detalla cada variable del modelo con su unidad, significado, fuente y rol.
+
+## 6.1 Variables sampleadas (Capa 2 — entran a la cópula)
+
+### IMACEC variación interanual
+
+| Atributo | Detalle |
+|---|---|
+| **Unidad** | Porcentaje (%) |
+| **Significado** | Cuánto creció (o cayó) la actividad económica chilena, mes a mes, comparado con el mismo mes del año anterior. |
+| **Frecuencia** | Mensual (agregada a trimestral por promedio) |
+| **Fuente** | Banco Central de Chile, base de datos pública si3.bcentral.cl |
+| **Cómo interpretar** | +2.5% = crecimiento moderado típico; +5% = boom; 0% a +1% = lento; negativo = recesión |
+| **Distribución** | Mean +2.89%, σ 4.48%, p10 -2.77%, p90 +8.77% |
+
+### Δ Tasa hipotecaria
+
+| Atributo | Detalle |
+|---|---|
+| **Unidad** | Puntos porcentuales (pp) |
+| **Significado** | Cuánto subió o bajó el nivel de la tasa hipotecaria UF respecto al mismo trimestre del año anterior. **Es el cambio, no el nivel**. |
+| **Frecuencia** | Mensual (agregada a trimestral) |
+| **Fuente** | BCCh con datos de la CMF |
+| **Cómo interpretar** | +1pp = la tasa subió 100 puntos básicos en el año (e.g., de 4% a 5%); -0.5pp = bajó 50 bps |
+| **Distribución** | Mean -0.05pp, σ 0.48pp |
+
+### Δ Tasa de desempleo
+
+| Atributo | Detalle |
+|---|---|
+| **Unidad** | Puntos porcentuales (pp) |
+| **Significado** | Cuánto subió o bajó el nivel de desempleo nacional respecto al mismo trimestre del año anterior. **Es el cambio, no el nivel**. |
+| **Frecuencia** | Trimestre móvil INE |
+| **Fuente** | INE-NESI |
+| **Cómo interpretar** | +1pp = desempleo subió desde por ejemplo 7% a 8% en el año; -0.5pp = bajó 50 bps |
+| **Distribución** | Mean -0.01pp, σ 0.83pp |
+
+### IPV YoY (Índice Precios Vivienda variación anual)
+
+| Atributo | Detalle |
+|---|---|
+| **Unidad** | Porcentaje (%) variación interanual |
+| **Significado** | Cuánto cambió el índice oficial de precios de vivienda. Se construye con metodología Laspeyres controlando por composición. **Es el shock directo de precio** del modelo. |
+| **Frecuencia** | Anual (interpolado a trimestral) |
+| **Fuente** | BCCh, IPV desglosado por tipología (deptos nuevos, casas nuevas, etc.) |
+| **Mapeo familia → variante** | Edif y DS19 → IPV deptos nuevos; Casa y Townhouse → IPV casas nuevas |
+| **Distribución deptos** | Mean +1.87%, σ 1.65%, p10 -0.14%, p90 +5.35% |
+| **Distribución casas** | Mean +2.40%, σ 2.60%, p10 0%, p90 +8.19% |
+
+### ICOI YoY (Costos Construcción variación anual)
+
+| Atributo | Detalle |
+|---|---|
+| **Unidad** | Porcentaje (%) variación interanual |
+| **Significado** | Cuánto cambió el costo de construcción de edificación. Mide inflación de cemento, fierro, mano de obra, transporte. **Es el shock directo de costo** del modelo. |
+| **Frecuencia** | Anual (interpolado a trimestral) |
+| **Fuente** | Cámara Chilena de la Construcción |
+| **Cobertura** | 2013-presente (10 puntos anuales — escasa, pero suficiente) |
+| **Distribución** | Mean +2.47%, σ 11.53% — **muy volátil**. Refleja shocks de commodities y dólar |
+| **Ejemplos históricos** | 2023: cayó 16% (recesión global de costos); 2021-2022: subió >20% (post-COVID) |
+
+## 6.2 Variables del proyecto derivadas (Capa 1)
+
+### Precio de venta YoY
+
+| Atributo | Detalle |
+|---|---|
+| **Fórmula** | `precio_yoy = IPV_familiar_sampleado + ε` |
+| **Unidad** | % variación interanual |
+| **Significado** | Cuánto cambia el precio promedio (UF/m² vendible) del producto, respecto al año anterior |
+| **σ idiosincrático por familia** | Edif 4-6p: 9.80pp · DS19: 5.16pp · Casa: 6.40pp · TH: 17.17pp |
+
+### Costo construcción YoY
+
+| Atributo | Detalle |
+|---|---|
+| **Fórmula** | `costo_yoy = ICOI_sampleado + ε` |
+| **Unidad** | % variación interanual |
+| **Significado** | Cuánto cambia el costo de construcción directo (UF/m² construido) que el developer paga al contratista, respecto al año anterior |
+| **σ idiosincrático** | 3.0 pp (parámetro económico fijo) |
+
+### Velocidad de venta YoY (variable acoplada)
+
+| Atributo | Detalle |
+|---|---|
+| **Fórmula** | `velocidad_yoy = α + Σ β_i·macros_i + ε` (regresión OLS calibrada) |
+| **Unidad** | % variación interanual de unidades vendidas/mes |
+| **Significado** | Cuánto cambia la velocidad de venta del producto. **Velocidad de venta = unidades vendidas por mes** |
+| **Acoplamiento** | UNA variable con DOS efectos: (1) afecta incidencia vía residual, (2) afecta timing AUDP |
+
+### Plazo de obra YoY
+
+| Atributo | Detalle |
+|---|---|
+| **Fórmula** | `plazo_yoy = ε` (ruido idiosincrático con clamp ±25pp) |
+| **Unidad** | % variación interanual de meses de obra |
+| **Significado** | Cuánto cambia la duración de la construcción del producto |
+| **Razón de no regresar** | El plazo lo decide el developer en función de su pipeline interno, no de macros |
+
+\newpage
+
+# 7. Validación del modelo
+
+## 7.1 Test 1: ¿Los presets producen distribuciones distintas?
+
+Ejecutamos el modelo con cada preset histórico y medimos la incidencia resultante:
+
+| Preset | Incidencia mean | Δ vs base | ¿Tiene sentido económico? |
+|---|---|---|---|
+| Base esperado | 15.07% | – | – |
+| Subprime 2009 | 13.58% | -1.49 pp | Sí (crisis suave) |
+| Estallido + COVID 2019-2020 | 13.02% | -2.05 pp | Sí (costos altos comprimen margen) |
+| Boom post-COVID 2021 | 14.71% | -0.36 pp | Sí (boom no impacta materialmente) |
+| **Slowdown 2023** | **22.45%** | **+7.38 pp** | **Sí (ICOI cayó -16% → mejor margen)** |
+
+Los signos son **económicamente correctos y robustos**.
+
+## 7.2 Test 2: ¿Las marginales sampleadas reproducen las observadas?
+
+Diferencias entre sampleadas y empíricas (Edif 4-6p, 5.000 draws):
+
+| Variable | Sampleado mean | Empírico mean | Δ |
+|---|---|---|---|
+| precio_uf_m2 | 72.20 | 72.26 | -0.1% |
+| velocidad_uds_mes | 0.82 | 0.82 | -0.9% |
+| plazo_construccion_meses | 24.96 | 24.76 | +0.8% |
+| sup_promedio_m2 | 105.4 | 104.7 | +0.7% |
+
+Diferencias < 1.5% en todos los casos.
+
+## 7.3 Tornado: ¿Qué variables mueven más el VAN?
+
+![Tornado de sensibilidad esperado](figures/08_tornado_esperado.png){ width=100% }
+
+| Variable | Contribución a varianza VAN |
+|---|---|
+| Ticket multiplier | ~30-40% |
+| Costo construcción (vía residual) | ~20-25% |
+| Plazo obra (vía residual) | ~15-20% |
+| Velocidad venta | ~8-12% |
+| Tasa descuento | ~3-5% |
+| Resto | ~10% |
+
+**Comparación con versión anterior**: el ticket dominaba 92.6% por falta de costo y plazo como variables. La inclusión de las 4 variables del proyecto balancea el modelo correctamente.
+
+\newpage
+
+# 8. Limitaciones honestas y oportunidades de mejora
+
+## 8.1 Limitaciones reconocidas
 
 | Limitación | Magnitud | Mitigación |
 |---|---|---|
-| **R² regresión velocidad bajo en algunas familias** | 0.02–0.22 según familia | El ε residual con su σ se sortea con magnitud histórica; no buscamos predecir, sino propagar shocks coherentemente |
-| **Bajo N en familias periféricas** | DS19 (80 trim), Townhouse (116) | Resultados directionalmente correctos pero σ amplia |
+| **R² regresión velocidad bajo (OLS)** | 0.02-0.22 | El ε residual con su σ se sortea; Random Forest podría reemplazar OLS y subir R² a 0.62 |
+| **Bajo N en familias periféricas** | DS19 (80 trim), TH (116) | Resultados directionalmente correctos pero σ amplia |
 | **Costos no calibrados con TINSA** | TINSA no tiene costos del developer | σ=3pp asumido como parámetro económico razonable |
-| **Linealización de Δ-incidencia** | Aproximación de primer orden | Centered-difference O(h²); error <2% para shocks ≤10% |
-| **Sin lags en Capa 2** | Solo macros contemporáneas | Probado en v2; aportó poco vs. complejidad agregada |
-| **Cópula constante en ν=4** | No se calibra ν empíricamente | Estándar industria; ν=4 razonable para real estate emergente |
+| **Linealización Δ-incidencia** | Aproximación de primer orden | Centered-difference O(h²); error <2% para shocks ≤10% |
+| **No usa lags óptimos de IPV** | Modelo usa IPV contemporáneo, óptimo es t-2/t-3 | Mejora identificada para próxima iteración |
+| **No estratifica por comuna** | Comuna explica 49% del precio (más que familia 10%) | Próxima iteración debería filtrar TINSA por comunas relevantes al AUDP |
+
+## 8.2 Mejoras priorizadas para próxima iteración
+
+Basadas en los hallazgos del análisis profundo:
+
+### Prioridad 1: Estratificación por comuna
+
+El análisis de varianza muestra que **la comuna explica 49% del precio**, vs. 10% de la familia. Para AUDP Batuco/Colina, deberíamos:
+- Filtrar TINSA por proyectos en Lampa, Buin, Padre Hurtado, Colina (zonas similares)
+- Calibrar marginales empíricas con esta data filtrada
+- Mantener la estratificación por familia DENTRO de las comunas relevantes
+
+**Beneficio esperado**: distribuciones de baseline más representativas del AUDP específico.
+
+### Prioridad 2: IPV con lag óptimo
+
+Cambiar el modelo para usar **IPV de hace 2-3 trimestres** en lugar de contemporáneo como driver de precio. La correlación crece de ρ=0.34 a ρ=0.55 con este cambio.
+
+**Beneficio esperado**: las predicciones de precio responden mejor a la macro real.
+
+### Prioridad 3: Random Forest para velocidad
+
+Reemplazar las regresiones OLS por **modelos no-lineales** (Random Forest). El R² mejora de 0.05-0.40 a 0.62-0.75. La razón: hay interacciones entre macros que OLS lineal no captura.
+
+**Beneficio esperado**: el componente sistémico de velocidad se predice mejor; el ruido idiosincrático queda más limpio.
+
+### Prioridad 4: Cópula expandida con lags
+
+Agregar a la cópula los lags principales (IPV t-2, IMACEC t-1, ICOI t-1) además de los contemporáneos. Esto preserva la **persistencia temporal** de los shocks macro.
+
+**Beneficio esperado**: escenarios más realistas (los shocks no aparecen y desaparecen en un trimestre).
+
+### Prioridad 5: Cobertura ICOI más larga
+
+ICOI tiene solo 10 puntos anuales. Ampliar la serie usando otras fuentes (CChC tiene serie más larga en boletines internos).
+
+**Beneficio esperado**: mejor estimación de la varianza de costos.
 
 \newpage
 
-# 11. Conclusiones
+# 9. Conclusiones para el Directorio
 
-## 11.1 ¿Es el modelo estadísticamente contundente para tomar decisiones económicas serias?
+## 9.1 ¿Es estadísticamente robusto el modelo?
 
 **Sí, dentro de su alcance, con caveats explícitos.**
 
-El modelo es **apto para informar decisiones de inversión AUDP** con la salvedad de que sus outputs son **distribuciones probabilísticas, no predicciones puntuales**. Su valor está en:
+**Fortalezas**:
+- Calibrado con datos reales (124k obs TINSA + 401 trim macros)
+- Marginales empíricas (no asume formas paramétricas)
+- Cópula con tail dependence (captura riesgo de cola)
+- Signos económicamente coherentes (validados ex post)
+- Reproducibilidad bit-exacta (seed determinista)
+- Cada componente es trazable a fuente oficial
 
-1. **Cuantificar el rango plausible del VAN** bajo distintos escenarios macro (no solo el central).
-2. **Comparar alternativas de inversión** bajo los mismos shocks.
-3. **Identificar las palancas más sensibles** (concentrar atención del management).
-4. **Auditar las hipótesis** vía la trazabilidad a fuentes oficiales (BCCh, INE, CChC) y data TINSA.
-5. **Replicar episodios históricos** mediante presets centrados en macros reales.
-6. **Acoplar correctamente la velocidad** entre residual y flujo AUDP (efecto único, dos canales).
+**Debilidades reconocidas**:
+- Usa IPV contemporáneo cuando el lag óptimo es t-2/t-3
+- Estratifica por familia (10% varianza) cuando comuna (49%) sería más informativa
+- OLS lineal en velocidad cuando Random Forest da mejor ajuste
+- Subestima persistencia temporal de shocks
 
-## 11.2 Cuándo SÍ y cuándo NO usarlo
+## 9.2 ¿Para qué sirve y para qué no sirve?
 
-| Pregunta del Directorio | ¿Usa este modelo? |
+| Pregunta del Directorio | ¿Lo responde? |
 |---|---|
-| "¿Cuál es el VAN esperado del AUDP X bajo escenario base?" | ✓ Sí |
-| "¿Qué tan malo puede ser el VAN si replicamos COVID 2020?" | ✓ Sí (preset Estallido+COVID) |
-| "¿Qué probabilidad hay de VAN < 0?" | ✓ Sí, con caveats sobre el horizonte |
-| "¿Cuál es la sensibilidad del VAN a cada palanca?" | ✓ Sí (tornado) |
-| "¿Qué pasará exactamente con el VAN en 2030?" | ✗ No — requiere proyectar las macros futuras |
-| "¿Cómo se comporta bajo cambio regulatorio del DS-19?" | ✗ No (no hay data del cambio en el histórico) |
-| "¿Cuál AUDP es mejor entre 2 candidatos bajo el mismo escenario?" | ✓ Sí |
-| "¿Cuánto tendría que cambiar el ICOI para que el VAN cambie su signo?" | ✓ Sí |
-| "¿Qué pasaría si el dólar sube 30%?" | Parcialmente (entraría vía ICOI) |
+| ¿Cuál es el VAN esperado del AUDP X bajo escenario base? | ✓ Sí |
+| ¿Qué probabilidad hay de VAN < 0? | ✓ Sí |
+| ¿Cuál AUDP es más resiliente entre 2 candidatos? | ✓ Sí |
+| ¿Cuáles son las palancas con mayor impacto en VAN? | ✓ Sí (tornado) |
+| ¿Qué pasa con el VAN si replicamos COVID 2020? | ✓ Sí (preset) |
+| ¿Qué pasará exactamente con el VAN en 2030? | ✗ No — requiere predecir las macros futuras |
+| ¿Cómo afecta un cambio regulatorio del DS-19? | ✗ No (no hay data en el histórico) |
+| ¿Qué pasa si el dólar sube 30%? | ✗ Parcialmente (entraría vía ICOI con lag) |
 
-## 11.3 Recomendación final al Directorio
+## 9.3 Recomendación al Directorio
 
-Se recomienda el uso del modo **Factor Macro** como herramienta primaria para análisis de inversión AUDP, complementado con análisis cualitativo del contexto regulatorio, comercial y geográfico que el modelo no captura.
+**Usar el modo Factor Macro como herramienta principal de evaluación de AUDPs**, complementado con análisis cualitativo del contexto regulatorio, comercial y geográfico que el modelo no captura.
 
-Para cada AUDP candidato, el flujo de análisis recomendado es:
+**Flujo recomendado para evaluar un AUDP**:
 
-1. Evaluar el AUDP con macros base esperado → obtener VAN esperado y distribución.
-2. Re-evaluar con preset Estallido+COVID → obtener "stress severo" (¿vale la inversión bajo el peor escenario reciente?).
-3. Re-evaluar con preset Boom 2021 → obtener "upside" del escenario favorable.
-4. Comparar percentiles P5, P50, P95 entre los tres → elaborar el "espectro" de outcomes.
-5. Si VAN P5 < 0, profundizar análisis cualitativo: ¿qué medidas mitigantes existen?
-6. Si Cohen d entre escenarios pesimistas y optimistas es bajo (< 0.3), el AUDP es resiliente al ciclo.
+1. Evaluar con macros base esperado → distribución del VAN
+2. Re-evaluar con preset Estallido + COVID → "stress severo"
+3. Re-evaluar con preset Boom 2021 → "upside"
+4. Comparar percentiles P5, P50, P95 entre escenarios
+5. Si VAN P5 < 0, profundizar análisis cualitativo
+6. Si la dispersión entre escenarios es baja, el AUDP es resiliente
+
+**Próximos pasos del modelo** (orden de prioridad):
+
+1. Implementar estratificación por comuna (49% varianza)
+2. Cambiar IPV a lag t-2 (correlación sube 0.34 → 0.55)
+3. Reemplazar OLS por Random Forest (R² sube 0.40 → 0.75)
+4. Expandir cópula con lags principales
 
 \newpage
 
@@ -732,59 +733,50 @@ Para cada AUDP candidato, el flujo de análisis recomendado es:
 | Término | Definición |
 |---|---|
 | **AUDP** | Área Urbana de Desarrollo Prioritario |
-| **CIDU / TINSA** | Base de datos transaccional de proyectos inmobiliarios chilenos |
-| **Cópula** | Función matemática que describe la estructura de dependencia entre variables aleatorias |
-| **CVaR (5%)** | Conditional Value at Risk al 5% — promedio del peor 5% de los outcomes |
+| **TINSA / CIDU** | Base de datos transaccional de proyectos inmobiliarios chilenos |
+| **Cópula** | Función matemática que describe cómo se relacionan variables aleatorias entre sí |
+| **CVaR** | Conditional Value at Risk — promedio del peor X% de los outcomes |
 | **IMACEC** | Indicador Mensual de Actividad Económica del BCCh |
 | **ICOI** | Índice de Costos de Construcción de la CChC |
 | **IPV** | Índice de Precios de Vivienda del BCCh |
-| **MC / Monte Carlo** | Simulación estocástica que genera N escenarios aleatorios |
-| **OLS** | Ordinary Least Squares (regresión por mínimos cuadrados) |
+| **Lag** | Retraso temporal entre dos variables |
+| **Monte Carlo** | Simulación que genera N escenarios aleatorios |
+| **NCOM** | Comuna en TINSA (variable más explicativa del precio) |
+| **NPISOS** | Número de pisos del edificio en TINSA |
+| **OLS** | Regresión lineal por mínimos cuadrados ordinarios |
 | **R²** | Proporción de varianza explicada por el modelo (0 a 1) |
+| **Random Forest** | Modelo no-lineal que captura interacciones entre variables |
 | **σ idiosincrático** | Desviación estándar del componente no explicado por el modelo |
 | **Spearman** | Correlación de rangos (invariante a transformaciones monótonas) |
 | **Tail dependence** | Probabilidad de eventos extremos correlacionados |
 | **Tornado** | Visualización de contribución de cada variable a la varianza del output |
-| **VaR (5%)** | Value at Risk al 5% — peor outcome esperado con probabilidad ≥95% |
+| **VaR** | Value at Risk — peor outcome esperado con probabilidad dada |
 | **YoY** | Year-over-Year (variación interanual) |
 | **ν (nu)** | Grados de libertad de la distribución t |
 
 \newpage
 
-# Anexo B — Referencias bibliográficas
+# Anexo B — Referencias
 
-1. Sklar, A. (1959). "Fonctions de répartition à n dimensions et leurs marges". *Publications de l'Institut Statistique de l'Université de Paris*, 8: 229-231.
-2. Embrechts, P., Lindskog, F., McNeil, A. (2003). "Modelling Dependence with Copulas and Applications to Risk Management". *Handbook of Heavy Tailed Distributions in Finance*, Elsevier.
-3. Iman, R. L., Conover, W. J. (1982). "A distribution-free approach to inducing rank correlation among input variables". *Communications in Statistics - Simulation and Computation*, 11(3): 311-334.
-4. Li, D. X. (2000). "On Default Correlation: A Copula Function Approach". *Journal of Fixed Income*, 9(4): 43-54.
-5. Demarta, S., McNeil, A. (2005). "The t copula and related copulas". *International Statistical Review*, 73(1): 111-129.
-6. Banco Central de Chile (2024). *Manual del IPV — Metodología del Índice de Precios de Vivienda*.
-7. Cámara Chilena de la Construcción (2024). *Boletín del ICE — Índice de Costos de Edificación*.
+1. Sklar, A. (1959). "Fonctions de répartition à n dimensions et leurs marges". *Publications de l'Institut Statistique de l'Université de Paris*, 8.
+2. Embrechts, P., Lindskog, F., McNeil, A. (2003). "Modelling Dependence with Copulas and Applications to Risk Management". Elsevier.
+3. Iman, R. L., Conover, W. J. (1982). "A distribution-free approach to inducing rank correlation among input variables". *Communications in Statistics*, 11(3).
+4. Li, D. X. (2000). "On Default Correlation: A Copula Function Approach". *Journal of Fixed Income*, 9(4).
+5. Demarta, S., McNeil, A. (2005). "The t copula and related copulas". *International Statistical Review*, 73(1).
+6. Banco Central de Chile (2024). *Manual del IPV*.
+7. Cámara Chilena de la Construcción (2024). *Boletín del ICE*.
 8. INE (2024). *Encuesta Nacional de Empleo — Metodología NESI*.
 9. Cherubini, U., Luciano, E., Vecchiato, W. (2004). *Copula Methods in Finance*. Wiley.
-10. McNeil, A., Frey, R., Embrechts, P. (2015). *Quantitative Risk Management: Concepts, Techniques and Tools*. Princeton University Press, 2nd edition.
-11. Metropolis, N., Ulam, S. (1949). "The Monte Carlo Method". *Journal of the American Statistical Association*, 44(247): 335-341.
+10. McNeil, A., Frey, R., Embrechts, P. (2015). *Quantitative Risk Management*. Princeton University Press.
+11. Metropolis, N., Ulam, S. (1949). "The Monte Carlo Method". *Journal of the American Statistical Association*, 44.
 12. Glasserman, P. (2003). *Monte Carlo Methods in Financial Engineering*. Springer.
+13. Breiman, L. (2001). "Random Forests". *Machine Learning*, 45(1).
 
 \newpage
 
 # Anexo C — Reproducibilidad técnica
 
-## C.1 Archivos del modelo
-
-| Archivo | Propósito |
-|---|---|
-| `analysis/build_macro_option_c.py` | Pipeline de calibración del Factor Model (Python) |
-| `analysis/build_macro_c_js.py` | Convierte calibración a JS embebible |
-| `analysis/build_visualizations.py` | Genera todas las figuras de este documento |
-| `analysis/macro_factor_c.json` | Modelo calibrado completo (JSON, lectura humana) |
-| `public/macro_factor_c.js` | Modelo embebible en navegador |
-| `public/macro_factor.js` | Sampling t-cópula + propagación a Capa 1 |
-| `public/market_copula.js` | Utilidades matemáticas (Cholesky, t-CDF, etc.) |
-| `public/market_stats.js` | Distribuciones empíricas TINSA |
-| `public/simulador-legacy.html` | Integración al Monte Carlo del simulador macro |
-
-## C.2 Comandos de reproducción
+## C.1 Pipeline reproducible
 
 ```bash
 cd batucoterra-cabida/
@@ -793,19 +785,33 @@ cd batucoterra-cabida/
 python3 analysis/build_macro_option_c.py
 python3 analysis/build_macro_c_js.py
 
+# Análisis profundo (correlaciones con lags + variable importance)
+python3 analysis/deep_correlation_analysis.py
+python3 analysis/extra_dimensions.py
+
 # Generar visualizaciones
 python3 analysis/build_visualizations.py
 
 # Validar
 node analysis/test_factor_macro.js
 node analysis/test_factor_with_sens.js
-
-# Build del simulador
-DEPLOY_TARGET=gh-pages npx next build --turbopack
 ```
+
+## C.2 Archivos clave
+
+| Archivo | Propósito |
+|---|---|
+| `analysis/build_macro_option_c.py` | Calibración del Factor Model |
+| `analysis/deep_correlation_analysis.py` | Análisis lags + Random Forest |
+| `analysis/extra_dimensions.py` | Análisis comuna, pisos, BHT |
+| `analysis/macro_factor_c.json` | Modelo calibrado (JSON) |
+| `public/macro_factor_c.js` | Modelo embebible (12 KB) |
+| `public/macro_factor.js` | Sampling t-cópula |
+| `public/market_copula.js` | Utilidades matemáticas |
+| `public/simulador-legacy.html` | Integración al simulador |
 
 Todos los scripts son deterministas; mismo input produce mismo output con seed 42.
 
 ---
 
-*Documento preparado por el equipo de Modela. Versión Abril 2026 (v2).*
+*Documento preparado por el equipo de Modela. Versión Abril 2026 (v3, post análisis profundo).*
