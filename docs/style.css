@@ -1,0 +1,147 @@
+@page {
+  size: A4;
+  margin: 2.5cm 2.5cm 2.5cm 2.5cm;
+  @top-right { content: counter(page); font-size: 9pt; color: #666; }
+  @bottom-center { content: "Modela · Modelo Factorial Estocástico — Documento Técnico para Directorio"; font-size: 8pt; color: #999; }
+}
+@page :first { @top-right { content: ""; } @bottom-center { content: ""; } }
+
+html, body {
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 11pt;
+  line-height: 1.55;
+  color: #1f2937;
+  margin: 0;
+  padding: 0;
+  background: #fff;
+}
+header.title-block {
+  text-align: center;
+  margin: 3cm 0 5cm 0;
+  page-break-after: always;
+}
+header.title-block h1.title {
+  font-size: 32pt;
+  margin: 0 0 8pt;
+  color: #0f172a;
+  letter-spacing: -0.02em;
+  font-weight: 700;
+}
+header.title-block p.subtitle {
+  font-size: 14pt;
+  color: #475569;
+  margin: 8pt 0 24pt;
+}
+header.title-block p.author, header.title-block p.date {
+  font-size: 11pt;
+  color: #64748b;
+  margin: 4pt 0;
+}
+
+h1 {
+  page-break-before: always;
+  font-size: 22pt;
+  color: #0f172a;
+  border-bottom: 3px solid #2563eb;
+  padding-bottom: 8pt;
+  margin-top: 0;
+  margin-bottom: 18pt;
+  font-weight: 700;
+}
+h1#table-of-contents { page-break-before: avoid; }
+h2 {
+  font-size: 16pt;
+  color: #1e3a8a;
+  margin-top: 24pt;
+  margin-bottom: 10pt;
+  font-weight: 600;
+}
+h3 {
+  font-size: 13pt;
+  color: #1e40af;
+  margin-top: 16pt;
+  margin-bottom: 8pt;
+  font-weight: 600;
+}
+h4 {
+  font-size: 12pt;
+  color: #334155;
+  margin-top: 12pt;
+}
+p { margin: 6pt 0; text-align: justify; }
+ul, ol { margin: 6pt 0 6pt 18pt; }
+li { margin: 3pt 0; }
+
+#TOC {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 16pt 24pt;
+  margin: 18pt 0;
+}
+#TOC ul { list-style: none; padding-left: 12pt; }
+#TOC > ul { padding-left: 0; }
+#TOC a { color: #1e40af; text-decoration: none; }
+#TOC a:hover { text-decoration: underline; }
+
+table {
+  border-collapse: collapse;
+  margin: 12pt 0;
+  font-size: 10pt;
+  width: 100%;
+}
+table th {
+  background: #1e3a8a;
+  color: #fff;
+  padding: 6pt 8pt;
+  text-align: left;
+  border: 1px solid #1e3a8a;
+}
+table td {
+  padding: 5pt 8pt;
+  border: 1px solid #cbd5e1;
+}
+table tr:nth-child(even) { background: #f8fafc; }
+
+code {
+  background: #f1f5f9;
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-family: "SF Mono", Menlo, Consolas, monospace;
+  font-size: 9.5pt;
+  color: #be185d;
+}
+pre {
+  background: #0f172a;
+  color: #e2e8f0;
+  padding: 10pt 12pt;
+  border-radius: 6px;
+  font-size: 9pt;
+  line-height: 1.45;
+  overflow-x: auto;
+  font-family: "SF Mono", Menlo, Consolas, monospace;
+  page-break-inside: avoid;
+}
+pre code { background: transparent; color: inherit; padding: 0; }
+
+blockquote {
+  border-left: 4px solid #2563eb;
+  background: #eff6ff;
+  margin: 12pt 0;
+  padding: 8pt 16pt;
+  color: #1e3a8a;
+  font-style: italic;
+}
+
+strong { color: #0f172a; }
+
+hr {
+  border: 0;
+  border-top: 1px solid #cbd5e1;
+  margin: 24pt 0;
+}
+
+a { color: #2563eb; text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+.math.display { display: block; text-align: center; margin: 12pt 0; }
