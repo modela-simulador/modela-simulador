@@ -2040,6 +2040,11 @@
 
           <div style="font-size:9px;color:#64748b;font-style:italic" id="mc-factor-preset-info">Centro del shock = mediana histórica · variabilidad sortada por cópula t</div>
 
+          <!-- Diagnóstico de estado de representantes -->
+          <div id="mc-factor-diag" style="font-size:10px;padding:6px 8px;border-radius:4px;background:#fef3c7;border:1px solid #f59e0b;color:#92400e;display:none">
+            <span id="mc-factor-diag-text"></span>
+          </div>
+
           <div style="border-top:1px solid #cbd5e1;padding-top:8px;display:flex;flex-direction:column;gap:4px">
             <div style="font-size:9px;font-weight:700;color:#1d4ed8">Variables sampleadas (5)</div>
             <div style="display:grid;grid-template-columns:1fr auto;gap:2px;font-size:10px">
@@ -11606,29 +11611,50 @@ const MC = (function(){
   }
   function _resetRepCache(){ _REP_CACHE = null; }
 
+  // Sensibilidades default por familia (fallback si los representantes
+  // no tienen las suyas calculadas). Valores empíricamente razonables del
+  // residual chileno: ∂incidencia/∂(fracción de cambio en parámetro).
+  //
+  // Interpretación: si ticket +1% (fTicket=0.01), incidencia sube ~0.7pp.
+  // Si costo +1%, incidencia cae ~0.5pp. Si vel +1%, incidencia +0.10pp.
+  // Si plazo +1%, incidencia cae ~0.15pp.
+  //
+  // Estos defaults aseguran que el factor model produzca shocks visibles
+  // incluso si el usuario no recalculó representantes con sensibilidades.
+  var _DEFAULT_SENS = {
+    edif_4p:   { ticket: 0.70, velocidad: 0.10, costo: -0.50, plazo: -0.15 },
+    ds19:      { ticket: 0.45, velocidad: 0.05, costo: -0.35, plazo: -0.10 },
+    casa:      { ticket: 0.65, velocidad: 0.08, costo: -0.45, plazo: -0.12 },
+    townhouse: { ticket: 0.65, velocidad: 0.08, costo: -0.45, plazo: -0.12 },
+  };
+
   // Aplicar Δincidencia linealizado a la tabla PRODUCTS según sensibilidades
-  // pre-calculadas del residual. Si no hay representantes con sensibilidades,
-  // no hace nada (graceful degradation).
+  // pre-calculadas del residual. Usa defaults si el representante no las tiene.
   //
   // Δincidencia = ∂i/∂ticket × Δticket% + ∂i/∂vel × Δvel% + ∂i/∂costo × Δcosto% + ∂i/∂plazo × Δplazo%
-  //
-  // Las sensibilidades vienen normalizadas como ∂incidencia/∂(fracción), entonces:
-  //   Δincidencia = s.ticket * (tm - 1) + s.velocidad * (vel/100) + ...
   function _applyResidualShocks(shocks){
-    // Reset al baseline antes de aplicar (cada iter empieza fresca)
     _restoreProductsBackup();
     var store = _getRepresentantesCached();
-    if (!store) return;
     var anyApplied = false;
     for (var fam in _FAMILY_TO_PRODUCTS_MC) {
-      var rep = store[fam];
-      if (!rep || !rep.sensitivities || !rep.sensitivities.incidencia) continue;
-      var s = rep.sensitivities.incidencia;
-      // Convertir shocks a fracciones (consistentes con la convención de computeSensitivities)
-      var fTicket = (shocks.tm || 1) - 1;          // tm es multiplier
-      var fVel    = (shocks.vel || 0) / 100;        // vel viene en %
-      var fCosto  = (shocks.costoMult || 1) - 1;    // costoMult es multiplier
-      var fPlazo  = (shocks.plazoMult || 1) - 1;    // plazoMult es multiplier
+      var rep = store ? store[fam] : null;
+      // Sensibilidades: del representante si existen, sino defaults razonables.
+      // Los defaults solo se usan si hay representantes guardados (PRODUCTS
+      // baseline tiene incidencia significativa) — sino no aplicamos shock.
+      var s;
+      if (rep && rep.sensitivities && rep.sensitivities.incidencia) {
+        s = rep.sensitivities.incidencia;
+      } else if (rep) {
+        // Representante existe pero sin sensibilidades → usar defaults
+        s = _DEFAULT_SENS[fam] || _DEFAULT_SENS.edif_4p;
+      } else {
+        // Sin representante para esta familia, no aplicamos shock
+        continue;
+      }
+      var fTicket = (shocks.tm || 1) - 1;
+      var fVel    = (shocks.vel || 0) / 100;
+      var fCosto  = (shocks.costoMult || 1) - 1;
+      var fPlazo  = (shocks.plazoMult || 1) - 1;
       var dIncidencia = (s.ticket||0)    * fTicket
                        + (s.velocidad||0) * fVel
                        + (s.costo||0)     * fCosto
@@ -11643,6 +11669,20 @@ const MC = (function(){
       }
     }
     return anyApplied;
+  }
+
+  // Diagnóstico: estado de representantes (cuántos hay, cuántos con sens)
+  function _diagnosticReps(){
+    var store = _getRepresentantesCached() || {};
+    var withSens = 0, withoutSens = 0;
+    var families = ['edif_4p', 'ds19', 'casa', 'townhouse'];
+    for (var i = 0; i < families.length; i++) {
+      var rep = store[families[i]];
+      if (!rep) continue;
+      if (rep.sensitivities && rep.sensitivities.incidencia) withSens++;
+      else withoutSens++;
+    }
+    return { total: withSens + withoutSens, withSens: withSens, withoutSens: withoutSens };
   }
 
   function sampleOne(rng, cfg){
@@ -12067,6 +12107,7 @@ const MC = (function(){
     captureProductsBackup: _captureProductsBackup,
     restoreProductsBackup: _restoreProductsBackup,
     resetRepCache: _resetRepCache,
+    diagnosticReps: _diagnosticReps,
   };
 })();
 
@@ -12169,9 +12210,36 @@ function openMCAnalysis(){
   if (sanDist) sanDist.style.display = (peMode === 'sanAudp' || peMode === 'sanPduc') ? 'block' : 'none';
   // Sincronizar UI del toggle de modo (default Factor Macro)
   setMCMode(window.mcMode || 'factor');
-  // Inicializar preset si Factor Macro
   if (window.mcMode === 'factor' && typeof setFactorPreset === 'function') {
     setFactorPreset(window.mcFactorPreset || 'base_esperado');
+  }
+  // Diagnóstico de representantes
+  if (typeof MC !== 'undefined' && MC.diagnosticReps) {
+    MC.resetRepCache();
+    var d = MC.diagnosticReps();
+    var diagEl = document.getElementById('mc-factor-diag');
+    var diagText = document.getElementById('mc-factor-diag-text');
+    if (diagEl && diagText) {
+      if (d.total === 0) {
+        diagEl.style.display = 'block';
+        diagEl.style.background = '#fee2e2';
+        diagEl.style.borderColor = '#ef4444';
+        diagEl.style.color = '#991b1b';
+        diagText.textContent = '⚠ No hay representantes guardados. Los shocks de costo/plazo NO afectan el VAN. Guarda 4 representantes en /residual primero.';
+      } else if (d.withoutSens > 0) {
+        diagEl.style.display = 'block';
+        diagEl.style.background = '#fef3c7';
+        diagEl.style.borderColor = '#f59e0b';
+        diagEl.style.color = '#92400e';
+        diagText.textContent = '⚠ ' + d.total + '/4 representantes guardados, pero ' + d.withoutSens + ' sin sensibilidades calculadas. Usando defaults razonables. Para mayor precision: re-guardar representantes en /residual.';
+      } else {
+        diagEl.style.display = 'block';
+        diagEl.style.background = '#dcfce7';
+        diagEl.style.borderColor = '#16a34a';
+        diagEl.style.color = '#14532d';
+        diagText.textContent = '✓ ' + d.total + '/4 representantes con sensibilidades del residual. Modelo en plena capacidad.';
+      }
+    }
   }
   document.getElementById('mc-overlay').style.display = 'flex';
 }

@@ -161,18 +161,26 @@
       }
 
       // 3. Aplicar shocks DIRECTOS para precio y costo
-      // precio_yoy = IPV_familiar + ε_idiosincrático ~ N(bias, σ)
+      // precio_yoy = IPV_familiar_sampled + ε_idiosincrático ~ N(0, σ)
+      // NOTA: NO sumamos el bias histórico — ese bias representa un drift
+      // composicional (TINSA agregada vs IPV controlado) que NO es un shock
+      // cíclico. Para Monte Carlo de stress queremos solo el componente
+      // que efectivamente se mueve con el preset macro.
       const ipvSampled = macros[ipvCol];
-      const precioBias = fam.precio_shock.bias_pp || 0;
       const precioSigma = fam.precio_shock.sigma_idiosyncratic_pp || 5;
-      const precio_yoy = ipvSampled + precioBias + gauss(rng) * precioSigma;
+      const precio_yoy = ipvSampled + gauss(rng) * precioSigma;
 
-      // costo_yoy = ICOI + ε ~ N(0, σ_idiosincrático ~3pp)
+      // costo_yoy = ICOI_sampled + ε ~ N(0, σ_idiosincrático ~3pp)
       const icoiSampled = macros['icoi_yoy'];
       const costoSigma = fam.costo_shock.sigma_idiosyncratic_pp || 3;
       const costo_yoy = icoiSampled + gauss(rng) * costoSigma;
 
       // 4. Velocidad: regresión OLS + ε ~ N(0, σ_residual)
+      // Clamp a ±30pp para evitar predicciones extremas cuando R² es bajo.
+      // En modelo R²=0.04 cualquier outlier de macro se amplifica linealmente
+      // sin mecanismo de corrección. El clamp es un "guard rail" económicamente
+      // razonable — velocidad de venta de un proyecto rara vez se duplica
+      // o desploma 50% en 1 año.
       let velocidad_yoy = 0;
       const velReg = fam.velocidad_regression;
       if (velReg) {
@@ -182,12 +190,14 @@
             velocidad_yoy += coef * macros[varName];
           }
         }
-        velocidad_yoy += gauss(rng) * (velReg.sigma_residual || 30);
+        velocidad_yoy += gauss(rng) * Math.min(velReg.sigma_residual || 30, 25);
+        velocidad_yoy = Math.max(-40, Math.min(60, velocidad_yoy));
       }
 
-      // 5. Plazo: σ histórica simple
-      const plazoSigma = fam.plazo_shock.sigma_idiosyncratic_pp || 10;
-      const plazo_yoy = gauss(rng) * plazoSigma;
+      // 5. Plazo: σ histórica simple, clamp a ±25pp
+      const plazoSigma = Math.min(fam.plazo_shock.sigma_idiosyncratic_pp || 10, 20);
+      let plazo_yoy = gauss(rng) * plazoSigma;
+      plazo_yoy = Math.max(-30, Math.min(40, plazo_yoy));
 
       return {
         precio_yoy,
