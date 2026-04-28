@@ -20,6 +20,9 @@
   <!-- Estadísticas de mercado y t-cópula con marginales empíricas (CIDU) -->
   <script src="market_stats.js"></script>
   <script src="market_copula.js"></script>
+  <!-- Factor Model Opción C (macros + regresión velocidad + presets) -->
+  <script src="macro_factor_c.js"></script>
+  <script src="macro_factor.js"></script>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
@@ -2004,21 +2007,57 @@
           <span class="mc-field-hint">Mismo seed + mismos inputs → mismo resultado</span>
         </div>
 
-        <!-- Toggle: Cópula empírica (CIDU) vs Paramétrica legacy -->
+        <!-- Toggle de modos: Factor Macro / Empírico CIDU / Paramétrico -->
         <div class="mc-section-title" style="margin-top:10px">Modelo de marginales</div>
         <div style="background:#f1f5f9;border:1px solid #e2e8f0;border-radius:6px;padding:8px 10px;display:flex;flex-direction:column;gap:6px">
-          <div style="display:flex;gap:6px">
-            <button id="mc-mode-empirical" type="button" onclick="setMCMode('empirical')" style="flex:1;padding:6px 8px;font-size:11px;font-weight:700;border:1px solid #7c3aed;border-radius:5px;background:#7c3aed;color:#fff;cursor:pointer">
-              📊 Empírico CIDU
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px">
+            <button id="mc-mode-factor" type="button" onclick="setMCMode('factor')" style="padding:6px 4px;font-size:10px;font-weight:700;border:1px solid #2563eb;border-radius:5px;background:#2563eb;color:#fff;cursor:pointer">
+              🌎 Factor Macro
             </button>
-            <button id="mc-mode-parametric" type="button" onclick="setMCMode('parametric')" style="flex:1;padding:6px 8px;font-size:11px;font-weight:600;border:1px solid #cbd5e1;border-radius:5px;background:#fff;color:#334155;cursor:pointer">
+            <button id="mc-mode-empirical" type="button" onclick="setMCMode('empirical')" style="padding:6px 4px;font-size:10px;font-weight:600;border:1px solid #cbd5e1;border-radius:5px;background:#fff;color:#334155;cursor:pointer">
+              📊 Empírico
+            </button>
+            <button id="mc-mode-parametric" type="button" onclick="setMCMode('parametric')" style="padding:6px 4px;font-size:10px;font-weight:600;border:1px solid #cbd5e1;border-radius:5px;background:#fff;color:#334155;cursor:pointer">
               ⚙ Paramétrico
             </button>
           </div>
           <div id="mc-mode-hint" style="font-size:10px;color:#64748b;line-height:1.3;font-style:italic">
-            Cópula t (ν=4) calibrada con Iman-Conover sobre 124k obs CIDU. Captura tail-dependence (correlaciones extremas).
+            Factor Model Opción C: shocks directos IPV (BCCh) + ICOI (CChC) + regresión OLS para velocidad. Cópula t entre 5 macros con Spearman empírica.
           </div>
         </div>
+
+        <!-- Panel Factor Macro: presets históricos + sliders -->
+        <div id="mc-factor-panel" style="background:#eff6ff;border:1px solid #93c5fd;border-radius:6px;padding:10px;display:flex;flex-direction:column;gap:8px;margin-top:6px">
+          <div style="font-size:10px;font-weight:700;color:#1d4ed8;text-transform:uppercase;letter-spacing:0.5px">Escenario macro</div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px">
+            <button type="button" onclick="setFactorPreset('base_esperado')" id="factor-preset-base" class="factor-preset-btn">📈 Base esperado</button>
+            <button type="button" onclick="setFactorPreset('subprime_2009')" id="factor-preset-subprime" class="factor-preset-btn">📉 Subprime 2009</button>
+            <button type="button" onclick="setFactorPreset('estallido_covid_2019_2020')" id="factor-preset-covid" class="factor-preset-btn">🔥 Estallido + COVID</button>
+            <button type="button" onclick="setFactorPreset('boom_post_covid_2021')" id="factor-preset-boom" class="factor-preset-btn">🚀 Boom 2021</button>
+            <button type="button" onclick="setFactorPreset('slowdown_2023')" id="factor-preset-slowdown" class="factor-preset-btn" style="grid-column:1/-1">⚠ Slowdown 2023</button>
+          </div>
+
+          <div style="font-size:9px;color:#64748b;font-style:italic" id="mc-factor-preset-info">Centro del shock = mediana histórica · variabilidad sortada por cópula t</div>
+
+          <div style="border-top:1px solid #cbd5e1;padding-top:8px;display:flex;flex-direction:column;gap:4px">
+            <div style="font-size:9px;font-weight:700;color:#1d4ed8">Variables sampleadas (5)</div>
+            <div style="display:grid;grid-template-columns:1fr auto;gap:2px;font-size:10px">
+              <span>IMACEC variación %</span><span id="mc-factor-imacec" style="font-variant-numeric:tabular-nums;font-weight:600">+2.5%</span>
+              <span>Δ Tasa hipotecaria</span><span id="mc-factor-tasa" style="font-variant-numeric:tabular-nums;font-weight:600">−0.1pp</span>
+              <span>Δ Desempleo</span><span id="mc-factor-desempleo" style="font-variant-numeric:tabular-nums;font-weight:600">+0.0pp</span>
+              <span>IPV deptos YoY</span><span id="mc-factor-ipv-deptos" style="font-variant-numeric:tabular-nums;font-weight:600">+1.6%</span>
+              <span>IPV casas YoY</span><span id="mc-factor-ipv-casas" style="font-variant-numeric:tabular-nums;font-weight:600">+1.4%</span>
+              <span>ICOI YoY</span><span id="mc-factor-icoi" style="font-variant-numeric:tabular-nums;font-weight:600">+0.8%</span>
+            </div>
+          </div>
+        </div>
+
+        <style>
+          .factor-preset-btn { padding:6px 4px; font-size:10px; font-weight:600; border:1px solid #cbd5e1; border-radius:4px; background:#fff; color:#334155; cursor:pointer; transition: all 0.15s; }
+          .factor-preset-btn:hover { background:#dbeafe; border-color:#60a5fa; }
+          .factor-preset-btn.active { background:#2563eb; border-color:#1d4ed8; color:#fff; }
+        </style>
 
         <div class="mc-section-title" style="margin-top:10px">Distribuciones (editables)</div>
 
@@ -11497,6 +11536,21 @@ const MC = (function(){
       ? a + Math.sqrt(u * (b - a) * (m - a))
       : b - Math.sqrt((1 - u) * (b - a) * (b - m));
   }
+  // ── Cache del Factor Model Op.C (1 por familia × preset) ──
+  const _factorCache = {};
+  function _getFactorSampler(family, preset){
+    const key = family + '|' + preset;
+    if (_factorCache[key]) return _factorCache[key];
+    if (!window.MacroFactor || !window.MACRO_FACTOR_C) return null;
+    try {
+      _factorCache[key] = window.MacroFactor.create(family, { nu: 4, preset: preset });
+      return _factorCache[key];
+    } catch (e) {
+      console.warn('[MC] no se pudo crear factor sampler:', family, preset, e);
+      return null;
+    }
+  }
+
   // ── Cache de cópulas empíricas (1 por familia) ──
   // Calibrar Iman-Conover requiere ~3000 samples internos, ~80ms por familia.
   // Cacheamos para que no se recalibre en cada iteración del MC.
@@ -11597,13 +11651,31 @@ const MC = (function(){
     const _isSan = peMode === 'sanAudp' || peMode === 'sanPduc';
     const _isEmpirical = (typeof window !== 'undefined') && window.mcEmpiricalMode === true;
 
-    // ── VELOCIDAD y TICKET MULTIPLIER ──
-    // Si el modo empírico está activo y la cópula está disponible, los
-    // sampleamos jointly de la t-cópula con marginales empíricas CIDU
-    // (de la familia configurada, default 'edif_4p' como driver de mercado).
-    // Si no, fallback al modelo paramétrico legacy (Normal con σ).
+    // ── VEL / TICKET / COSTO / PLAZO según modo ──
+    // factor: shocks directos IPV/ICOI + regresión velocidad (recomendado)
+    // empirical: cópula t con marginales empíricas CIDU
+    // parametric: Normal/Triangular legacy
     let vel, tm;
-    if (_isEmpirical) {
+    let factorCostoMult = null, factorPlazoMult = null;
+    const _mode = window.mcMode || 'factor';
+
+    if (_mode === 'factor') {
+      const fam = window.mcEmpiricalFamily || 'edif_4p';
+      const preset = window.mcFactorPreset || 'base_esperado';
+      const sampler = _getFactorSampler(fam, preset);
+      if (sampler && !_isSan) {
+        const draw = sampler.sampleOne(rng);
+        // Convertir a multipliers desde YoY%
+        tm = Math.max(0.5, Math.min(2.0, 1 + draw.precio_yoy / 100));
+        vel = Math.max(-80, Math.min(150, draw.velocidad_yoy));
+        factorCostoMult = Math.max(0.6, Math.min(1.5, 1 + draw.costo_yoy / 100));
+        factorPlazoMult = Math.max(0.5, Math.min(2.0, 1 + draw.plazo_yoy / 100));
+      } else {
+        // Fallback paramétrico
+        vel = Math.max(-60, Math.min(80, (cfg.velSigma || 22) * c[0]));
+        tm = _isSan ? 1.0 : 1.0 + (cfg.tmSigma / 100) * c[2];
+      }
+    } else if (_isEmpirical) {
       const fam = window.mcEmpiricalFamily || 'edif_4p';
       const cop = _getEmpiricalCopula(fam);
       if (cop) {
@@ -11611,17 +11683,13 @@ const MC = (function(){
         const m = window.MARKET_STATS[fam].marginals;
         const baseVel = m.velocidad_uds_mes.p50;
         const basePrice = m.precio_uf_m2.p50;
-        // vel multiplier (% sobre baseline median del mercado)
         vel = Math.max(-80, Math.min(200, (draw.velocidad_uds_mes / baseVel - 1) * 100));
-        // tm multiplier sobre baseline (sólo precio, sup ya está reflejado en ticket original)
         tm = _isSan ? 1.0 : Math.max(0.4, Math.min(2.5, draw.precio_uf_m2 / basePrice));
       } else {
-        // Fallback paramétrico si la cópula no carga
         vel = Math.max(-60, Math.min(80, (cfg.velSigma || 22) * c[0]));
         tm = _isSan ? 1.0 : 1.0 + (cfg.tmSigma / 100) * c[2];
       }
     } else {
-      // Velocidad y tasa descuento: aplican en TODOS los modos
       vel = Math.max(-60, Math.min(80, (cfg.velSigma || 22) * c[0]));
       tm = _isSan ? 1.0 : 1.0 + (cfg.tmSigma / 100) * c[2];
     }
@@ -11650,13 +11718,15 @@ const MC = (function(){
     const sanSaleMult = triangularCDF(rng(), cfg.sanSaleLo || 0.70, cfg.sanSaleMode || 1.00, cfg.sanSaleHi || 1.30);
 
     // ── Shocks proyecto-side: costo construcción y plazo obra ──
-    // Triangulares independientes (representan incertidumbre del developer
-    // sobre sus propios costos y plazos, no shocks macro). Se propagan a la
-    // incidencia de cada familia con representante guardado vía sensibilidades.
-    const costoMult = _isSan ? 1.0 : triangularCDF(rng(),
-      cfg.costoLo  || 0.92, cfg.costoMode  || 1.00, cfg.costoHi  || 1.10);
-    const plazoMult = _isSan ? 1.0 : triangularCDF(rng(),
-      cfg.plazoLo  || 0.85, cfg.plazoMode  || 1.00, cfg.plazoHi  || 1.20);
+    // En modo Factor Macro, vienen del sampleo conjunto del modelo (ICOI
+    // shock directo + plazo shock idiosincrático). En otros modos, son
+    // triangulares independientes leídas de los sliders del UI.
+    const costoMult = factorCostoMult != null ? factorCostoMult :
+                      (_isSan ? 1.0 : triangularCDF(rng(),
+                        cfg.costoLo  || 0.92, cfg.costoMode  || 1.00, cfg.costoHi  || 1.10));
+    const plazoMult = factorPlazoMult != null ? factorPlazoMult :
+                      (_isSan ? 1.0 : triangularCDF(rng(),
+                        cfg.plazoLo  || 0.85, cfg.plazoMode  || 1.00, cfg.plazoHi  || 1.20));
 
     // Aplicar Δincidencia linealizado a las familias con representante
     // antes del peResimulate. Reset a baseline + suma de derivadas × shocks.
@@ -12016,26 +12086,73 @@ const MC_MODE_LABELS = {
   'sanPduc': 'Sanitaria PDUC',
 };
 
-// MC mode (empirical CIDU vs parametric legacy) -- default empirical
-window.mcEmpiricalMode = true;
+// MC mode: 'factor' (default) | 'empirical' | 'parametric'
+window.mcMode = 'factor';
+window.mcEmpiricalMode = false;       // legacy compat
 window.mcEmpiricalFamily = 'edif_4p';
+window.mcFactorPreset = 'base_esperado';
 
 function setMCMode(mode){
+  window.mcMode = mode;
   window.mcEmpiricalMode = (mode === 'empirical');
+  const factorBtn = document.getElementById('mc-mode-factor');
   const empBtn = document.getElementById('mc-mode-empirical');
   const parBtn = document.getElementById('mc-mode-parametric');
   const hint = document.getElementById('mc-mode-hint');
-  const empStyle = 'flex:1;padding:6px 8px;font-size:11px;font-weight:700;border:1px solid #7c3aed;border-radius:5px;background:#7c3aed;color:#fff;cursor:pointer';
-  const parStyle = 'flex:1;padding:6px 8px;font-size:11px;font-weight:600;border:1px solid #cbd5e1;border-radius:5px;background:#fff;color:#334155;cursor:pointer';
-  if (window.mcEmpiricalMode) {
-    if (empBtn) empBtn.style.cssText = empStyle;
-    if (parBtn) parBtn.style.cssText = parStyle;
-    if (hint) hint.textContent = 'Cópula t (\u03bd=4) calibrada con Iman-Conover sobre 124k obs CIDU. Captura tail-dependence y log-normalidad real.';
-  } else {
-    if (parBtn) parBtn.style.cssText = empStyle;
-    if (empBtn) empBtn.style.cssText = parStyle;
-    if (hint) hint.textContent = 'Distribuciones paramétricas legacy: Normal/Triangular independientes. Solo para reproducir análisis previos.';
+  const factorPanel = document.getElementById('mc-factor-panel');
+
+  const styleActive = (color) => 'padding:6px 4px;font-size:10px;font-weight:700;border:1px solid '+color+';border-radius:5px;background:'+color+';color:#fff;cursor:pointer';
+  const styleInactive = 'padding:6px 4px;font-size:10px;font-weight:600;border:1px solid #cbd5e1;border-radius:5px;background:#fff;color:#334155;cursor:pointer';
+
+  if (factorBtn) factorBtn.style.cssText = mode === 'factor' ? styleActive('#2563eb') : styleInactive;
+  if (empBtn)    empBtn.style.cssText    = mode === 'empirical' ? styleActive('#7c3aed') : styleInactive;
+  if (parBtn)    parBtn.style.cssText    = mode === 'parametric' ? styleActive('#475569') : styleInactive;
+
+  if (hint) {
+    if (mode === 'factor') {
+      hint.textContent = 'Factor Model Op.C: shocks directos IPV (BCCh) + ICOI (CChC) + regresion OLS velocidad. Copula t entre 5 macros con Spearman empirica 2010-2024.';
+    } else if (mode === 'empirical') {
+      hint.textContent = 'Copula t (\u03bd=4) calibrada con Iman-Conover sobre 124k obs CIDU. Marginales empiricas, sin macros.';
+    } else {
+      hint.textContent = 'Distribuciones parametricas legacy: Normal/Triangular independientes. Solo para reproducir analisis previos.';
+    }
   }
+  if (factorPanel) factorPanel.style.display = mode === 'factor' ? 'flex' : 'none';
+}
+
+// Aplica un preset historico + actualiza displays de macro
+function setFactorPreset(name){
+  if (!window.MacroFactor || !window.MACRO_FACTOR_C) return;
+  window.mcFactorPreset = name;
+  const preset = window.MacroFactor.getPreset(name);
+  if (!preset) return;
+  document.querySelectorAll('.factor-preset-btn').forEach(b => b.classList.remove('active'));
+  const btnId = {
+    'base_esperado': 'factor-preset-base',
+    'subprime_2009': 'factor-preset-subprime',
+    'estallido_covid_2019_2020': 'factor-preset-covid',
+    'boom_post_covid_2021': 'factor-preset-boom',
+    'slowdown_2023': 'factor-preset-slowdown',
+  }[name];
+  const activeBtn = document.getElementById(btnId);
+  if (activeBtn) activeBtn.classList.add('active');
+  const fmt = (v, suffix) => (v >= 0 ? '+' : '') + v.toFixed(2) + (suffix || '');
+  const setEl = (id, v, sfx) => { const e = document.getElementById(id); if (e) e.textContent = fmt(v, sfx); };
+  setEl('mc-factor-imacec', preset.imacec_var_pct, '%');
+  setEl('mc-factor-tasa', preset.d_tasa_hipo, 'pp');
+  setEl('mc-factor-desempleo', preset.d_desempleo, 'pp');
+  setEl('mc-factor-ipv-deptos', preset.ipv_deptos_nuevos_yoy, '%');
+  setEl('mc-factor-ipv-casas', preset.ipv_casas_nuevas_yoy, '%');
+  setEl('mc-factor-icoi', preset.icoi_yoy, '%');
+  const infoEl = document.getElementById('mc-factor-preset-info');
+  const labels = {
+    'base_esperado': 'Centro = mediana historica 2010-2024 · referencia neutral',
+    'subprime_2009': 'Crisis subprime · IMACEC -1.1% · IPV cayo',
+    'estallido_covid_2019_2020': 'IMACEC -6.8% · desempleo +2.2pp · ICOI +5.7%',
+    'boom_post_covid_2021': 'IMACEC +11.7% · desempleo -1.9pp · rebote',
+    'slowdown_2023': 'IMACEC +0.7% · ICOI -16.4% · contraccion costos',
+  };
+  if (infoEl) infoEl.textContent = labels[name] || '';
 }
 
 function openMCAnalysis(){
@@ -12050,8 +12167,12 @@ function openMCAnalysis(){
   // Mostrar/ocultar distribuciones sanitarias según modo
   const sanDist = document.getElementById('mc-san-distributions');
   if (sanDist) sanDist.style.display = (peMode === 'sanAudp' || peMode === 'sanPduc') ? 'block' : 'none';
-  // Sincronizar UI del toggle de modo
-  setMCMode(window.mcEmpiricalMode ? 'empirical' : 'parametric');
+  // Sincronizar UI del toggle de modo (default Factor Macro)
+  setMCMode(window.mcMode || 'factor');
+  // Inicializar preset si Factor Macro
+  if (window.mcMode === 'factor' && typeof setFactorPreset === 'function') {
+    setFactorPreset(window.mcFactorPreset || 'base_esperado');
+  }
   document.getElementById('mc-overlay').style.display = 'flex';
 }
 
