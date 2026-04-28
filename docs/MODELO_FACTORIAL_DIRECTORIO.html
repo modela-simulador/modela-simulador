@@ -368,19 +368,18 @@ variables mueven más el VAN?</a></li>
 honestas y oportunidades de mejora</a>
 <ul>
 <li><a href="#limitaciones-reconocidas" id="toc-limitaciones-reconocidas">8.1 Limitaciones reconocidas</a></li>
-<li><a href="#mejoras-priorizadas-para-próxima-iteración" id="toc-mejoras-priorizadas-para-próxima-iteración">8.2 Mejoras
-priorizadas para próxima iteración</a>
+<li><a href="#mejoras-implementadas-versión-2-del-modelo" id="toc-mejoras-implementadas-versión-2-del-modelo">8.2 Mejoras
+IMPLEMENTADAS (Versión 2 del modelo)</a>
 <ul>
-<li><a href="#prioridad-1-estratificación-por-comuna" id="toc-prioridad-1-estratificación-por-comuna">Prioridad 1:
-Estratificación por comuna</a></li>
-<li><a href="#prioridad-2-ipv-con-lag-óptimo" id="toc-prioridad-2-ipv-con-lag-óptimo">Prioridad 2: IPV con lag
-óptimo</a></li>
-<li><a href="#prioridad-3-random-forest-para-velocidad" id="toc-prioridad-3-random-forest-para-velocidad">Prioridad 3: Random
-Forest para velocidad</a></li>
-<li><a href="#prioridad-4-cópula-expandida-con-lags" id="toc-prioridad-4-cópula-expandida-con-lags">Prioridad 4: Cópula
-expandida con lags</a></li>
-<li><a href="#prioridad-5-cobertura-icoi-más-larga" id="toc-prioridad-5-cobertura-icoi-más-larga">Prioridad 5: Cobertura
-ICOI más larga</a></li>
+<li><a href="#mejora-1-ipv-con-lag-t-3" id="toc-mejora-1-ipv-con-lag-t-3">Mejora 1 ✓: IPV con lag t-3</a></li>
+<li><a href="#mejora-2-estratificación-por-comuna-audp-relevante" id="toc-mejora-2-estratificación-por-comuna-audp-relevante">Mejora 2 ✓:
+Estratificación por comuna AUDP-relevante</a></li>
+<li><a href="#mejora-3-regresión-polinómica-con-interacciones-para-velocidad" id="toc-mejora-3-regresión-polinómica-con-interacciones-para-velocidad">Mejora
+3 ✓: Regresión polinómica con interacciones para velocidad</a></li>
+<li><a href="#mejora-4-cópula-expandida-con-lags-principales" id="toc-mejora-4-cópula-expandida-con-lags-principales">Mejora 4 ✓:
+Cópula expandida con lags principales</a></li>
+<li><a href="#mejora-5-cobertura-icoi-más-larga-pendiente" id="toc-mejora-5-cobertura-icoi-más-larga-pendiente">Mejora 5 ⏳:
+Cobertura ICOI más larga (pendiente)</a></li>
 </ul></li>
 </ul></li>
 <li><a href="#conclusiones-para-el-directorio" id="toc-conclusiones-para-el-directorio">9. Conclusiones para el
@@ -1733,48 +1732,143 @@ AUDP</td>
 </tr>
 </tbody>
 </table>
-<h2 id="mejoras-priorizadas-para-próxima-iteración">8.2 Mejoras
-priorizadas para próxima iteración</h2>
-<p>Basadas en los hallazgos del análisis profundo:</p>
-<h3 id="prioridad-1-estratificación-por-comuna">Prioridad 1:
-Estratificación por comuna</h3>
-<p>El análisis de varianza muestra que <strong>la comuna explica 49% del
-precio</strong>, vs. 10% de la familia. Para AUDP Batuco/Colina,
-deberíamos: - Filtrar TINSA por proyectos en Lampa, Buin, Padre Hurtado,
-Colina (zonas similares) - Calibrar marginales empíricas con esta data
-filtrada - Mantener la estratificación por familia DENTRO de las comunas
-relevantes</p>
-<p><strong>Beneficio esperado</strong>: distribuciones de baseline más
-representativas del AUDP específico.</p>
-<h3 id="prioridad-2-ipv-con-lag-óptimo">Prioridad 2: IPV con lag
-óptimo</h3>
-<p>Cambiar el modelo para usar <strong>IPV de hace 2-3
-trimestres</strong> en lugar de contemporáneo como driver de precio. La
-correlación crece de ρ=0.34 a ρ=0.55 con este cambio.</p>
-<p><strong>Beneficio esperado</strong>: las predicciones de precio
-responden mejor a la macro real.</p>
-<h3 id="prioridad-3-random-forest-para-velocidad">Prioridad 3: Random
-Forest para velocidad</h3>
-<p>Reemplazar las regresiones OLS por <strong>modelos
-no-lineales</strong> (Random Forest). El R² mejora de 0.05-0.40 a
-0.62-0.75. La razón: hay interacciones entre macros que OLS lineal no
-captura.</p>
-<p><strong>Beneficio esperado</strong>: el componente sistémico de
-velocidad se predice mejor; el ruido idiosincrático queda más
-limpio.</p>
-<h3 id="prioridad-4-cópula-expandida-con-lags">Prioridad 4: Cópula
-expandida con lags</h3>
-<p>Agregar a la cópula los lags principales (IPV t-2, IMACEC t-1, ICOI
-t-1) además de los contemporáneos. Esto preserva la <strong>persistencia
-temporal</strong> de los shocks macro.</p>
-<p><strong>Beneficio esperado</strong>: escenarios más realistas (los
-shocks no aparecen y desaparecen en un trimestre).</p>
-<h3 id="prioridad-5-cobertura-icoi-más-larga">Prioridad 5: Cobertura
-ICOI más larga</h3>
-<p>ICOI tiene solo 10 puntos anuales. Ampliar la serie usando otras
-fuentes (CChC tiene serie más larga en boletines internos).</p>
-<p><strong>Beneficio esperado</strong>: mejor estimación de la varianza
-de costos.</p>
+<h2 id="mejoras-implementadas-versión-2-del-modelo">8.2 Mejoras
+IMPLEMENTADAS (Versión 2 del modelo)</h2>
+<p>Las 4 primeras mejoras priorizadas se implementaron en una nueva
+versión del factor model (<code>analysis/build_macro_v2.py</code> +
+<code>public/macro_factor_v2.js</code>). Resultados honestos:</p>
+<h3 id="mejora-1-ipv-con-lag-t-3">Mejora 1 ✓: IPV con lag t-3</h3>
+<p>Recalibramos σ idiosincrático del precio usando IPV con lag de 3
+trimestres en lugar de contemporáneo.</p>
+<p><strong>Resultado</strong>: la diferencia σ_t vs σ_t-3 es
+<strong>marginal por familia</strong> (0.03-0.34 pp). Esto contrasta con
+el efecto fuerte que se ve en pooled (ρ 0.34 → 0.55).</p>
+<p><strong>Por qué</strong>: cuando estratificamos por familia (36-57
+obs por celda), el efecto del lag se diluye porque hay más ruido
+idiosincrático específico al producto. El lag es importante a nivel
+agregado pero pierde señal a nivel de familia.</p>
+<p><strong>Conclusión</strong>: cambio conceptualmente correcto pero
+impacto cuantitativo modesto.</p>
+<h3 id="mejora-2-estratificación-por-comuna-audp-relevante">Mejora 2 ✓:
+Estratificación por comuna AUDP-relevante</h3>
+<p>Filtramos TINSA por las <strong>7 comunas</strong> de la zona
+periurbana de Santiago: LAMPA, COLINA, BUIN, PADRE HURTADO, SAN
+BERNARDO, TILTIL, MELIPILLA. Total: <strong>14.708
+observaciones</strong>, dominadas por COLINA (5.348), BUIN (2.639) y SAN
+BERNARDO (2.571).</p>
+<p><strong>Resultado</strong>: diferencia real y cuantificable en σ
+idiosincrático del precio:</p>
+<table>
+<thead>
+<tr>
+<th>Familia</th>
+<th>σ AUDP zone</th>
+<th>σ nacional</th>
+<th>Δ</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Edif 4-6p</td>
+<td><strong>21.69 pp</strong></td>
+<td>9.52 pp</td>
+<td><strong>+12.2 pp</strong></td>
+</tr>
+<tr>
+<td>Townhouse</td>
+<td><strong>21.38 pp</strong></td>
+<td>16.21 pp</td>
+<td>+5.2 pp</td>
+</tr>
+<tr>
+<td>Casa</td>
+<td>7.97 pp</td>
+<td>7.06 pp</td>
+<td>+0.9 pp</td>
+</tr>
+<tr>
+<td>DS19</td>
+<td>6.40 pp</td>
+<td>4.68 pp</td>
+<td>+1.7 pp</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Interpretación</strong>: los proyectos en la zona AUDP tienen
+<strong>MAYOR variabilidad de precios</strong> entre sí que el promedio
+nacional. Esto es porque la zona incluye comunas heterogéneas (Colina
+premium con sectores de alta renta + Lampa popular + Buin clase media).
+El modelo nacional subestima el riesgo de precio para AUDPs
+específicos.</p>
+<p><strong>Conclusión</strong>: aporte real al modelo. Para evaluación
+de AUDP debería usarse la calibración AUDP-zone.</p>
+<h3 id="mejora-3-regresión-polinómica-con-interacciones-para-velocidad">Mejora
+3 ✓: Regresión polinómica con interacciones para velocidad</h3>
+<p>Reemplazamos la regresión OLS lineal por una polinómica con 5
+features: IMACEC, IPV, ICOI, IMACEC×IPV (interacción), IMACEC²
+(no-lineal).</p>
+<p><strong>Resultado</strong>: mejoras heterogéneas por familia:</p>
+<table>
+<thead>
+<tr>
+<th>Familia</th>
+<th>R² lineal v1</th>
+<th>R² polinómica v2 (AUDP zone)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>DS19</td>
+<td>0.043</td>
+<td><strong>0.157</strong> (×3.7) ✓</td>
+</tr>
+<tr>
+<td>Townhouse</td>
+<td>0.019</td>
+<td><strong>0.139</strong> (×7.3) ✓</td>
+</tr>
+<tr>
+<td>Edif 4-6p</td>
+<td>0.020</td>
+<td>0.029 (similar)</td>
+</tr>
+<tr>
+<td>Casa</td>
+<td>0.224</td>
+<td>0.093 (bajó — overfit) ⚠</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Por qué Casa empeora</strong>: con 57 obs y 5 features, el
+ratio observaciones/features es 11. La casa lineal tenía mejor ajuste
+por chance. La polinómica overfit en este caso específico.</p>
+<p><strong>Conclusión</strong>: mejora consistente para DS19 y
+Townhouse; para Casa la polinómica no aporta. La selección de modelo
+debería ser caso por caso.</p>
+<h3 id="mejora-4-cópula-expandida-con-lags-principales">Mejora 4 ✓:
+Cópula expandida con lags principales</h3>
+<p>Construimos cópula t (ν=4) con <strong>9 variables</strong>
+(originalmente 5), agregando los lags más relevantes:</p>
+<pre><code>Variables originales (5): IMACEC, Δtasa hipo, Δdesempleo, IPV, ICOI
+Lags agregados (4): IMACEC L1, IPV L3 (3 variantes), ICOI L1
+Total: 9 variables sobre ~37 trimestres con todos los lags presentes</code></pre>
+<p><strong>Resultado</strong>: ratio observaciones/variables ≈ 4 — al
+límite de lo aceptable. Los lags se incluyen pero la matriz de
+correlación es ruidosa por sample chico.</p>
+<p><strong>Conclusión</strong>: implementado pero con alerta sobre
+robustez. Una calibración más sólida requeriría más data temporal
+(series ICOI extendidas).</p>
+<h3 id="mejora-5-cobertura-icoi-más-larga-pendiente">Mejora 5 ⏳:
+Cobertura ICOI más larga (pendiente)</h3>
+<p>ICOI tiene solo 10 puntos anuales (2013-2024) en la fuente
+disponible. La CChC publica el índice desde antes en boletines internos
+pero no en formato máquina-legible.</p>
+<p><strong>Trabajo pendiente</strong>: contactar a CChC para obtener
+serie histórica completa, o reconstruir desde indicadores proxy (IPC
+construcción, costos commodities).</p>
+<p><strong>Beneficio esperado</strong>: extender ICOI a 20+ años permite
+calibrar mejor su volatilidad real y captura ciclos completos (incluido
+pre-crisis 2008).</p>
 <div style="page-break-before: always; break-before: page;"></div>
 <h1 id="conclusiones-para-el-directorio">9. Conclusiones para el
 Directorio</h1>
@@ -2003,22 +2097,22 @@ Engineering</em>. Springer.</li>
 <h1 id="anexo-c-reproducibilidad-técnica">Anexo C — Reproducibilidad
 técnica</h1>
 <h2 id="c.1-pipeline-reproducible">C.1 Pipeline reproducible</h2>
-<div class="sourceCode" id="cb3"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> batucoterra-cabida/</span>
-<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="co"># Recalibrar el modelo desde cero</span></span>
-<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="ex">python3</span> analysis/build_macro_option_c.py</span>
-<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="ex">python3</span> analysis/build_macro_c_js.py</span>
-<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="co"># Análisis profundo (correlaciones con lags + variable importance)</span></span>
-<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a><span class="ex">python3</span> analysis/deep_correlation_analysis.py</span>
-<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a><span class="ex">python3</span> analysis/extra_dimensions.py</span>
-<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a><span class="co"># Generar visualizaciones</span></span>
-<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a><span class="ex">python3</span> analysis/build_visualizations.py</span>
-<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a><span class="co"># Validar</span></span>
-<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a><span class="ex">node</span> analysis/test_factor_macro.js</span>
-<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a><span class="ex">node</span> analysis/test_factor_with_sens.js</span></code></pre></div>
+<div class="sourceCode" id="cb4"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> batucoterra-cabida/</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="co"># Recalibrar el modelo desde cero</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="ex">python3</span> analysis/build_macro_option_c.py</span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a><span class="ex">python3</span> analysis/build_macro_c_js.py</span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a><span class="co"># Análisis profundo (correlaciones con lags + variable importance)</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a><span class="ex">python3</span> analysis/deep_correlation_analysis.py</span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a><span class="ex">python3</span> analysis/extra_dimensions.py</span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a><span class="co"># Generar visualizaciones</span></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a><span class="ex">python3</span> analysis/build_visualizations.py</span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a><span class="co"># Validar</span></span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a><span class="ex">node</span> analysis/test_factor_macro.js</span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a><span class="ex">node</span> analysis/test_factor_with_sens.js</span></code></pre></div>
 <h2 id="c.2-archivos-clave">C.2 Archivos clave</h2>
 <table>
 <colgroup>

@@ -634,42 +634,75 @@ Diferencias < 1.5% en todos los casos.
 | **No usa lags óptimos de IPV** | Modelo usa IPV contemporáneo, óptimo es t-2/t-3 | Mejora identificada para próxima iteración |
 | **No estratifica por comuna** | Comuna explica 49% del precio (más que familia 10%) | Próxima iteración debería filtrar TINSA por comunas relevantes al AUDP |
 
-## 8.2 Mejoras priorizadas para próxima iteración
+## 8.2 Mejoras IMPLEMENTADAS (Versión 2 del modelo)
 
-Basadas en los hallazgos del análisis profundo:
+Las 4 primeras mejoras priorizadas se implementaron en una nueva versión del factor model (`analysis/build_macro_v2.py` + `public/macro_factor_v2.js`). Resultados honestos:
 
-### Prioridad 1: Estratificación por comuna
+### Mejora 1 ✓: IPV con lag t-3
 
-El análisis de varianza muestra que **la comuna explica 49% del precio**, vs. 10% de la familia. Para AUDP Batuco/Colina, deberíamos:
-- Filtrar TINSA por proyectos en Lampa, Buin, Padre Hurtado, Colina (zonas similares)
-- Calibrar marginales empíricas con esta data filtrada
-- Mantener la estratificación por familia DENTRO de las comunas relevantes
+Recalibramos σ idiosincrático del precio usando IPV con lag de 3 trimestres en lugar de contemporáneo.
 
-**Beneficio esperado**: distribuciones de baseline más representativas del AUDP específico.
+**Resultado**: la diferencia σ_t vs σ_t-3 es **marginal por familia** (0.03-0.34 pp). Esto contrasta con el efecto fuerte que se ve en pooled (ρ 0.34 → 0.55).
 
-### Prioridad 2: IPV con lag óptimo
+**Por qué**: cuando estratificamos por familia (36-57 obs por celda), el efecto del lag se diluye porque hay más ruido idiosincrático específico al producto. El lag es importante a nivel agregado pero pierde señal a nivel de familia.
 
-Cambiar el modelo para usar **IPV de hace 2-3 trimestres** en lugar de contemporáneo como driver de precio. La correlación crece de ρ=0.34 a ρ=0.55 con este cambio.
+**Conclusión**: cambio conceptualmente correcto pero impacto cuantitativo modesto.
 
-**Beneficio esperado**: las predicciones de precio responden mejor a la macro real.
+### Mejora 2 ✓: Estratificación por comuna AUDP-relevante
 
-### Prioridad 3: Random Forest para velocidad
+Filtramos TINSA por las **7 comunas** de la zona periurbana de Santiago: LAMPA, COLINA, BUIN, PADRE HURTADO, SAN BERNARDO, TILTIL, MELIPILLA. Total: **14.708 observaciones**, dominadas por COLINA (5.348), BUIN (2.639) y SAN BERNARDO (2.571).
 
-Reemplazar las regresiones OLS por **modelos no-lineales** (Random Forest). El R² mejora de 0.05-0.40 a 0.62-0.75. La razón: hay interacciones entre macros que OLS lineal no captura.
+**Resultado**: diferencia real y cuantificable en σ idiosincrático del precio:
 
-**Beneficio esperado**: el componente sistémico de velocidad se predice mejor; el ruido idiosincrático queda más limpio.
+| Familia | σ AUDP zone | σ nacional | Δ |
+|---|---|---|---|
+| Edif 4-6p | **21.69 pp** | 9.52 pp | **+12.2 pp** |
+| Townhouse | **21.38 pp** | 16.21 pp | +5.2 pp |
+| Casa | 7.97 pp | 7.06 pp | +0.9 pp |
+| DS19 | 6.40 pp | 4.68 pp | +1.7 pp |
 
-### Prioridad 4: Cópula expandida con lags
+**Interpretación**: los proyectos en la zona AUDP tienen **MAYOR variabilidad de precios** entre sí que el promedio nacional. Esto es porque la zona incluye comunas heterogéneas (Colina premium con sectores de alta renta + Lampa popular + Buin clase media). El modelo nacional subestima el riesgo de precio para AUDPs específicos.
 
-Agregar a la cópula los lags principales (IPV t-2, IMACEC t-1, ICOI t-1) además de los contemporáneos. Esto preserva la **persistencia temporal** de los shocks macro.
+**Conclusión**: aporte real al modelo. Para evaluación de AUDP debería usarse la calibración AUDP-zone.
 
-**Beneficio esperado**: escenarios más realistas (los shocks no aparecen y desaparecen en un trimestre).
+### Mejora 3 ✓: Regresión polinómica con interacciones para velocidad
 
-### Prioridad 5: Cobertura ICOI más larga
+Reemplazamos la regresión OLS lineal por una polinómica con 5 features: IMACEC, IPV, ICOI, IMACEC×IPV (interacción), IMACEC² (no-lineal).
 
-ICOI tiene solo 10 puntos anuales. Ampliar la serie usando otras fuentes (CChC tiene serie más larga en boletines internos).
+**Resultado**: mejoras heterogéneas por familia:
 
-**Beneficio esperado**: mejor estimación de la varianza de costos.
+| Familia | R² lineal v1 | R² polinómica v2 (AUDP zone) |
+|---|---|---|
+| DS19 | 0.043 | **0.157** (×3.7) ✓ |
+| Townhouse | 0.019 | **0.139** (×7.3) ✓ |
+| Edif 4-6p | 0.020 | 0.029 (similar) |
+| Casa | 0.224 | 0.093 (bajó — overfit) ⚠ |
+
+**Por qué Casa empeora**: con 57 obs y 5 features, el ratio observaciones/features es 11. La casa lineal tenía mejor ajuste por chance. La polinómica overfit en este caso específico.
+
+**Conclusión**: mejora consistente para DS19 y Townhouse; para Casa la polinómica no aporta. La selección de modelo debería ser caso por caso.
+
+### Mejora 4 ✓: Cópula expandida con lags principales
+
+Construimos cópula t (ν=4) con **9 variables** (originalmente 5), agregando los lags más relevantes:
+
+```
+Variables originales (5): IMACEC, Δtasa hipo, Δdesempleo, IPV, ICOI
+Lags agregados (4): IMACEC L1, IPV L3 (3 variantes), ICOI L1
+Total: 9 variables sobre ~37 trimestres con todos los lags presentes
+```
+
+**Resultado**: ratio observaciones/variables ≈ 4 — al límite de lo aceptable. Los lags se incluyen pero la matriz de correlación es ruidosa por sample chico.
+
+**Conclusión**: implementado pero con alerta sobre robustez. Una calibración más sólida requeriría más data temporal (series ICOI extendidas).
+
+### Mejora 5 ⏳: Cobertura ICOI más larga (pendiente)
+
+ICOI tiene solo 10 puntos anuales (2013-2024) en la fuente disponible. La CChC publica el índice desde antes en boletines internos pero no en formato máquina-legible.
+
+**Trabajo pendiente**: contactar a CChC para obtener serie histórica completa, o reconstruir desde indicadores proxy (IPC construcción, costos commodities).
+
+**Beneficio esperado**: extender ICOI a 20+ años permite calibrar mejor su volatilidad real y captura ciclos completos (incluido pre-crisis 2008).
 
 \newpage
 
