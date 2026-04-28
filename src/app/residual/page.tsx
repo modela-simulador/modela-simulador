@@ -15,6 +15,7 @@ import {
   clearRepresentante,
   loadAllRepresentantes,
   familyForProductId,
+  computeSensitivities,
   FAMILY_LABELS,
   type ProductFamily,
   type Representante,
@@ -1562,21 +1563,35 @@ export default function ResidualPage() {
               </button>
               <button
                 onClick={() => {
-                  const rep: Representante = {
-                    family: saveFamily,
-                    productId: productId,
-                    productName: inputs.unitModels[0]?.name || productId,
-                    lotFid: selectedFid || "",
-                    lotAreaM2: selectedArea,
-                    inputs,
-                    result,
-                    savedAt: new Date().toISOString(),
-                  };
-                  saveRepresentante(rep);
-                  setSavedReps(loadAllRepresentantes());
-                  setSaveModalOpen(false);
+                  // Calcular sensibilidades (8 corridas residual extra ~1s) — bloquea
+                  // brevemente la UI con feedback "Calculando..." en el botón.
+                  const btn = document.activeElement as HTMLButtonElement | null;
+                  if (btn) { btn.disabled = true; btn.textContent = "Calculando sensibilidades…"; }
+                  // Defer al next tick para permitir repintado del UI
+                  setTimeout(() => {
+                    let sensitivities;
+                    try {
+                      sensitivities = computeSensitivities(inputs, result);
+                    } catch (e) {
+                      console.warn("[representantes] no se pudieron calcular sensibilidades:", e);
+                    }
+                    const rep: Representante = {
+                      family: saveFamily,
+                      productId: productId,
+                      productName: inputs.unitModels[0]?.name || productId,
+                      lotFid: selectedFid || "",
+                      lotAreaM2: selectedArea,
+                      inputs,
+                      result,
+                      sensitivities,
+                      savedAt: new Date().toISOString(),
+                    };
+                    saveRepresentante(rep);
+                    setSavedReps(loadAllRepresentantes());
+                    setSaveModalOpen(false);
+                  }, 50);
                 }}
-                className="flex-1 py-2.5 bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold rounded-lg transition shadow-lg shadow-purple-900/50"
+                className="flex-1 py-2.5 bg-purple-600 hover:bg-purple-500 disabled:opacity-60 disabled:cursor-wait text-white text-xs font-bold rounded-lg transition shadow-lg shadow-purple-900/50"
               >
                 💾 Guardar como {FAMILY_LABELS[saveFamily]}
               </button>
