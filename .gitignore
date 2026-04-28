@@ -39,3 +39,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Análisis: data CSVs (grandes, regenerables desde Excel)
+analysis/data.csv
+analysis/macro_raw/
+analysis/lag_corr_pooled.csv
+analysis/variable_importance.csv
