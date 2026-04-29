@@ -168,6 +168,7 @@ icoi_yearly = pd.DataFrame({
     'val': pd.to_numeric(icoi_raw.iloc[:, 1], errors='coerce'),
 }).dropna()
 icoi_yearly['year'] = icoi_yearly['year'].astype(int)
+icoi_yearly = icoi_yearly.drop_duplicates(subset=['year'], keep='first').reset_index(drop=True)
 print(f'  ICOI: {len(icoi_yearly)} años')
 icoi_q = yearly_to_quarterly(icoi_yearly)
 icoi_q.columns = ['quarter_str', 'icoi']

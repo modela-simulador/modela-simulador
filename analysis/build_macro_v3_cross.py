@@ -82,9 +82,10 @@ def yearly_to_q(df_yearly, val_col):
     rows = []
     for i, (_, row) in enumerate(df_yearly.iterrows()):
         nxt = df_yearly.iloc[i+1] if i+1 < len(df_yearly) else row
+        yr = int(row['year'])
         for q in range(1, 5):
             f = (q-1)/4
-            rows.append({'quarter_str': f'{row["year"]}-Q{q}', 'val': row[val_col]*(1-f) + nxt[val_col]*f})
+            rows.append({'quarter_str': f'{yr}-Q{q}', 'val': row[val_col]*(1-f) + nxt[val_col]*f})
     return pd.DataFrame(rows)
 
 print('Cargando macros...')
@@ -107,6 +108,9 @@ icoi_yearly = pd.DataFrame({
     'val': pd.to_numeric(icoi_raw.iloc[:, 1], errors='coerce'),
 }).dropna()
 icoi_yearly['year'] = icoi_yearly['year'].astype(int)
+# El CSV tiene años duplicados (3 réplicas por composición). Quedarse con primer
+# valor por año para evitar explosión de filas en el outer merge.
+icoi_yearly = icoi_yearly.drop_duplicates(subset=['year'], keep='first').reset_index(drop=True)
 icoi_q = yearly_to_q(icoi_yearly[['year','val']], 'val'); icoi_q.columns = ['quarter_str','icoi']
 
 m = imacec.copy()
