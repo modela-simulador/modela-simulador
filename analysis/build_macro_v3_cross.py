@@ -209,21 +209,29 @@ for zone_label in agg_tinsa:
         if len(df) < 25:
             continue
 
-        # Marginales
+        # Marginales (saneamiento explícito de Inf/NaN — algunos plazo_yoy
+        # producen Infinity cuando el denominador del pct_change es cero)
         marginals = {}
         for v in ALL_VARS:
             if v in df.columns:
                 s = df[v].dropna()
+                # Eliminar Inf antes del clip — sino sobreviven al clip
+                s = s[np.isfinite(s)]
                 if len(s) < 15: continue
                 s = s.clip(s.quantile(0.01), s.quantile(0.99))
+                # Sanitizar resultados float — defensivo
+                def _safe(x):
+                    if not np.isfinite(x): return 0.0
+                    return float(x)
+                pcts_clean = [_safe(s.quantile(q)) for q in PERCENTILES_DENSE]
                 marginals[v] = {
                     'n': int(len(s)),
-                    'mean': float(s.mean()),
-                    'std': float(s.std()),
-                    'p10': float(s.quantile(0.1)),
-                    'p50': float(s.quantile(0.5)),
-                    'p90': float(s.quantile(0.9)),
-                    'pcts': [float(s.quantile(q)) for q in PERCENTILES_DENSE],
+                    'mean': _safe(s.mean()),
+                    'std': _safe(s.std()),
+                    'p10': _safe(s.quantile(0.1)),
+                    'p50': _safe(s.quantile(0.5)),
+                    'p90': _safe(s.quantile(0.9)),
+                    'pcts': pcts_clean,
                 }
 
         # Matriz Spearman 10×10
@@ -302,7 +310,7 @@ output = {
 }
 
 with open('analysis/macro_factor_v3_cross.json', 'w') as f:
-    json.dump(output, f, indent=2, default=str)
+    json.dump(output, f, indent=2, default=str, allow_nan=False)
 
 slim = sanitize(output)
 js = '// Auto-generado por analysis/build_macro_v3_cross.py\n'
