@@ -225,15 +225,18 @@ for zone_label, zone_data in [('audp_zone', audp_data), ('nacional', nat_data)]:
 
         ipv_col = FAMILY_IPV[fam]
 
-        # ─── MEJORA 1: σ idiosincrático precio con IPV en lag t-3 ───
-        ipv_lag3_col = f'{ipv_col}_L3'
+        # ─── MEJORA 1: σ idiosincrático precio con IPV general en lag t-3 ───
+        # Usamos IPV general (no familiar) para tener UNA sola variable IPV
+        # en la cópula expandida. La σ_idiosincrático absorbe la diferencia
+        # entre el IPV familiar y el IPV general.
+        ipv_lag3_col = 'ipv_general_yoy_L3'
         if ipv_lag3_col in df.columns:
             df_lag = df.dropna(subset=[ipv_lag3_col])
             if len(df_lag) >= 10:
                 delta_precio_lag3 = df_lag['precio_yoy'] - df_lag[ipv_lag3_col]
                 sigma_precio_lag3 = float(delta_precio_lag3.std())
                 bias_precio_lag3 = float(delta_precio_lag3.mean())
-                # comparar con contemporáneo
+                # comparar con contemporáneo (usando IPV familiar)
                 delta_precio_t = df['precio_yoy'] - df[ipv_col]
                 sigma_precio_t = float(delta_precio_t.std())
             else:
@@ -244,11 +247,12 @@ for zone_label, zone_data in [('audp_zone', audp_data), ('nacional', nat_data)]:
             bias_precio_lag3 = 0.0
 
         # ─── MEJORA 3: regresión polinómica con interacciones para velocidad ───
+        # Usamos IPV general (no familiar) para que esté en la cópula expandida
         X_dict = {
             'imacec_var_pct': df['imacec_var_pct'].values,
             'd_tasa_hipo': df['d_tasa_hipo'].values,
             'd_desempleo': df['d_desempleo'].values,
-            'ipv_yoy': df[ipv_col].values,
+            'ipv_yoy': df['ipv_general_yoy'].values,
             'icoi_yoy': df['icoi_yoy'].values,
         }
         reg_vel_poly = fit_polynomial_velocity(df['velocidad_yoy'].values, X_dict)
@@ -263,10 +267,11 @@ for zone_label, zone_data in [('audp_zone', audp_data), ('nacional', nat_data)]:
                 'plazo': float(df['plazo'].mean()),
             },
             'precio_shock': {
-                'driver': ipv_col,
-                'lag': 3,  # MEJORA 1
+                'driver': 'ipv_general_yoy_L3',  # MEJORA 1: lag óptimo
+                'family_ipv_orig': ipv_col,       # familia original (para comparar)
+                'lag': 3,
                 'sigma_idiosyncratic_pp': sigma_precio_lag3,
-                'sigma_contemporaneo': sigma_precio_t,  # para comparación
+                'sigma_contemporaneo': sigma_precio_t,
             },
             'costo_shock': {
                 'driver': 'icoi_yoy',
@@ -283,16 +288,18 @@ print('\nCalibrando cópula expandida con lags...')
 
 EXPANDED_MACROS = LAG_VARS + [f'{v}_L{lag}' for v in LAG_VARS for lag in [1, 2, 3]]
 # Reducir solo a las más relevantes (sin redundancias)
+# Cópula simplificada con 8 variables (incluye lags clave para mejora 1):
 EXPANDED_MACROS_KEY = [
-    'imacec_var_pct', 'imacec_var_pct_L1',  # contemporáneo + lag 1 (importante para velocidad)
-    'd_tasa_hipo',
-    'd_desempleo',
-    'ipv_general_yoy_L3',  # crítico para precio (lag óptimo)
-    'ipv_casas_nuevas_yoy_L3',
-    'ipv_deptos_nuevos_yoy_L3',
-    'icoi_yoy', 'icoi_yoy_L1',
+    'imacec_var_pct',           # PIB contemporáneo
+    'imacec_var_pct_L1',        # PIB lag-1 (importante para velocidad)
+    'd_tasa_hipo',              # Δ tasa hipotecaria
+    'd_desempleo',              # Δ desempleo
+    'ipv_general_yoy',          # IPV contemporáneo (para regresión velocidad)
+    'ipv_general_yoy_L3',       # IPV lag-3 (driver óptimo de precio — mejora 1)
+    'icoi_yoy',                 # ICOI contemporáneo
+    'icoi_yoy_L1',              # ICOI lag-1
 ]
-# 9 variables sobre ~50-100 trimestres → ratio observaciones/dim aceptable
+# 8 variables sobre ~37 trimestres → ratio obs/var = 4.6 (aceptable)
 
 # Distribuciones marginales de cada macro
 PERCENTILES_DENSE = list(np.linspace(0.01, 0.99, 99))

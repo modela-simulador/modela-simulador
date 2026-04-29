@@ -237,10 +237,130 @@
     return global.MACRO_FACTOR_C.presets[name] || null;
   }
 
+  // ════════════════════════════════════════════════════════════════
+  // v2 Sampler — Cópula expandida + zona AUDP + lag t-3 + polinómica
+  // ════════════════════════════════════════════════════════════════
+
+  function createV2(family, opts) {
+    opts = opts || {};
+    const nu = opts.nu || 4;
+    const zone = opts.zone || 'audp_zone';
+
+    if (!global.MACRO_FACTOR_V2) {
+      throw new Error('macro_factor_v2.js no cargado (window.MACRO_FACTOR_V2)');
+    }
+    const M = global.MACRO_FACTOR_V2;
+    const fam = M.family_models[zone] && M.family_models[zone][family];
+    if (!fam) {
+      throw new Error('Familia/zona desconocida en MACRO_FACTOR_V2: ' + zone + '/' + family);
+    }
+
+    // Variables expandidas en la cópula
+    const VARS = M.expanded_macros_key.filter(v => M.macros_expanded[v]);
+    const n = VARS.length;
+
+    // Construir matriz Spearman → Pearson + Cholesky
+    const math = getMath();
+    const R_p = Array.from({ length: n }, () => new Array(n).fill(0));
+    for (let i = 0; i < n; i++) {
+      for (let j = 0; j < n; j++) {
+        if (i === j) {
+          R_p[i][j] = 1;
+        } else {
+          const rs = M.macros_corr_expanded[VARS[i]][VARS[j]];
+          R_p[i][j] = 2 * Math.sin(Math.PI / 6 * rs);
+        }
+      }
+    }
+    const L = math.cholesky(R_p);
+
+    // Drivers de los shocks
+    const ipvLag3Col = fam.precio_shock.driver;  // 'ipv_general_yoy_L3' (mejora 1)
+    const icoiCol = 'icoi_yoy';
+
+    function empQuantile(pcts, u) {
+      const idx = u * 100 - 1;
+      if (idx <= 0) return pcts[0];
+      if (idx >= 98) return pcts[98];
+      const lo = Math.floor(idx);
+      return pcts[lo] * (1 - (idx - lo)) + pcts[lo + 1] * (idx - lo);
+    }
+
+    function sampleOne(rng) {
+      // 1. Sample t-cópula joint sobre las variables expandidas
+      const t = sampleMVTUnit(L, nu, rng);
+      const u = t.map(ti => math.tCdf(ti, nu));
+
+      const macros = {};
+      for (let i = 0; i < n; i++) {
+        const mv = VARS[i];
+        macros[mv] = empQuantile(M.macros_expanded[mv].pcts, u[i]);
+      }
+
+      // 2. Precio shock vía IPV en lag-3 (MEJORA 1)
+      const ipvLag3Sampled = macros[ipvLag3Col] || 0;
+      const precioSigma = fam.precio_shock.sigma_idiosyncratic_pp || 5;
+      const precio_yoy = ipvLag3Sampled + gauss(rng) * precioSigma;
+
+      // 3. Costo shock vía ICOI contemporáneo
+      const icoiSampled = macros[icoiCol] || 0;
+      const costoSigma = fam.costo_shock.sigma_idiosyncratic_pp || 3;
+      const costo_yoy = icoiSampled + gauss(rng) * costoSigma;
+
+      // 4. Velocidad: regresión polinómica (MEJORA 3)
+      let velocidad_yoy = 0;
+      const reg = fam.velocidad_regression_polynomial;
+      if (reg && reg.coefs) {
+        velocidad_yoy = reg.intercept || 0;
+        const imacec = macros['imacec_var_pct'] || 0;
+        const ipv = macros['ipv_general_yoy'] || 0;
+        const icoi = macros['icoi_yoy'] || 0;
+        // Construir features según el modelo polinómico
+        const c = reg.coefs;
+        velocidad_yoy += (c.imacec || 0) * imacec;
+        velocidad_yoy += (c.ipv || 0) * ipv;
+        velocidad_yoy += (c.icoi || 0) * icoi;
+        velocidad_yoy += (c.imacec_x_ipv || 0) * imacec * ipv;
+        velocidad_yoy += (c.imacec_sq || 0) * imacec * imacec;
+        velocidad_yoy += gauss(rng) * Math.min(reg.sigma_residual || 30, 25);
+        velocidad_yoy = Math.max(-40, Math.min(60, velocidad_yoy));
+      }
+
+      // 5. Plazo: shock idiosincrático
+      const plazoSigma = Math.min(fam.plazo_shock.sigma_idiosyncratic_pp || 10, 20);
+      let plazo_yoy = gauss(rng) * plazoSigma;
+      plazo_yoy = Math.max(-30, Math.min(40, plazo_yoy));
+
+      return { precio_yoy, velocidad_yoy, costo_yoy, plazo_yoy, macros };
+    }
+
+    function sample(N, rng) {
+      const out = new Array(N);
+      for (let i = 0; i < N; i++) out[i] = sampleOne(rng);
+      return out;
+    }
+
+    return {
+      family, zone, nu,
+      version: 'v2',
+      vars: VARS.slice(),
+      ipvLag3Col,
+      familyModel: fam,
+      sampleOne, sample,
+    };
+  }
+
+  function listZonesV2() {
+    if (!global.MACRO_FACTOR_V2) return [];
+    return Object.keys(global.MACRO_FACTOR_V2.family_models);
+  }
+
   global.MacroFactor = {
     create,
+    createV2,
     listPresets,
     getPreset,
+    listZonesV2,
     MACRO_VARS_BASE,
   };
 
