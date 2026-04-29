@@ -1983,7 +1983,7 @@
     <div class="mc-topbar">
       <div style="display:flex;align-items:baseline;gap:10px">
         <h2 id="mc-title">Análisis Monte Carlo</h2>
-        <span class="mc-subtitle" id="mc-subtitle">Simulación probabilística con 9 variables correlacionadas · n iteraciones configurable</span>
+        <span class="mc-subtitle" id="mc-subtitle">Simulación probabilística con cópula t · 5 macros + 5 producto correlacionadas · n iteraciones configurable</span>
       </div>
       <button class="un-close" onclick="closeMCAnalysis()">&#10005;</button>
     </div>
@@ -11755,6 +11755,10 @@ const MC = (function(){
     // parametric: Normal/Triangular legacy
     let vel, tm;
     let factorCostoMult = null, factorPlazoMult = null;
+    // Shadow variables: se sampleán en cópulas factor_v2/v3 pero no entran al
+    // modelo financiero. Se persisten en inputs para que el tornado y los
+    // histogramas las muestren — el Cholesky ya las correlacionó con vel/tm.
+    let factorShadow = null;
     const _mode = window.mcMode || 'factor';
 
     if (_mode === 'factor_v3') {
@@ -11768,6 +11772,15 @@ const MC = (function(){
         vel = Math.max(-80, Math.min(150, draw.velocidad_yoy));
         factorCostoMult = Math.max(0.6, Math.min(1.5, 1 + draw.costo_yoy / 100));
         factorPlazoMult = Math.max(0.5, Math.min(2.0, 1 + draw.plazo_yoy / 100));
+        factorShadow = {
+          imacec_var:    draw.imacec_var,
+          d_tasa_hipo:   draw.d_tasa_hipo,
+          d_desempleo:   draw.d_desempleo,
+          ipv_yoy:       draw.ipv_general_yoy,
+          icoi_yoy:      draw.icoi_yoy,
+          descuento_yoy: draw.descuento_yoy,
+          sup_yoy:       draw.sup_yoy,
+        };
       } else {
         vel = Math.max(-60, Math.min(80, (cfg.velSigma || 22) * c[0]));
         tm = _isSan ? 1.0 : 1.0 + (cfg.tmSigma / 100) * c[2];
@@ -11783,6 +11796,13 @@ const MC = (function(){
         vel = Math.max(-80, Math.min(150, draw.velocidad_yoy));
         factorCostoMult = Math.max(0.6, Math.min(1.5, 1 + draw.costo_yoy / 100));
         factorPlazoMult = Math.max(0.5, Math.min(2.0, 1 + draw.plazo_yoy / 100));
+        factorShadow = {
+          imacec_var:  draw.imacec_var,
+          d_tasa_hipo: draw.d_tasa_hipo,
+          d_desempleo: draw.d_desempleo,
+          ipv_yoy:     draw.ipv_general_yoy != null ? draw.ipv_general_yoy : draw.ipv_yoy,
+          icoi_yoy:    draw.icoi_yoy,
+        };
       } else {
         // Fallback paramétrico
         vel = Math.max(-60, Math.min(80, (cfg.velSigma || 22) * c[0]));
@@ -11799,6 +11819,14 @@ const MC = (function(){
         vel = Math.max(-80, Math.min(150, draw.velocidad_yoy));
         factorCostoMult = Math.max(0.6, Math.min(1.5, 1 + draw.costo_yoy / 100));
         factorPlazoMult = Math.max(0.5, Math.min(2.0, 1 + draw.plazo_yoy / 100));
+        factorShadow = {
+          imacec_var:  draw.imacec_var,
+          d_tasa_hipo: draw.d_tasa_hipo,
+          d_desempleo: draw.d_desempleo,
+          ipv_yoy:     draw.ipv_general_yoy != null ? draw.ipv_general_yoy
+                       : (draw.ipv_deptos_nuevos_yoy != null ? draw.ipv_deptos_nuevos_yoy : draw.ipv_casas_nuevas_yoy),
+          icoi_yoy:    draw.icoi_yoy,
+        };
       } else {
         vel = Math.max(-60, Math.min(80, (cfg.velSigma || 22) * c[0]));
         tm = _isSan ? 1.0 : 1.0 + (cfg.tmSigma / 100) * c[2];
@@ -11985,10 +12013,14 @@ const MC = (function(){
       if (acums[i] > 0) { paybackYear = years[i]; break; }
     }
 
+    // Shadow vars del factor: se sampleán correlacionadas pero no
+    // entran al modelo. Se exponen en inputs para tornado / histogramas.
+    const _shadowInputs = factorShadow || {};
     return {
       inputs: { vel, plusv, tm, im, mm, sm, prcOn: prcOn?1:0, crisisOn: crisisOn?1:0, discRate,
                 sanRevMult, sanCostMult, sanSaleMult,
-                costoMult, plazoMult },
+                costoMult, plazoMult,
+                ..._shadowInputs },
       outputs: {
         vanPrinc, vanSan, anosVenta,
         capTrabajo: -minAcum,
@@ -12061,7 +12093,10 @@ const MC = (function(){
     // computeTornado filtra automáticamente las que tienen varianza ~0
     // (ej: sanRevMult en modo venta tierra siempre vale ~1 → rho ≈ 0).
     const vars_ = ['vel','plusv','tm','costoMult','plazoMult','im','mm','sm','prcOn','crisisOn','discRate',
-                   'sanRevMult','sanCostMult','sanSaleMult'];
+                   'sanRevMult','sanCostMult','sanSaleMult',
+                   // Factor model (v1/v2/v3): macros + producto adicional
+                   'imacec_var','d_tasa_hipo','d_desempleo','ipv_yoy','icoi_yoy',
+                   'descuento_yoy','sup_yoy'];
     const labels = {
       vel:'Velocidad venta', plusv:'Plusval\u00eda anual', tm:'Ticket multiplier',
       costoMult:'Costo construcci\u00f3n (residual)', plazoMult:'Plazo obra (residual)',
@@ -12069,12 +12104,21 @@ const MC = (function(){
       prcOn:'PRC aprobado', crisisOn:'Crisis en horizonte', discRate:'Tasa descuento',
       sanRevMult:'Ingresos op. sanitaria', sanCostMult:'Costos op. sanitaria',
       sanSaleMult:'Venta sanitaria',
+      imacec_var:    'IMACEC (PIB) %',
+      d_tasa_hipo:   'Δ Tasa hipotecaria (pp)',
+      d_desempleo:   'Δ Desempleo (pp)',
+      ipv_yoy:       'IPV YoY %',
+      icoi_yoy:      'Costo construcción YoY %',
+      descuento_yoy: 'Descuentos YoY %',
+      sup_yoy:       'Tamaño unidad YoY %',
     };
     const rhos = {};
     for (const k of vars_) {
       const x = results.map(r => r.inputs[k]);
-      // Si la variable no tiene varianza (todos iguales), skip
-      const xMin = Math.min.apply(null, x), xMax = Math.max.apply(null, x);
+      // Si la variable está ausente (modo no factor) o sin varianza, skip
+      const xFinite = x.filter(v => Number.isFinite(v));
+      if (xFinite.length < results.length * 0.9) { rhos[k] = 0; continue; }
+      const xMin = Math.min.apply(null, xFinite), xMax = Math.max.apply(null, xFinite);
       if (xMax - xMin < 1e-9) { rhos[k] = 0; continue; }
       rhos[k] = rankCorr(x, van);
     }
@@ -12533,6 +12577,114 @@ function renderMCResults(results, cfg){
   histPanel.appendChild(histCv);
   resultsEl.appendChild(histPanel);
 
+  // ── Distribución de drivers macroeconómicos (factor v1/v2/v3) ──
+  // Solo se muestra cuando hay shadow vars del factor model. Cada mini-histograma
+  // refleja la distribución sampleada de una macro durante las N iteraciones,
+  // correlacionada via cópula con precio/velocidad. El usuario puede ver
+  // qué rango de IMACEC, tasas, etc. produjo la dispersión observada del VAN.
+  const _hasShadow = ok.length > 0 && Number.isFinite(ok[0].inputs.imacec_var);
+  if (_hasShadow) {
+    const macroPanel = _mcEl('div', 'mc-chart-panel');
+    macroPanel.style.borderLeft = '4px solid #db2777';
+    macroPanel.appendChild(_mcEl('div', 'mc-chart-title', 'Drivers macroeconómicos sampleados'));
+    macroPanel.appendChild(_mcEl('div', 'mc-chart-sub',
+      'Distribución de las macro durante las ' + ok.length.toLocaleString('es-CL') +
+      ' iteraciones · cópula t (ν=4) con marginales empíricas BCCh/INE'));
+    const macroVars = [
+      {key:'imacec_var',  label:'IMACEC (PIB)',      unit:'%',  color:'#db2777'},
+      {key:'d_tasa_hipo', label:'Δ Tasa hipotecaria', unit:'pp', color:'#7c3aed'},
+      {key:'d_desempleo', label:'Δ Desempleo',  unit:'pp', color:'#dc2626'},
+      {key:'ipv_yoy',     label:'IPV YoY',           unit:'%',  color:'#2563eb'},
+      {key:'icoi_yoy',    label:'Costo construcción YoY', unit:'%', color:'#ea580c'},
+    ];
+    const grid = _mcEl('div');
+    grid.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin-top:10px';
+    const _stats = (vals) => {
+      const s = vals.slice().sort((a,b)=>a-b);
+      const n = s.length, mean = vals.reduce((a,b)=>a+b,0)/n;
+      const p10 = s[Math.floor(0.10*(n-1))], p50 = s[Math.floor(0.50*(n-1))], p90 = s[Math.floor(0.90*(n-1))];
+      const sd = Math.sqrt(vals.reduce((a,b)=>a+(b-mean)**2,0)/n);
+      return {n, mean, sd, p10, p50, p90, min:s[0], max:s[n-1]};
+    };
+    const _miniHist = (canvas, vals, color) => {
+      const ctx = canvas.getContext('2d');
+      const dpr = window.devicePixelRatio || 1;
+      const W = canvas.clientWidth, H = canvas.clientHeight;
+      canvas.width = W*dpr; canvas.height = H*dpr;
+      ctx.scale(dpr, dpr);
+      ctx.clearRect(0,0,W,H);
+      const ml=8, mr=8, mt=4, mb=18;
+      const plotW = W-ml-mr, plotH = H-mt-mb;
+      const nb = 24;
+      const lo = Math.min.apply(null, vals), hi = Math.max.apply(null, vals);
+      const bw = (hi-lo)/nb || 1;
+      const counts = new Array(nb).fill(0);
+      for (const v of vals) {
+        const i = Math.min(nb-1, Math.max(0, Math.floor((v-lo)/bw)));
+        counts[i]++;
+      }
+      const maxC = Math.max.apply(null, counts) || 1;
+      for (let k=0;k<nb;k++){
+        const x = ml + (k/nb)*plotW;
+        const h = (counts[k]/maxC)*plotH;
+        ctx.fillStyle = color;
+        ctx.globalAlpha = 0.7;
+        ctx.fillRect(x, mt+plotH-h, plotW/nb-0.5, h);
+      }
+      ctx.globalAlpha = 1;
+      // Línea P50
+      const p50 = vals.slice().sort((a,b)=>a-b)[Math.floor(0.5*(vals.length-1))];
+      const px = ml + ((p50-lo)/(hi-lo))*plotW;
+      ctx.strokeStyle = '#000'; ctx.lineWidth = 1;
+      ctx.setLineDash([3,2]);
+      ctx.beginPath(); ctx.moveTo(px, mt); ctx.lineTo(px, mt+plotH); ctx.stroke();
+      ctx.setLineDash([]);
+      // Eje X: min/max
+      ctx.fillStyle = '#475569'; ctx.font = '8px Arial';
+      ctx.textAlign = 'left';
+      ctx.fillText(lo.toFixed(1), ml, mt+plotH+10);
+      ctx.textAlign = 'right';
+      ctx.fillText(hi.toFixed(1), W-mr, mt+plotH+10);
+    };
+    const _macroCharts = [];  // (canvas, vals, color) tuples para render diferido
+    for (const mv of macroVars) {
+      const vals = ok.map(r => r.inputs[mv.key]).filter(v => Number.isFinite(v));
+      if (vals.length < 10) continue;
+      const st = _stats(vals);
+      const cell = _mcEl('div');
+      cell.style.cssText = 'background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:8px 10px';
+      // Header
+      const hdr = _mcEl('div');
+      hdr.style.cssText = 'display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px';
+      const lbl = _mcEl('div', null, mv.label);
+      lbl.style.cssText = 'font-size:11px;font-weight:700;color:#1e293b';
+      hdr.appendChild(lbl);
+      const meta = _mcEl('div', null, 'mediana ' + st.p50.toFixed(1) + mv.unit);
+      meta.style.cssText = 'font-size:10px;color:'+mv.color+';font-weight:700';
+      hdr.appendChild(meta);
+      cell.appendChild(hdr);
+      // Canvas
+      const cv = document.createElement('canvas');
+      cv.style.cssText = 'width:100%;height:60px;display:block';
+      cell.appendChild(cv);
+      _macroCharts.push([cv, vals, mv.color]);
+      // Footer estadísticas
+      const ftr = _mcEl('div');
+      ftr.style.cssText = 'display:flex;justify-content:space-between;font-size:9px;color:#64748b;margin-top:3px';
+      ftr.appendChild(_mcEl('span', null, 'P10: ' + st.p10.toFixed(1) + mv.unit));
+      ftr.appendChild(_mcEl('span', null, 'μ: ' + st.mean.toFixed(2) + ' ± ' + st.sd.toFixed(2)));
+      ftr.appendChild(_mcEl('span', null, 'P90: ' + st.p90.toFixed(1) + mv.unit));
+      cell.appendChild(ftr);
+      grid.appendChild(cell);
+    }
+    macroPanel.appendChild(grid);
+    resultsEl.appendChild(macroPanel);
+    // Render diferido (clientWidth=0 hasta que el panel está en el DOM)
+    requestAnimationFrame(() => {
+      for (const [cv, vals, color] of _macroCharts) _miniHist(cv, vals, color);
+    });
+  }
+
   // Tornado
   const tornPanel = _mcEl('div', 'mc-chart-panel');
   tornPanel.appendChild(_mcEl('div', 'mc-chart-title', 'Tornado \u2014 Contribuci\u00f3n a la varianza del VAN'));
@@ -12568,7 +12720,12 @@ function renderMCResults(results, cfg){
   const capsP95 = caps[Math.floor(0.95*(caps.length-1))];
   addBlock('A\u00f1os venta', ['mediana: ' + anosMed, 'max: ' + anosMax]);
   addBlock('Max drawdown', ['mediana: ' + fmt(capsMed), 'P95: ' + fmt(capsP95)]);
-  addBlock('Configuraci\u00f3n', ['seed: ' + cfg.seed, '9 variables \u00b7 Cholesky 6\u00d76']);
+  addBlock('Configuraci\u00f3n', ['seed: ' + cfg.seed,
+    (window.mcMode === 'factor_v3' ? 'c\u00f3pula CROSS 10D (5 macro + 5 producto)' :
+     window.mcMode === 'factor_v2' ? 'c\u00f3pula 8D + IPV lag-3 + zona AUDP' :
+     window.mcMode === 'factor'    ? 'factor v1 (5 macros nacional + presets)' :
+     window.mcMode === 'empirical' ? 'c\u00f3pula t emp\u00edrica CIDU' :
+                                     'param\u00e9trico Normal/Triangular')]);
   resPanel.appendChild(grid);
   resultsEl.appendChild(resPanel);
 

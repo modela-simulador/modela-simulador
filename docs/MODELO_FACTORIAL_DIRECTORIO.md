@@ -1,8 +1,8 @@
 ---
 title: "Modelo Factorial Estocástico para Valoración de AUDPs"
-subtitle: "Documento Técnico para Directorio · Modela"
+subtitle: "Documento Técnico para Directorio · Modela · Versión 4 (cópula CROSS)"
 author: "Equipo Modela"
-date: "Abril 2026 (versión 3)"
+date: "Abril 2026 · v4 con verificación exhaustiva 200/200 correlaciones macro×producto"
 geometry: "margin=2.5cm"
 fontsize: 11pt
 mainfont: "Helvetica Neue"
@@ -74,7 +74,7 @@ El simulador anterior respondía la primera pregunta dando un solo número bajo 
 
 ## 1.2 ¿Qué es una simulación Monte Carlo?
 
-Monte Carlo es una técnica que **simula muchos escenarios posibles** y calcula el VAN en cada uno. Al final, en lugar de un número, tenés una **distribución completa** que muestra:
+Monte Carlo es una técnica que **simula muchos escenarios posibles** y calcula el VAN en cada uno. Al final, en lugar de un número, se obtiene una **distribución completa** que muestra:
 
 - VAN promedio
 - VAN en el 5% peor caso (riesgo de cola)
@@ -90,7 +90,7 @@ Para i = 1 hasta N (típicamente 3.000 a 10.000 iteraciones):
   2. Calcular el VAN del AUDP con esos valores
   3. Almacenar el resultado
 
-Al final tenés N valores → distribución del VAN
+Al final se obtienen N valores → distribución del VAN
 ```
 
 El nombre "Monte Carlo" viene del casino de Mónaco. Lo acuñaron Stanislaw Ulam y John von Neumann en los años 40 durante el desarrollo de la bomba atómica, para describir una técnica donde "se juega a los dados" y se observan los resultados promedio.
@@ -378,6 +378,28 @@ El análisis profundo identifica oportunidades para cópulas adicionales:
 2. **Cópula expandida**: integrar las 5 macros + sus lags principales (de los hallazgos: IPV t-2, IMACEC t-1, ICOI t-1) en **una sola cópula de mayor dimensión**. Esto permitiría samplear escenarios donde el lag y el contemporáneo se mueven coherentemente.
 
 3. **Cópula con dimensión comunal**: si la comuna explica 49% de la varianza, una próxima versión podría agregar un "factor comunal" que se samplee independientemente del macro nacional, capturando heterogeneidad geográfica.
+
+## 4.6 Versión 3 — Cópula CROSS unificada (IMPLEMENTADA)
+
+A partir del análisis profundo se identificó una **brecha estructural**: el modelo separaba en dos cópulas la dependencia macro-macro y producto-producto, pero **no calibraba correlaciones cruzadas directas** entre, por ejemplo, "tasa hipotecaria" y "velocidad de venta". La hipótesis implícita era que toda la propagación macro→producto pasaba por la regresión polinómica intermedia. Esto subestimaba sistemáticamente cinco canales económicos relevantes.
+
+**Solución v3**: una sola cópula de **10 dimensiones** que integra simultáneamente las cinco macros (IMACEC, Δ tasa hipotecaria, Δ desempleo, IPV YoY, ICOI YoY) y las cinco variables de producto (precio, velocidad, plazo, descuento, tamaño). Calibrada por familia y por zona (AUDP vs. Nacional) sobre los datos pareados TINSA × macros 2010-2024.
+
+**Verificación exhaustiva**: se auditaron las **200 correlaciones macro × producto** (5 macros × 5 productos × 4 familias × 2 zonas). Las 200 están calibradas; 102 son significativas (|ρ| > 0.20) y 27 fuertes (|ρ| > 0.40). El detalle auditable está en `analysis/all_cross_correlations.csv`.
+
+**Hallazgos económicamente coherentes que la versión 2 no capturaba**:
+
+| Macro | Producto | ρ | Familia · Zona | Lectura |
+|-------|----------|---|----------------|---------|
+| IPV YoY | Plazo de venta | -0.78 | townhouse · AUDP | precios aceleran → unidades se venden más rápido |
+| ICOI YoY | Descuentos | -0.66 | casa · AUDP | costos suben → developers reducen descuentos |
+| Δ desempleo | Precio | -0.55 | townhouse · nacional | desempleo destruye demanda → precio cae |
+| IMACEC | Velocidad | +0.65 | edif_4p · AUDP | actividad económica eleva absorción |
+| Δ tasa hipotecaria | Velocidad | -0.43 | edif_4p · nacional | canal de *affordability*: tasa sube → calificación cae |
+
+El canal "Δ tasa hipotecaria → Velocidad" es **negativo en las ocho celdas significativas** (rango -0.28 a -0.46). Es uno de los pocos efectos cuyo signo es unánime en todas las familias y zonas, validando el mecanismo de *affordability* como canal sistémico.
+
+**Limitación honesta**: con `n=25` trimestres en `audp_zone/townhouse` y 10 dimensiones, el ratio observaciones/variables es 2.5 — por debajo del umbral conservador de 5. La t-cópula con ν=4 mitiga el sobreajuste en colas, pero los extremos como ρ=-0.78 deben leerse con una banda de confianza aproximada de ±0.20.
 
 \newpage
 
@@ -703,6 +725,36 @@ ICOI tiene solo 10 puntos anuales (2013-2024) en la fuente disponible. La CChC p
 **Trabajo pendiente**: contactar a CChC para obtener serie histórica completa, o reconstruir desde indicadores proxy (IPC construcción, costos commodities).
 
 **Beneficio esperado**: extender ICOI a 20+ años permite calibrar mejor su volatilidad real y captura ciclos completos (incluido pre-crisis 2008).
+
+### Mejora 6 ✓: Cópula CROSS unificada 10D (Versión 3)
+
+**Brecha que cerró**: la versión 2 mantenía dos cópulas separadas (macro-macro y producto-producto). La dependencia macro→producto se modelaba indirectamente a través de la regresión polinómica de velocidad. Esto subestimaba canales económicos directos como "tasa hipotecaria → velocidad" o "desempleo → precio", cuya transmisión es estructural y no se reduce a una función de IMACEC e IPV.
+
+**Implementación**: una única cópula t (ν=4) de 10 dimensiones por celda (familia × zona). Las 10 variables son las cinco macros (IMACEC, Δ tasa hipotecaria, Δ desempleo, IPV YoY, ICOI YoY) y las cinco de producto (precio, velocidad, plazo, descuento, tamaño), todas en YoY o variación interanual. Calibración por Spearman empírico convertido a Pearson y luego a matriz de correlación PSD vía Cholesky.
+
+**Verificación 200/200**: el script `analysis/verify_all_cross_correlations.py` recorre las 200 combinaciones (5 macros × 5 productos × 4 familias × 2 zonas) y reporta el ρ empírico, su significancia y el sample size. Las 200 están calibradas; 102 son significativas y 27 fuertes.
+
+**Validación económica de signos**:
+
+```
+✓ Δ tasa hipo → Velocidad: -0.28 a -0.46 (8/8 celdas)
+   Affordability confirmada: tasa sube → menos compradores califican.
+
+✓ Δ desempleo → Precio: -0.22 a -0.55 (4/4 celdas significativas)
+   Canal de empleo→demanda directo, sin pasar por IMACEC.
+
+✓ IPV YoY → Plazo de venta: -0.43 a -0.78
+   Cuando precios aceleran, las unidades se venden más rápido.
+   Validación cruzada con el modelo dinámico residual.
+
+✗ Δ desempleo → Velocidad: signo mixto en townhouse
+   Probablemente refleja efecto cohorte (compradores DS19 no
+   afectados por ciclo laboral formal de manera lineal).
+```
+
+**Toggle en el simulador**: ⭐ v3 CROSS (default) | 🌟 v2 | 🌎 v1 | 📊 Empírico | ⚙ Paramétrico. El panel "Drivers macroeconómicos sampleados" en el resultado del Monte Carlo muestra histogramas con la distribución observada de las cinco macros durante las N iteraciones, permitiendo verificar visualmente que el sample respeta los regímenes históricos (boom, COVID, slowdown).
+
+**Limitación documentada**: con `n=25-48` trimestres por celda y 10 dimensiones, el ratio observaciones/variables va de 2.5 a 4.8. La t-cópula con ν=4 introduce *tail dependence* y mitiga el sobreajuste, pero las correlaciones extremas individuales (e.g., -0.78) deben interpretarse con una banda aproximada de ±0.20. El detalle por celda está en `analysis/all_cross_correlations.csv`.
 
 \newpage
 
