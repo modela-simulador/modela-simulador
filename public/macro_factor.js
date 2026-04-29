@@ -419,7 +419,10 @@
 
       // Para costo, derivamos de ICOI (no está como variable producto en TINSA)
       const icoiSampled = sample['icoi_yoy'] || 0;
-      const costo_yoy = icoiSampled + gauss(rng) * 3;  // σ idiosincrático fijo
+      // σ idiosincrático del costo proyecto-específico vs ICOI agregado.
+      // Calibrado empíricamente desde σ del ICOI YoY (CChC 2013-2024) = 5.00pp.
+      // Antes 3pp (auditoría 29-abr lo subió a 5pp para reflejar variabilidad real).
+      const costo_yoy = icoiSampled + gauss(rng) * 5;
 
       return {
         precio_yoy,

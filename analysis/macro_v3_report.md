@@ -12,57 +12,54 @@ Captura correlaciones directas que v1/v2 perdían (mediadas por regresión OLS).
 
 | Macro | Producto | ρ Spearman |
 |---|---|---|
-| imacec_var | velocidad_yoy | +0.420 |
-| d_tasa_hipo | velocidad_yoy | -0.241 |
-| d_tasa_hipo | plazo_yoy | +0.422 |
-| d_desempleo | velocidad_yoy | -0.265 |
-| d_desempleo | plazo_yoy | +0.240 |
-| ipv_general_yoy | plazo_yoy | -0.373 |
-| icoi_yoy | precio_yoy | +0.408 |
-| icoi_yoy | velocidad_yoy | -0.207 |
+| imacec_var | velocidad_yoy | +0.401 |
+| d_tasa_hipo | velocidad_yoy | -0.252 |
+| d_tasa_hipo | plazo_yoy | +0.417 |
+| d_desempleo | velocidad_yoy | -0.250 |
+| d_desempleo | plazo_yoy | +0.233 |
+| ipv_general_yoy | plazo_yoy | -0.363 |
+| icoi_yoy | precio_yoy | +0.411 |
 
 ### audp_zone/ds19 (n=27 trim)
 
 | Macro | Producto | ρ Spearman |
 |---|---|---|
-| imacec_var | precio_yoy | -0.343 |
-| imacec_var | plazo_yoy | -0.223 |
-| imacec_var | descuento_yoy | -0.248 |
-| d_tasa_hipo | descuento_yoy | +0.277 |
-| d_desempleo | velocidad_yoy | -0.299 |
-| d_desempleo | plazo_yoy | +0.365 |
-| d_desempleo | descuento_yoy | +0.421 |
-| ipv_general_yoy | precio_yoy | -0.538 |
-| ipv_general_yoy | velocidad_yoy | -0.466 |
-| ipv_general_yoy | sup_yoy | +0.356 |
-| icoi_yoy | precio_yoy | -0.250 |
-| icoi_yoy | sup_yoy | +0.541 |
+| imacec_var | precio_yoy | -0.276 |
+| d_tasa_hipo | descuento_yoy | +0.245 |
+| d_desempleo | velocidad_yoy | -0.228 |
+| d_desempleo | plazo_yoy | +0.215 |
+| d_desempleo | descuento_yoy | +0.304 |
+| ipv_general_yoy | precio_yoy | -0.558 |
+| ipv_general_yoy | velocidad_yoy | -0.423 |
+| ipv_general_yoy | plazo_yoy | -0.258 |
+| ipv_general_yoy | sup_yoy | +0.399 |
+| icoi_yoy | sup_yoy | +0.416 |
 
 ### audp_zone/casa (n=47 trim)
 
 | Macro | Producto | ρ Spearman |
 |---|---|---|
-| imacec_var | plazo_yoy | -0.420 |
-| d_tasa_hipo | velocidad_yoy | -0.383 |
-| d_tasa_hipo | plazo_yoy | +0.289 |
-| ipv_general_yoy | velocidad_yoy | +0.440 |
-| ipv_general_yoy | plazo_yoy | -0.497 |
-| icoi_yoy | precio_yoy | +0.491 |
-| icoi_yoy | velocidad_yoy | +0.234 |
-| icoi_yoy | descuento_yoy | -0.569 |
-| icoi_yoy | sup_yoy | -0.379 |
+| imacec_var | plazo_yoy | -0.419 |
+| d_tasa_hipo | velocidad_yoy | -0.385 |
+| d_tasa_hipo | plazo_yoy | +0.295 |
+| ipv_general_yoy | velocidad_yoy | +0.432 |
+| ipv_general_yoy | plazo_yoy | -0.490 |
+| icoi_yoy | precio_yoy | +0.498 |
+| icoi_yoy | velocidad_yoy | +0.226 |
+| icoi_yoy | descuento_yoy | -0.563 |
+| icoi_yoy | sup_yoy | -0.377 |
 
 ### audp_zone/townhouse (n=37 trim)
 
 | Macro | Producto | ρ Spearman |
 |---|---|---|
 | imacec_var | velocidad_yoy | -0.356 |
-| imacec_var | sup_yoy | +0.294 |
-| d_tasa_hipo | velocidad_yoy | -0.277 |
-| d_tasa_hipo | plazo_yoy | +0.280 |
-| d_tasa_hipo | sup_yoy | -0.298 |
-| ipv_general_yoy | plazo_yoy | -0.303 |
-| ipv_general_yoy | sup_yoy | +0.415 |
+| imacec_var | sup_yoy | +0.316 |
+| d_tasa_hipo | velocidad_yoy | -0.293 |
+| d_tasa_hipo | plazo_yoy | +0.264 |
+| d_tasa_hipo | sup_yoy | -0.260 |
+| ipv_general_yoy | plazo_yoy | -0.332 |
+| ipv_general_yoy | sup_yoy | +0.375 |
 
 ### nacional/edif_4p (n=48 trim)
 

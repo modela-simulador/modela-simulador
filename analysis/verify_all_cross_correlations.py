@@ -96,6 +96,60 @@ print(f'  Significativas (|ρ| > 0.20):    {total_significativas}')
 print(f'  Fuertes (|ρ| > 0.40):           contadas más abajo')
 print(f'  No calibradas (data insuficiente): {total_skipped}')
 
+# ── Test riguroso de significancia 95% (Spearman) ──
+# Para Spearman con sample size n, |ρ| crítico al 95% bilateral ≈ 1.96/√(n−3).
+# Las correlaciones por debajo de ese umbral son indistinguibles de cero.
+print('\n\n═══ TEST RIGUROSO DE SIGNIFICANCIA AL 95% ═══\n')
+print(f'  Umbral crítico: |ρ| > 1.96/√(n−3)\n')
+n_real_signal = 0
+n_fake_signal = 0
+n_below_thr = 0
+fake_by_cell = {}
+for zone in cross_models:
+    for fam in cross_models[zone]:
+        corr = cross_models[zone][fam]['corr_spearman']
+        n = cross_models[zone][fam]['n_trimestres']
+        rho_crit = 1.96 / np.sqrt(max(n - 3, 1))
+        cell_real = 0
+        cell_fake = 0
+        cell_below = 0
+        for ma in MACROS:
+            for pr in PRODUCTS:
+                if ma in corr and pr in corr[ma]:
+                    rho = abs(corr[ma][pr])
+                    if rho > rho_crit:
+                        n_real_signal += 1; cell_real += 1
+                    elif rho > 0.20:
+                        n_fake_signal += 1; cell_fake += 1
+                    else:
+                        n_below_thr += 1; cell_below += 1
+        fake_by_cell[(zone, fam, n, rho_crit)] = (cell_real, cell_fake, cell_below)
+
+print(f'  Pasan significancia 95% (señal real):     {n_real_signal}')
+print(f'  Reportadas como sig. pero son ruido:      {n_fake_signal}')
+print(f'  Bajo umbral |ρ|≤0.20 (no reclamadas):     {n_below_thr}')
+print()
+print('  Por celda (zona/familia):')
+print(f'    {"celda":30s} {"n":>4} {"ρ_crit_95":>10} {"sig real":>9} {"ruido":>7} {"<0.20":>7}')
+for (zone, fam, n, rho_crit), (real, fake, below) in sorted(fake_by_cell.items(), key=lambda x: x[0][2]):
+    cell = f'{zone}/{fam}'
+    print(f'    {cell:30s} {n:>4} {rho_crit:>10.3f} {real:>9} {fake:>7} {below:>7}')
+
+# Si shrinkage está aplicado, mostrarlo
+print('\n\n═══ SHRINKAGE BAYESIANO APLICADO ═══\n')
+any_shrinkage = False
+for zone in cross_models:
+    for fam in cross_models[zone]:
+        m = cross_models[zone][fam]
+        if 'shrinkage_applied' in m:
+            any_shrinkage = True
+            sh = m['shrinkage_applied']
+            print(f'  {zone}/{fam} (n={sh["n_local"]}):')
+            print(f'    α={sh["alpha"]:.2f} → corr_spearman = {sh["alpha"]*100:.0f}% local + {(1-sh["alpha"])*100:.0f}% prior')
+            print(f'    prior: {sh["prior"]}')
+if not any_shrinkage:
+    print('  Sin shrinkage aplicado (todas las celdas tienen n suficiente)')
+
 # Top correlaciones por magnitud
 print('\n\n═══ TOP 30 CORRELACIONES CROSS MAS FUERTES (todas las zonas/familias) ═══\n')
 all_correlations = []

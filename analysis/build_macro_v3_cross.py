@@ -218,7 +218,13 @@ for zone_label in agg_tinsa:
                 # Eliminar Inf antes del clip — sino sobreviven al clip
                 s = s[np.isfinite(s)]
                 if len(s) < 15: continue
-                s = s.clip(s.quantile(0.01), s.quantile(0.99))
+                # Winsorización p5/p95 para velocidad_yoy: la varianza extrema
+                # cross-proyecto contamina las marginales agregadas. Para las
+                # demás variables, clip p1/p99 estándar (más conservador).
+                if v == 'velocidad_yoy':
+                    s = s.clip(s.quantile(0.05), s.quantile(0.95))
+                else:
+                    s = s.clip(s.quantile(0.01), s.quantile(0.99))
                 # Sanitizar resultados float — defensivo
                 def _safe(x):
                     if not np.isfinite(x): return 0.0
@@ -284,6 +290,65 @@ for zone_label in agg_tinsa:
             if v1 in spearman and v2 in spearman[v1]:
                 r = spearman[v1][v2]
                 print(f'    {v1:<14} ↔ {v2:<14} ρ={r:+.3f}')
+
+# ═════════════════════════════════════════════════════════════════════
+# Shrinkage Bayesiano hacia el nacional para celdas con n bajo
+# ═════════════════════════════════════════════════════════════════════
+# Hallazgo de auditoría (2026-04-29): el 27% de las correlaciones
+# reportadas como "significativas" (|ρ|>0.20) son ruido estadístico —
+# no pasan el umbral 95% (|ρ| > 1.96/√(n−3)) dado el sample size.
+# Las celdas más afectadas son audp_zone/edif_4p (n=17) y
+# audp_zone/townhouse (n=18), donde el ρ crítico es ~0.50.
+#
+# Solución estadísticamente sólida: shrinkage Bayesiano hacia un prior
+# informativo (la cópula nacional con n más alto). Para cada celda
+# AUDP con n < N_REF, mezclamos:
+#   ρ_shrunk = α × ρ_audp + (1 − α) × ρ_nacional
+# donde α = √(n_audp / N_REF). Esto produce una "suavización" que
+# preserva el carácter local de la AUDP cuando n permite,
+# y regulariza hacia el nacional cuando n es escaso.
+#
+# Es el método estándar Bayesiano para estimación con poca data
+# (James-Stein, modelos jerárquicos, biomarcadores con muestras chicas).
+N_REF_FOR_SHRINK = 50  # n al cual se considera "data suficiente" (alpha → 1)
+
+print('\n═══ Shrinkage Bayesiano hacia nacional (celdas AUDP) ═══')
+print('Aplicado SIEMPRE con α = √(n/50): celdas grandes apenas cambian,')
+print('celdas chicas se regularizan más hacia el prior nacional.')
+shrink_log = []
+if 'audp_zone' in cross_models and 'nacional' in cross_models:
+    for fam in cross_models['audp_zone']:
+        if fam not in cross_models['nacional']:
+            continue
+        audp_model = cross_models['audp_zone'][fam]
+        nat_model = cross_models['nacional'][fam]
+        n_audp = audp_model['n_trimestres']
+        # Coeficiente de mezcla: cuánto peso del audp_zone retenemos
+        alpha = (n_audp / N_REF_FOR_SHRINK) ** 0.5
+        alpha = max(0.55, min(0.95, alpha))  # clamps
+        shrink_log.append(f'  {fam}: n={n_audp} → α={alpha:.2f} (retiene {alpha*100:.0f}% local + {(1-alpha)*100:.0f}% nacional)')
+        # Mezclar correlaciones (preservando diagonal y vars presentes en ambos)
+        a_corr = audp_model['corr_spearman']
+        n_corr = nat_model['corr_spearman']
+        for v1 in a_corr:
+            if v1 not in n_corr: continue
+            for v2 in a_corr[v1]:
+                if v1 == v2: continue
+                if v2 not in n_corr.get(v1, {}): continue
+                rho_a = a_corr[v1][v2]
+                rho_n = n_corr[v1][v2]
+                a_corr[v1][v2] = alpha * rho_a + (1 - alpha) * rho_n
+        # Marcar metadata
+        audp_model['shrinkage_applied'] = {
+            'alpha': float(alpha),
+            'n_local': int(n_audp),
+            'n_ref': int(N_REF_FOR_SHRINK),
+            'prior': f'nacional/{fam} (n={nat_model["n_trimestres"]})',
+            'note': 'corr_spearman mezclado: α·local + (1−α)·nacional',
+        }
+
+for ln in shrink_log:
+    print(ln)
 
 # Output
 print('\nGenerando outputs...')

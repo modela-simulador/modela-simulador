@@ -11457,7 +11457,11 @@ function peResimulate() {
   const velFactor = 1 + (peVelocidadPct || 0) / 100;
   const p = Object.assign({}, peBaseParams);
   p.velMult = velFactor;
-  p.opsEscenario = 'esperada'; // baseline fijo: la velocidad es el único dial
+  // FIX (auditoría 29-abr): respetar opsEscenario del UI (antes hardcodeado
+  // a 'esperada', sobrescribiendo el panel del usuario silenciosamente).
+  // Usar el valor de peBaseParams que viene de la última simulación 'Ejecutar'.
+  // Si está vacío, default 'esperada'.
+  p.opsEscenario = peBaseParams.opsEscenario || 'esperada';
   p.maxAnnualUnitsOverride = 900 * velFactor;
   // Override plusvalía con el valor del input de PE (default 1%).
   // Esto afecta: tickets de viviendas (DS19, Casas, Deptos, Townhouses)

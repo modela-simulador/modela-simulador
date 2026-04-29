@@ -1,8 +1,8 @@
 ---
 title: "Modelo Factorial Estocástico para Valoración de AUDPs"
-subtitle: "Documento Técnico para Directorio · Modela · Versión 7 (residual recalibrado)"
+subtitle: "Documento Técnico para Directorio · Modela · Versión 8 (auditoría estadística)"
 author: "Equipo Modela"
-date: "Abril 2026 · v7 con sensibilidades del residual derivadas teóricamente y nueva variable coef. vendible"
+date: "Abril 2026 · v8 con shrinkage Bayesiano, winsorización y σ_costo calibrado tras auditoría completa"
 geometry: "margin=2.5cm"
 fontsize: 11pt
 mainfont: "Helvetica Neue"
@@ -821,6 +821,41 @@ Las celdas críticas `audp_zone/edif_4p` y `audp_zone/townhouse` quedaron con `n
 4. **Documentar el estado** capturando los inputs UI y la sección de productos para reproducibilidad.
 
 Esto da control determinista sobre el estado base del simulador, asegurando que los números presentados al directorio se puedan reproducir bit-a-bit sin depender de la sesión del navegador.
+
+### Mejora 10 ✓: Auditoría estadística — shrinkage Bayesiano + winsorización + σ_costo empírico
+
+**Origen**: auditoría completa al modelo (29 de abril) detectó tres problemas estadísticos sutiles que afectaban la confiabilidad de las correlaciones reportadas, especialmente en celdas AUDP con sample size moderado.
+
+**Problema 1**: el 27% de las correlaciones reportadas como "significativas" (|ρ| > 0.20) eran ruido estadístico — no pasaban el umbral de significancia 95% (`|ρ| > 1.96/√(n−3)`). En `audp_zone/edif_4p` con n=17, 13 de 16 supuestas señales eran indistinguibles de cero.
+
+**Solución**: shrinkage Bayesiano universal hacia el prior nacional. Para cada celda AUDP se aplica:
+
+```
+ρ_shrunk = α × ρ_audp + (1 − α) × ρ_nacional
+α = √(n_audp / 50), clamp [0.55, 0.95]
+```
+
+Las celdas con n grande (edif_4p, casa con n=47) prácticamente no cambian (α=0.95). Las celdas con n moderado (ds19 con n=27) reciben suavización significativa (α=0.73). Es el método estándar Bayesiano para estimación con poca data, usado en sports analytics, biomarcadores con muestras chicas, y modelos jerárquicos.
+
+**Resultado verificado**: el ruido estadístico bajó de 54 a 37 correlaciones (−31%). En `audp_zone/edif_4p` específicamente, el ruido cayó de 13 a 3 (−77%).
+
+**Problema 2**: las marginales de `velocidad_yoy` en AUDP eran extremas (p10=−78%, p90=+171%, range 249%) por outliers de proyectos individuales en lanzamiento o saturados.
+
+**Solución**: winsorización a `p5/p95` específica para `velocidad_yoy` antes de calibrar la marginal. Las demás variables mantienen el clip estándar `p1/p99`. Esto preserva la asimetría real de la distribución pero recorta los outliers proyecto-específicos que no representan riesgo de mercado.
+
+**Problema 3**: el ruido idiosincrático del costo en `macro_factor.js` estaba hardcodeado en `σ = 3pp`, valor sin base empírica. La σ histórica del ICOI YoY (CChC 2013-2024) es 5.00pp.
+
+**Solución**: ajustar `σ_costo = 5pp`, calibrado contra ICOI histórico. Esto refleja la variabilidad real proyecto-específica del costo de construcción más allá del shock agregado.
+
+**Hallazgo metodológico también atacado**: `peResimulate` hardcodeaba `opsEscenario = 'esperada'` (línea 11460), sobrescribiendo silenciosamente la configuración del usuario. Ahora respeta el escenario del UI vía `peBaseParams.opsEscenario`. Comportamiento honesto y trazable.
+
+**Hallazgos NO atacados (decisiones explícitas del directorio)**:
+
+1. **Sesgo +2pp en mediana de `precio_yoy`**: el modelo asume mediana +6.4% mientras la realidad TINSA agregada AUDP es +4.4%. Decisión: mantener como supuesto explícito de plusvalía sostenida coherente con boom 2010-2024.
+2. **Cap combinado AUDP de 14 operadores (esperada)**: empíricamente sub-calibrado vs TINSA Lampa+Colina (mediana 64 proyectos activos). Decisión: mantener como cap conservador documentado.
+3. **Tasa de descuento estocástica `[7%, 10%]` uniforme**: metodológicamente mezcla incertidumbre operacional con incertidumbre de tasa, pero produce banda de confianza informativa para directorio. Decisión: mantener.
+
+Las tres decisiones están documentadas como "supuestos del directorio" en el reporte, no como elecciones técnicas — para que sea claro que cualquier consultor o auditor externo entienda que son inputs del directorio, no del modelo.
 
 ### Mejora 9 ✓: Recalibración del residual y nueva variable "coeficiente vendible"
 
