@@ -355,12 +355,109 @@
     return Object.keys(global.MACRO_FACTOR_V2.family_models);
   }
 
+  // ════════════════════════════════════════════════════════════════
+  // v3 Sampler — Cópula CROSS unificada (10D: macros + producto)
+  // ════════════════════════════════════════════════════════════════
+  // Captura correlaciones DIRECTAS macro↔producto (e.g., desempleo↔precio)
+  // que v1/v2 perdían al mediar por regresión OLS.
+
+  function createV3(family, opts) {
+    opts = opts || {};
+    const nu = opts.nu || 4;
+    const zone = opts.zone || 'audp_zone';
+
+    if (!global.MACRO_FACTOR_V3) {
+      throw new Error('macro_factor_v3.js no cargado (window.MACRO_FACTOR_V3)');
+    }
+    const M = global.MACRO_FACTOR_V3;
+    const fam = M.cross_models[zone] && M.cross_models[zone][family];
+    if (!fam) {
+      throw new Error('Familia/zona desconocida en MACRO_FACTOR_V3: ' + zone + '/' + family);
+    }
+
+    // Variables: 5 macros + 5 producto (10 dim)
+    const VARS = fam.vars;
+    const n = VARS.length;
+
+    const math = getMath();
+    const R_p = Array.from({ length: n }, () => new Array(n).fill(0));
+    for (let i = 0; i < n; i++) {
+      for (let j = 0; j < n; j++) {
+        if (i === j) {
+          R_p[i][j] = 1;
+        } else {
+          const rs = fam.corr_spearman[VARS[i]][VARS[j]];
+          R_p[i][j] = 2 * Math.sin(Math.PI / 6 * rs);
+        }
+      }
+    }
+    const L = math.cholesky(R_p);
+
+    function empQuantile(pcts, u) {
+      const idx = u * 100 - 1;
+      if (idx <= 0) return pcts[0];
+      if (idx >= 98) return pcts[98];
+      const lo = Math.floor(idx);
+      return pcts[lo] * (1 - (idx - lo)) + pcts[lo + 1] * (idx - lo);
+    }
+
+    function sampleOne(rng) {
+      const t = sampleMVTUnit(L, nu, rng);
+      const u = t.map(ti => math.tCdf(ti, nu));
+
+      const sample = {};
+      for (let i = 0; i < n; i++) {
+        const v = VARS[i];
+        sample[v] = empQuantile(fam.marginals[v].pcts, u[i]);
+      }
+
+      // En v3 las variables PRODUCTO ya vienen sampleadas directamente de la cópula
+      // (no se derivan de regresión). Solo agregamos clamps para guard rails.
+      const precio_yoy = Math.max(-50, Math.min(60, sample['precio_yoy'] || 0));
+      const velocidad_yoy = Math.max(-60, Math.min(80, sample['velocidad_yoy'] || 0));
+      const plazo_yoy = Math.max(-30, Math.min(40, sample['plazo_yoy'] || 0));
+
+      // Para costo, derivamos de ICOI (no está como variable producto en TINSA)
+      const icoiSampled = sample['icoi_yoy'] || 0;
+      const costo_yoy = icoiSampled + gauss(rng) * 3;  // σ idiosincrático fijo
+
+      return {
+        precio_yoy,
+        velocidad_yoy,
+        costo_yoy,
+        plazo_yoy,
+        macros: sample,
+      };
+    }
+
+    function sample(N, rng) {
+      const out = new Array(N);
+      for (let i = 0; i < N; i++) out[i] = sampleOne(rng);
+      return out;
+    }
+
+    return {
+      family, zone, nu,
+      version: 'v3',
+      vars: VARS.slice(),
+      familyModel: fam,
+      sampleOne, sample,
+    };
+  }
+
+  function listZonesV3() {
+    if (!global.MACRO_FACTOR_V3) return [];
+    return Object.keys(global.MACRO_FACTOR_V3.cross_models);
+  }
+
   global.MacroFactor = {
     create,
     createV2,
+    createV3,
     listPresets,
     getPreset,
     listZonesV2,
+    listZonesV3,
     MACRO_VARS_BASE,
   };
 

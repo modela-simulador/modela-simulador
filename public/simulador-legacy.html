@@ -24,6 +24,8 @@
   <script src="macro_factor_c.js"></script>
   <!-- Factor Model v2: cópula expandida (8 vars) + zona AUDP + IPV lag-3 + polinómica -->
   <script src="macro_factor_v2.js"></script>
+  <!-- Factor Model v3: cópula CROSS unificada (10D macros + producto, sin regresión) -->
+  <script src="macro_factor_v3.js"></script>
   <script src="macro_factor.js"></script>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
@@ -2012,18 +2014,21 @@
         <!-- Toggle de modos: Factor v2 / Factor v1 / Empírico / Paramétrico -->
         <div class="mc-section-title" style="margin-top:10px">Modelo de marginales</div>
         <div style="background:#f1f5f9;border:1px solid #e2e8f0;border-radius:6px;padding:8px 10px;display:flex;flex-direction:column;gap:6px">
-          <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:3px">
-            <button id="mc-mode-factor-v2" type="button" onclick="setMCMode('factor_v2')" style="padding:6px 3px;font-size:9.5px;font-weight:700;border:1px solid #16a34a;border-radius:5px;background:#16a34a;color:#fff;cursor:pointer">
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr;gap:2px">
+            <button id="mc-mode-factor-v3" type="button" onclick="setMCMode('factor_v3')" style="padding:6px 2px;font-size:8.5px;font-weight:700;border:1px solid #db2777;border-radius:5px;background:#db2777;color:#fff;cursor:pointer">
+              ⭐ v3 CROSS
+            </button>
+            <button id="mc-mode-factor-v2" type="button" onclick="setMCMode('factor_v2')" style="padding:6px 2px;font-size:8.5px;font-weight:600;border:1px solid #cbd5e1;border-radius:5px;background:#fff;color:#334155;cursor:pointer">
               🌟 Factor v2
             </button>
-            <button id="mc-mode-factor" type="button" onclick="setMCMode('factor')" style="padding:6px 3px;font-size:9.5px;font-weight:600;border:1px solid #cbd5e1;border-radius:5px;background:#fff;color:#334155;cursor:pointer">
-              🌎 Factor v1
+            <button id="mc-mode-factor" type="button" onclick="setMCMode('factor')" style="padding:6px 2px;font-size:8.5px;font-weight:600;border:1px solid #cbd5e1;border-radius:5px;background:#fff;color:#334155;cursor:pointer">
+              🌎 v1
             </button>
-            <button id="mc-mode-empirical" type="button" onclick="setMCMode('empirical')" style="padding:6px 3px;font-size:9.5px;font-weight:600;border:1px solid #cbd5e1;border-radius:5px;background:#fff;color:#334155;cursor:pointer">
+            <button id="mc-mode-empirical" type="button" onclick="setMCMode('empirical')" style="padding:6px 2px;font-size:8.5px;font-weight:600;border:1px solid #cbd5e1;border-radius:5px;background:#fff;color:#334155;cursor:pointer">
               📊 Empírico
             </button>
-            <button id="mc-mode-parametric" type="button" onclick="setMCMode('parametric')" style="padding:6px 3px;font-size:9.5px;font-weight:600;border:1px solid #cbd5e1;border-radius:5px;background:#fff;color:#334155;cursor:pointer">
-              ⚙ Paramétrico
+            <button id="mc-mode-parametric" type="button" onclick="setMCMode('parametric')" style="padding:6px 2px;font-size:8.5px;font-weight:600;border:1px solid #cbd5e1;border-radius:5px;background:#fff;color:#334155;cursor:pointer">
+              ⚙ Param.
             </button>
           </div>
           <div id="mc-mode-hint" style="font-size:10px;color:#64748b;line-height:1.3;font-style:italic">
@@ -11577,6 +11582,22 @@ const MC = (function(){
     }
   }
 
+  // ── Cache del Factor Model v3 (cross-cópula) ──
+  const _factorV3Cache = {};
+  function _getFactorSamplerV3(family, zone){
+    const key = family + '|' + zone;
+    if (_factorV3Cache[key]) return _factorV3Cache[key];
+    if (!window.MacroFactor || !window.MACRO_FACTOR_V3) return null;
+    if (!window.MacroFactor.createV3) return null;
+    try {
+      _factorV3Cache[key] = window.MacroFactor.createV3(family, { nu: 4, zone: zone });
+      return _factorV3Cache[key];
+    } catch (e) {
+      console.warn('[MC] no se pudo crear factor sampler v3:', family, zone, e);
+      return null;
+    }
+  }
+
   // ── Cache del Factor Model v2 (1 por familia × zona) ──
   const _factorV2Cache = {};
   function _getFactorSamplerV2(family, zone){
@@ -11736,7 +11757,22 @@ const MC = (function(){
     let factorCostoMult = null, factorPlazoMult = null;
     const _mode = window.mcMode || 'factor';
 
-    if (_mode === 'factor_v2') {
+    if (_mode === 'factor_v3') {
+      // Factor v3: cópula CROSS unificada (10D macros + producto)
+      const fam = window.mcEmpiricalFamily || 'edif_4p';
+      const zone = window.mcZone || 'audp_zone';
+      const sampler = _getFactorSamplerV3(fam, zone);
+      if (sampler && !_isSan) {
+        const draw = sampler.sampleOne(rng);
+        tm = Math.max(0.5, Math.min(2.0, 1 + draw.precio_yoy / 100));
+        vel = Math.max(-80, Math.min(150, draw.velocidad_yoy));
+        factorCostoMult = Math.max(0.6, Math.min(1.5, 1 + draw.costo_yoy / 100));
+        factorPlazoMult = Math.max(0.5, Math.min(2.0, 1 + draw.plazo_yoy / 100));
+      } else {
+        vel = Math.max(-60, Math.min(80, (cfg.velSigma || 22) * c[0]));
+        tm = _isSan ? 1.0 : 1.0 + (cfg.tmSigma / 100) * c[2];
+      }
+    } else if (_mode === 'factor_v2') {
       // Factor v2: cópula expandida + zona AUDP + IPV lag-3 + polinómica
       const fam = window.mcEmpiricalFamily || 'edif_4p';
       const zone = window.mcZone || 'audp_zone';
@@ -12180,15 +12216,16 @@ const MC_MODE_LABELS = {
 };
 
 // MC mode: 'factor_v2' (default) | 'factor' (v1) | 'empirical' | 'parametric'
-window.mcMode = 'factor_v2';
+window.mcMode = 'factor_v3';  // default: cópula CROSS (más completa)
 window.mcEmpiricalMode = false;
 window.mcEmpiricalFamily = 'edif_4p';
 window.mcFactorPreset = 'base_esperado';
-window.mcZone = 'audp_zone';  // 'audp_zone' o 'nacional' (solo aplica en v2)
+window.mcZone = 'audp_zone';
 
 function setMCMode(mode){
   window.mcMode = mode;
   window.mcEmpiricalMode = (mode === 'empirical');
+  const factorV3Btn = document.getElementById('mc-mode-factor-v3');
   const factorV2Btn = document.getElementById('mc-mode-factor-v2');
   const factorBtn = document.getElementById('mc-mode-factor');
   const empBtn = document.getElementById('mc-mode-empirical');
@@ -12197,28 +12234,30 @@ function setMCMode(mode){
   const factorPanel = document.getElementById('mc-factor-panel');
   const zonePanel = document.getElementById('mc-zone-panel');
 
-  const styleActive = (color) => 'padding:6px 3px;font-size:9.5px;font-weight:700;border:1px solid '+color+';border-radius:5px;background:'+color+';color:#fff;cursor:pointer';
-  const styleInactive = 'padding:6px 3px;font-size:9.5px;font-weight:600;border:1px solid #cbd5e1;border-radius:5px;background:#fff;color:#334155;cursor:pointer';
+  const styleActive = (color) => 'padding:6px 2px;font-size:8.5px;font-weight:700;border:1px solid '+color+';border-radius:5px;background:'+color+';color:#fff;cursor:pointer';
+  const styleInactive = 'padding:6px 2px;font-size:8.5px;font-weight:600;border:1px solid #cbd5e1;border-radius:5px;background:#fff;color:#334155;cursor:pointer';
 
+  if (factorV3Btn) factorV3Btn.style.cssText = mode === 'factor_v3' ? styleActive('#db2777') : styleInactive;
   if (factorV2Btn) factorV2Btn.style.cssText = mode === 'factor_v2' ? styleActive('#16a34a') : styleInactive;
   if (factorBtn)   factorBtn.style.cssText   = mode === 'factor'    ? styleActive('#2563eb') : styleInactive;
   if (empBtn)      empBtn.style.cssText      = mode === 'empirical' ? styleActive('#7c3aed') : styleInactive;
   if (parBtn)      parBtn.style.cssText      = mode === 'parametric'? styleActive('#475569') : styleInactive;
 
   if (hint) {
-    if (mode === 'factor_v2') {
-      hint.textContent = 'Factor v2 (recomendado para AUDPs): copula expandida 8 vars con lags + zona AUDP-relevante + IPV con lag t-3 + regresion polinomica. Calibrado sobre 14,708 obs zona AUDP.';
+    if (mode === 'factor_v3') {
+      hint.textContent = 'Factor v3 CROSS (mas completo): copula UNIFICADA 10D que correlaciona 5 macros con 5 variables producto directamente. Captura desempleo->precio, tasa-hipo->velocidad, etc. Sin pasar por regresion intermedia.';
+    } else if (mode === 'factor_v2') {
+      hint.textContent = 'Factor v2: copula expandida 8 vars con lags + zona AUDP + IPV lag-3 + regresion polinomica.';
     } else if (mode === 'factor') {
-      hint.textContent = 'Factor v1 (Op.C nacional): shocks directos IPV + ICOI + regresion OLS velocidad. Copula t 5 macros nacional. Util para comparar con v2.';
+      hint.textContent = 'Factor v1 (Op.C nacional): shocks directos IPV + ICOI + regresion OLS velocidad. Copula t 5 macros nacional.';
     } else if (mode === 'empirical') {
       hint.textContent = 'Copula t calibrada con Iman-Conover sobre 124k obs CIDU. Marginales empiricas, sin macros.';
     } else {
-      hint.textContent = 'Distribuciones parametricas legacy: Normal/Triangular independientes. Solo para reproducir analisis previos.';
+      hint.textContent = 'Distribuciones parametricas legacy: Normal/Triangular independientes.';
     }
   }
-  // Mostrar paneles correspondientes
   if (factorPanel) factorPanel.style.display = (mode === 'factor' || mode === 'factor_v2') ? 'flex' : 'none';
-  if (zonePanel)   zonePanel.style.display   = (mode === 'factor_v2') ? 'block' : 'none';
+  if (zonePanel)   zonePanel.style.display   = (mode === 'factor_v2' || mode === 'factor_v3') ? 'block' : 'none';
 }
 
 function setMCZone(zone){
@@ -12287,11 +12326,11 @@ function openMCAnalysis(){
   const sanDist = document.getElementById('mc-san-distributions');
   if (sanDist) sanDist.style.display = (peMode === 'sanAudp' || peMode === 'sanPduc') ? 'block' : 'none';
   // Sincronizar UI del toggle de modo (default Factor v2)
-  setMCMode(window.mcMode || 'factor_v2');
+  setMCMode(window.mcMode || 'factor_v3');
   if ((window.mcMode === 'factor_v2' || window.mcMode === 'factor') && typeof setFactorPreset === 'function') {
     setFactorPreset(window.mcFactorPreset || 'base_esperado');
   }
-  if (window.mcMode === 'factor_v2' && typeof setMCZone === 'function') {
+  if ((window.mcMode === 'factor_v2' || window.mcMode === 'factor_v3') && typeof setMCZone === 'function') {
     setMCZone(window.mcZone || 'audp_zone');
   }
   // Diagnóstico de representantes
