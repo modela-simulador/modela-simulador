@@ -1,8 +1,8 @@
 ---
 title: "Modelo Factorial Estocástico para Valoración de AUDPs"
-subtitle: "Documento Técnico para Directorio · Modela · Versión 5 (cópula CROSS + filtro de precio)"
+subtitle: "Documento Técnico para Directorio · Modela · Versión 6 (flujo MC clarificado)"
 author: "Equipo Modela"
-date: "Abril 2026 · v5 con filtro de precio TINSA para comparable AUDP-coherente y verificación 200/200"
+date: "Abril 2026 · v6 con explicación clara del flujo macro→VAN y tabla de variables del tornado"
 geometry: "margin=2.5cm"
 fontsize: 11pt
 mainfont: "Helvetica Neue"
@@ -405,79 +405,116 @@ El canal "Δ tasa hipotecaria → Velocidad" es **negativo en las ocho celdas si
 
 # 5. ¿Cómo se conectan los datos macro con el VAN del AUDP?
 
-Esta sección explica el flujo end-to-end del modelo.
+Esta sección explica el flujo end-to-end del modelo, con énfasis en aclarar una confusión común: **las variables macroeconómicas no entran al cálculo del VAN directamente**. Entran a través de su correlación con las variables de producto.
 
-## 5.1 El recorrido de un sample en el Monte Carlo
+## 5.1 El recorrido de un sample en el Monte Carlo (versión 3 actual)
+
+En el modo Factor v3 (default) hay una sola cópula 10-dimensional que samplea **simultáneamente** las cinco macros y las cinco variables de producto. Cada iteración del Monte Carlo dibuja un escenario completo coherente:
 
 ```
-PASO 1: Sortear shocks macro
-─────────────────────────────────────────
-Sample joint con t-cópula respetando correlaciones empíricas:
-- IMACEC variación %       (e.g., -2.5%)
-- Δ Tasa hipotecaria pp    (e.g., +0.8pp)
-- Δ Desempleo pp           (e.g., +1.2pp)
-- IPV YoY %                (e.g., +1.0%)
-- ICOI YoY %               (e.g., +5.7%)
+┌─────────────────────────────────────────────────────────────────┐
+│ PASO 1: La cópula dibuja UN escenario macro coherente            │
+└─────────────────────────────────────────────────────────────────┘
+
+  La cópula t (entrenada con 401 trimestres BCCh/INE 2010-2024)
+  saca un escenario macro respetando las correlaciones históricas:
+
+    IMACEC          = +1.2%       ← variación PIB anual
+    Δ tasa hipo     = +0.4 pp     ← cambio interanual
+    Δ desempleo     = +0.6 pp     ← cambio interanual
+    IPV YoY         = +3.5%       ← inflación de viviendas (BCCh)
+    ICOI YoY        = +5.8%       ← inflación de costos construcción
 
          ↓
 
-PASO 2: Propagar a variables del proyecto (Capa 1)
-─────────────────────────────────────────
-Por cada familia (edif, ds19, casa, townhouse):
-  precio_yoy   = IPV_familiar_sampleado + ε       (shock directo + ruido)
-  costo_yoy   = ICOI_sampleado + ε                (shock directo + ruido)
-  velocidad   = α + β·macros + ε                  (regresión OLS)
-  plazo_yoy   = ε                                 (ruido idiosincrático)
+┌─────────────────────────────────────────────────────────────────┐
+│ PASO 2: La MISMA cópula dibuja las variables de producto         │
+└─────────────────────────────────────────────────────────────────┘
+
+  Como la cópula es 10-dimensional, en el mismo sampleo salen
+  junto a las macros las cinco variables de producto, correlacionadas
+  con ellas según los datos empíricos TINSA × macros:
+
+    precio_yoy      = +2.8%       ← ticket sube 2.8%
+    velocidad_yoy   = -3.5%       ← venta cae 3.5%
+    plazo_yoy       = +1.2%       ← obra demora 1.2% más
+    descuento_yoy   = +0.5%       ← descuentos suben 0.5%
+    tamaño_yoy      = -0.2%       ← unidades 0.2% más chicas
 
          ↓
 
-PASO 3: Convertir a multipliers
-─────────────────────────────────────────
-tm         = 1 + precio_yoy/100      (multiplicador ticket)
-vel        = velocidad_yoy            (% sobre baseline)
-costoMult  = 1 + costo_yoy/100
-plazoMult  = 1 + plazo_yoy/100
+┌─────────────────────────────────────────────────────────────────┐
+│ PASO 3: Las cuatro variables de proyecto entran al cálculo VAN   │
+└─────────────────────────────────────────────────────────────────┘
+
+    tm         = 1 + 2.8/100  = 1.028   ← multiplica ingresos
+    vel        = -3.5                    ← ajusta velocidad de venta
+    costoMult  = 1 + costo/100           ← derivado de ICOI vía residual
+    plazoMult  = 1 + 1.2/100             ← multiplica plazo vía residual
 
          ↓
 
-PASO 4: Aplicar a la incidencia del residual
-─────────────────────────────────────────
-Para cada familia con representante guardado:
-  Δincidencia = ∂i/∂ticket × (tm-1) +
-                ∂i/∂vel × (vel/100) +
-                ∂i/∂costo × (costoMult-1) +
-                ∂i/∂plazo × (plazoMult-1)
-  PRODUCTS[fam].incidencia = baseline + Δincidencia
+┌─────────────────────────────────────────────────────────────────┐
+│ PASO 4: peResimulate recalcula el flujo de caja                  │
+└─────────────────────────────────────────────────────────────────┘
+
+  Con los nuevos multiplicadores:
+    - Velocidad ajustada (peVelocidadPct = vel)
+    - Ticket multiplicado (tm aplica a revenue)
+    - Incidencia ajustada (Δincidencia desde sensibilidades del residual)
+    - Costos triangulares idiosincráticos (infra, mitigaciones, sanitaria)
+
+  Calcula el flujo de caja AUDP año a año.
 
          ↓
 
-PASO 5: Re-correr peResimulate del flujo AUDP
-─────────────────────────────────────────
-Con los nuevos valores en PRODUCTS:
-- Velocidad cambiada (peVelocidadPct = vel)
-- Ticket multiplicado (tm aplica a revenue)
-- Incidencia ajustada (vía Δincidencia)
-- Costos triangulares (infra, mit, san)
-- Tasa descuento sortado uniforme
+┌─────────────────────────────────────────────────────────────────┐
+│ PASO 5: VAN del AUDP                                             │
+└─────────────────────────────────────────────────────────────────┘
 
-Calcula el flujo de caja del AUDP año a año.
+  VAN = Σ flujo_t / (1 + discRate)^t
 
-         ↓
-
-PASO 6: Calcular VAN del AUDP
-─────────────────────────────────────────
-VAN = Σ flujo_t / (1 + discRate)^t
-
-         ↓
-
-PASO 7: Almacenar resultado
-─────────────────────────────────────────
-Guardar VAN en lista de resultados.
+  Almacenar el VAN en la lista de resultados.
 ```
 
 Este ciclo se repite N veces (típicamente 3.000-10.000), y al final tenemos la **distribución completa del VAN AUDP** bajo los escenarios sampleados.
 
-## 5.2 Sobre la velocidad: una variable, dos efectos
+## 5.2 La parte clave que confunde — las macros NO entran al cálculo del VAN
+
+Una vez que la cópula dibuja el escenario completo, **las macros no aparecen en ninguna fórmula del cálculo financiero del AUDP**. No hay una línea de código que diga `VAN = f(IMACEC, tasa hipo, ...)`.
+
+Lo que efectivamente entra al cálculo del VAN son las **cuatro variables de proyecto** (precio, velocidad, costo, plazo). Las macros están ahí como **observables del escenario**: la cópula garantiza que cuando el modelo dibuja `precio +5%` y `velocidad -10%`, eso pasa simultáneamente con un `IMACEC` bajo y un `desempleo` alto, **porque así pasó en la historia chilena**. Las macros son la "explicación" del por qué precio y velocidad se movieron así.
+
+### ¿Por qué entonces aparecen en el tornado de varianza?
+
+Después de las miles de iteraciones, el tornado mira:
+
+> "En las iteraciones donde el VAN salió alto, ¿qué valores tenían las macros? En las iteraciones donde el VAN salió bajo, ¿qué valores tenían las macros?"
+
+Si en los VAN altos sistemáticamente salía IMACEC alto, hay correlación → IMACEC contribuye a la varianza del VAN. Aunque IMACEC no entra al cálculo financiero, **se mueve junto a las cosas que sí entran** (precio, velocidad), y eso es suficiente para que el tornado lo detecte como driver.
+
+### Tabla resumen — dónde está cada variable
+
+| Variable | Origen | ¿Entra al VAN? | ¿Aparece en tornado? |
+|----------|--------|----------------|----------------------|
+| IMACEC | Cópula 10D (BCCh) | **No directamente** | **Sí** (correlación con VAN) |
+| Δ Tasa hipotecaria | Cópula 10D (BCCh) | **No directamente** | **Sí** (correlación con VAN) |
+| Δ Desempleo | Cópula 10D (INE) | **No directamente** | **Sí** (correlación con VAN) |
+| IPV YoY | Cópula 10D (BCCh) | **No directamente** | **Sí** (correlación con VAN) |
+| ICOI YoY | Cópula 10D (CChC) | **No directamente** | **Sí** (correlación con VAN) |
+| precio_yoy | Cópula 10D (TINSA) | Sí, vía `tm` | Sí (etiqueta "Ticket multiplier") |
+| velocidad_yoy | Cópula 10D (TINSA) | Sí, vía `vel` | Sí (etiqueta "Velocidad venta") |
+| plazo_yoy | Cópula 10D (TINSA) | Sí, vía residual | Sí (etiqueta "Plazo obra") |
+| costo_yoy | Derivado de ICOI | Sí, vía residual | Sí (etiqueta "Costo construcción") |
+| descuento_yoy, sup_yoy | Cópula 10D (TINSA) | No | Sí, como observables |
+
+Resumiendo en una línea: **las macros están en el sampleo (paso 1) pero no en el cálculo financiero (pasos 3-4); aparecen en el tornado porque el sampleo las mantuvo correlacionadas con las cuatro variables que sí entran al VAN.**
+
+### La intuición de directorio
+
+Es lo mismo que decir "este AUDP perdió plata porque vendió poco y caro" (lectura computacional, vía velocidad y ticket) o "este AUDP perdió plata porque coincidió con una recesión" (lectura interpretativa, vía IMACEC y desempleo). Son la misma simulación vista desde dos ángulos. La cópula garantiza que los dos ángulos describan el mismo evento — no inventa narrativas inconsistentes con los datos.
+
+## 5.3 Sobre la velocidad: una variable, dos efectos
 
 ![Velocidad: una variable con dos efectos económicos acoplados](figures/07_velocidad_acoplamiento.png){ width=100% }
 

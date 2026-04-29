@@ -97,10 +97,10 @@
 <h1 class="title">Modelo Factorial Estocástico para Valoración de
 AUDPs</h1>
 <p class="subtitle">Documento Técnico para Directorio · Modela · Versión
-5 (cópula CROSS + filtro de precio)</p>
+6 (flujo MC clarificado)</p>
 <p class="author">Equipo Modela</p>
-<p class="date">Abril 2026 · v5 con filtro de precio TINSA para
-comparable AUDP-coherente y verificación 200/200</p>
+<p class="date">Abril 2026 · v6 con explicación clara del flujo
+macro→VAN y tabla de variables del tornado</p>
 </header>
 <nav id="TOC" role="doc-toc">
 <ul>
@@ -241,13 +241,33 @@ id="toc-cómo-se-conectan-los-datos-macro-con-el-van-del-audp"><span
 class="toc-section-number">6</span> 5. ¿Cómo se conectan los datos macro
 con el VAN del AUDP?</a>
 <ul>
-<li><a href="#el-recorrido-de-un-sample-en-el-monte-carlo"
-id="toc-el-recorrido-de-un-sample-en-el-monte-carlo"><span
+<li><a
+href="#el-recorrido-de-un-sample-en-el-monte-carlo-versión-3-actual"
+id="toc-el-recorrido-de-un-sample-en-el-monte-carlo-versión-3-actual"><span
 class="toc-section-number">6.1</span> 5.1 El recorrido de un sample en
-el Monte Carlo</a></li>
+el Monte Carlo (versión 3 actual)</a></li>
+<li><a
+href="#la-parte-clave-que-confunde-las-macros-no-entran-al-cálculo-del-van"
+id="toc-la-parte-clave-que-confunde-las-macros-no-entran-al-cálculo-del-van"><span
+class="toc-section-number">6.2</span> 5.2 La parte clave que confunde —
+las macros NO entran al cálculo del VAN</a>
+<ul>
+<li><a href="#por-qué-entonces-aparecen-en-el-tornado-de-varianza"
+id="toc-por-qué-entonces-aparecen-en-el-tornado-de-varianza"><span
+class="toc-section-number">6.2.1</span> ¿Por qué entonces aparecen en el
+tornado de varianza?</a></li>
+<li><a href="#tabla-resumen-dónde-está-cada-variable"
+id="toc-tabla-resumen-dónde-está-cada-variable"><span
+class="toc-section-number">6.2.2</span> Tabla resumen — dónde está cada
+variable</a></li>
+<li><a href="#la-intuición-de-directorio"
+id="toc-la-intuición-de-directorio"><span
+class="toc-section-number">6.2.3</span> La intuición de
+directorio</a></li>
+</ul></li>
 <li><a href="#sobre-la-velocidad-una-variable-dos-efectos"
 id="toc-sobre-la-velocidad-una-variable-dos-efectos"><span
-class="toc-section-number">6.2</span> 5.2 Sobre la velocidad: una
+class="toc-section-number">6.3</span> 5.3 Sobre la velocidad: una
 variable, dos efectos</a></li>
 </ul></li>
 <li><a href="#variables-del-modelo-catálogo-detallado"
@@ -1216,80 +1236,213 @@ como ρ=-0.78 deben leerse con una banda de confianza aproximada de
 id="cómo-se-conectan-los-datos-macro-con-el-van-del-audp"><span
 class="header-section-number">6</span> 5. ¿Cómo se conectan los datos
 macro con el VAN del AUDP?</h1>
-<p>Esta sección explica el flujo end-to-end del modelo.</p>
+<p>Esta sección explica el flujo end-to-end del modelo, con énfasis en
+aclarar una confusión común: <strong>las variables macroeconómicas no
+entran al cálculo del VAN directamente</strong>. Entran a través de su
+correlación con las variables de producto.</p>
 <h2 data-number="6.1"
-id="el-recorrido-de-un-sample-en-el-monte-carlo"><span
+id="el-recorrido-de-un-sample-en-el-monte-carlo-versión-3-actual"><span
 class="header-section-number">6.1</span> 5.1 El recorrido de un sample
-en el Monte Carlo</h2>
-<pre><code>PASO 1: Sortear shocks macro
-─────────────────────────────────────────
-Sample joint con t-cópula respetando correlaciones empíricas:
-- IMACEC variación %       (e.g., -2.5%)
-- Δ Tasa hipotecaria pp    (e.g., +0.8pp)
-- Δ Desempleo pp           (e.g., +1.2pp)
-- IPV YoY %                (e.g., +1.0%)
-- ICOI YoY %               (e.g., +5.7%)
+en el Monte Carlo (versión 3 actual)</h2>
+<p>En el modo Factor v3 (default) hay una sola cópula 10-dimensional que
+samplea <strong>simultáneamente</strong> las cinco macros y las cinco
+variables de producto. Cada iteración del Monte Carlo dibuja un
+escenario completo coherente:</p>
+<pre><code>┌─────────────────────────────────────────────────────────────────┐
+│ PASO 1: La cópula dibuja UN escenario macro coherente            │
+└─────────────────────────────────────────────────────────────────┘
+
+  La cópula t (entrenada con 401 trimestres BCCh/INE 2010-2024)
+  saca un escenario macro respetando las correlaciones históricas:
+
+    IMACEC          = +1.2%       ← variación PIB anual
+    Δ tasa hipo     = +0.4 pp     ← cambio interanual
+    Δ desempleo     = +0.6 pp     ← cambio interanual
+    IPV YoY         = +3.5%       ← inflación de viviendas (BCCh)
+    ICOI YoY        = +5.8%       ← inflación de costos construcción
 
          ↓
 
-PASO 2: Propagar a variables del proyecto (Capa 1)
-─────────────────────────────────────────
-Por cada familia (edif, ds19, casa, townhouse):
-  precio_yoy   = IPV_familiar_sampleado + ε       (shock directo + ruido)
-  costo_yoy   = ICOI_sampleado + ε                (shock directo + ruido)
-  velocidad   = α + β·macros + ε                  (regresión OLS)
-  plazo_yoy   = ε                                 (ruido idiosincrático)
+┌─────────────────────────────────────────────────────────────────┐
+│ PASO 2: La MISMA cópula dibuja las variables de producto         │
+└─────────────────────────────────────────────────────────────────┘
+
+  Como la cópula es 10-dimensional, en el mismo sampleo salen
+  junto a las macros las cinco variables de producto, correlacionadas
+  con ellas según los datos empíricos TINSA × macros:
+
+    precio_yoy      = +2.8%       ← ticket sube 2.8%
+    velocidad_yoy   = -3.5%       ← venta cae 3.5%
+    plazo_yoy       = +1.2%       ← obra demora 1.2% más
+    descuento_yoy   = +0.5%       ← descuentos suben 0.5%
+    tamaño_yoy      = -0.2%       ← unidades 0.2% más chicas
 
          ↓
 
-PASO 3: Convertir a multipliers
-─────────────────────────────────────────
-tm         = 1 + precio_yoy/100      (multiplicador ticket)
-vel        = velocidad_yoy            (% sobre baseline)
-costoMult  = 1 + costo_yoy/100
-plazoMult  = 1 + plazo_yoy/100
+┌─────────────────────────────────────────────────────────────────┐
+│ PASO 3: Las cuatro variables de proyecto entran al cálculo VAN   │
+└─────────────────────────────────────────────────────────────────┘
+
+    tm         = 1 + 2.8/100  = 1.028   ← multiplica ingresos
+    vel        = -3.5                    ← ajusta velocidad de venta
+    costoMult  = 1 + costo/100           ← derivado de ICOI vía residual
+    plazoMult  = 1 + 1.2/100             ← multiplica plazo vía residual
 
          ↓
 
-PASO 4: Aplicar a la incidencia del residual
-─────────────────────────────────────────
-Para cada familia con representante guardado:
-  Δincidencia = ∂i/∂ticket × (tm-1) +
-                ∂i/∂vel × (vel/100) +
-                ∂i/∂costo × (costoMult-1) +
-                ∂i/∂plazo × (plazoMult-1)
-  PRODUCTS[fam].incidencia = baseline + Δincidencia
+┌─────────────────────────────────────────────────────────────────┐
+│ PASO 4: peResimulate recalcula el flujo de caja                  │
+└─────────────────────────────────────────────────────────────────┘
+
+  Con los nuevos multiplicadores:
+    - Velocidad ajustada (peVelocidadPct = vel)
+    - Ticket multiplicado (tm aplica a revenue)
+    - Incidencia ajustada (Δincidencia desde sensibilidades del residual)
+    - Costos triangulares idiosincráticos (infra, mitigaciones, sanitaria)
+
+  Calcula el flujo de caja AUDP año a año.
 
          ↓
 
-PASO 5: Re-correr peResimulate del flujo AUDP
-─────────────────────────────────────────
-Con los nuevos valores en PRODUCTS:
-- Velocidad cambiada (peVelocidadPct = vel)
-- Ticket multiplicado (tm aplica a revenue)
-- Incidencia ajustada (vía Δincidencia)
-- Costos triangulares (infra, mit, san)
-- Tasa descuento sortado uniforme
+┌─────────────────────────────────────────────────────────────────┐
+│ PASO 5: VAN del AUDP                                             │
+└─────────────────────────────────────────────────────────────────┘
 
-Calcula el flujo de caja del AUDP año a año.
+  VAN = Σ flujo_t / (1 + discRate)^t
 
-         ↓
-
-PASO 6: Calcular VAN del AUDP
-─────────────────────────────────────────
-VAN = Σ flujo_t / (1 + discRate)^t
-
-         ↓
-
-PASO 7: Almacenar resultado
-─────────────────────────────────────────
-Guardar VAN en lista de resultados.</code></pre>
+  Almacenar el VAN en la lista de resultados.</code></pre>
 <p>Este ciclo se repite N veces (típicamente 3.000-10.000), y al final
 tenemos la <strong>distribución completa del VAN AUDP</strong> bajo los
 escenarios sampleados.</p>
 <h2 data-number="6.2"
+id="la-parte-clave-que-confunde-las-macros-no-entran-al-cálculo-del-van"><span
+class="header-section-number">6.2</span> 5.2 La parte clave que confunde
+— las macros NO entran al cálculo del VAN</h2>
+<p>Una vez que la cópula dibuja el escenario completo, <strong>las
+macros no aparecen en ninguna fórmula del cálculo financiero del
+AUDP</strong>. No hay una línea de código que diga
+<code>VAN = f(IMACEC, tasa hipo, ...)</code>.</p>
+<p>Lo que efectivamente entra al cálculo del VAN son las <strong>cuatro
+variables de proyecto</strong> (precio, velocidad, costo, plazo). Las
+macros están ahí como <strong>observables del escenario</strong>: la
+cópula garantiza que cuando el modelo dibuja <code>precio +5%</code> y
+<code>velocidad -10%</code>, eso pasa simultáneamente con un
+<code>IMACEC</code> bajo y un <code>desempleo</code> alto,
+<strong>porque así pasó en la historia chilena</strong>. Las macros son
+la “explicación” del por qué precio y velocidad se movieron así.</p>
+<h3 data-number="6.2.1"
+id="por-qué-entonces-aparecen-en-el-tornado-de-varianza"><span
+class="header-section-number">6.2.1</span> ¿Por qué entonces aparecen en
+el tornado de varianza?</h3>
+<p>Después de las miles de iteraciones, el tornado mira:</p>
+<blockquote>
+<p>“En las iteraciones donde el VAN salió alto, ¿qué valores tenían las
+macros? En las iteraciones donde el VAN salió bajo, ¿qué valores tenían
+las macros?”</p>
+</blockquote>
+<p>Si en los VAN altos sistemáticamente salía IMACEC alto, hay
+correlación → IMACEC contribuye a la varianza del VAN. Aunque IMACEC no
+entra al cálculo financiero, <strong>se mueve junto a las cosas que sí
+entran</strong> (precio, velocidad), y eso es suficiente para que el
+tornado lo detecte como driver.</p>
+<h3 data-number="6.2.2"
+id="tabla-resumen-dónde-está-cada-variable"><span
+class="header-section-number">6.2.2</span> Tabla resumen — dónde está
+cada variable</h3>
+<table>
+<colgroup>
+<col style="width: 17%" />
+<col style="width: 14%" />
+<col style="width: 28%" />
+<col style="width: 39%" />
+</colgroup>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Origen</th>
+<th>¿Entra al VAN?</th>
+<th>¿Aparece en tornado?</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>IMACEC</td>
+<td>Cópula 10D (BCCh)</td>
+<td><strong>No directamente</strong></td>
+<td><strong>Sí</strong> (correlación con VAN)</td>
+</tr>
+<tr>
+<td>Δ Tasa hipotecaria</td>
+<td>Cópula 10D (BCCh)</td>
+<td><strong>No directamente</strong></td>
+<td><strong>Sí</strong> (correlación con VAN)</td>
+</tr>
+<tr>
+<td>Δ Desempleo</td>
+<td>Cópula 10D (INE)</td>
+<td><strong>No directamente</strong></td>
+<td><strong>Sí</strong> (correlación con VAN)</td>
+</tr>
+<tr>
+<td>IPV YoY</td>
+<td>Cópula 10D (BCCh)</td>
+<td><strong>No directamente</strong></td>
+<td><strong>Sí</strong> (correlación con VAN)</td>
+</tr>
+<tr>
+<td>ICOI YoY</td>
+<td>Cópula 10D (CChC)</td>
+<td><strong>No directamente</strong></td>
+<td><strong>Sí</strong> (correlación con VAN)</td>
+</tr>
+<tr>
+<td>precio_yoy</td>
+<td>Cópula 10D (TINSA)</td>
+<td>Sí, vía <code>tm</code></td>
+<td>Sí (etiqueta “Ticket multiplier”)</td>
+</tr>
+<tr>
+<td>velocidad_yoy</td>
+<td>Cópula 10D (TINSA)</td>
+<td>Sí, vía <code>vel</code></td>
+<td>Sí (etiqueta “Velocidad venta”)</td>
+</tr>
+<tr>
+<td>plazo_yoy</td>
+<td>Cópula 10D (TINSA)</td>
+<td>Sí, vía residual</td>
+<td>Sí (etiqueta “Plazo obra”)</td>
+</tr>
+<tr>
+<td>costo_yoy</td>
+<td>Derivado de ICOI</td>
+<td>Sí, vía residual</td>
+<td>Sí (etiqueta “Costo construcción”)</td>
+</tr>
+<tr>
+<td>descuento_yoy, sup_yoy</td>
+<td>Cópula 10D (TINSA)</td>
+<td>No</td>
+<td>Sí, como observables</td>
+</tr>
+</tbody>
+</table>
+<p>Resumiendo en una línea: <strong>las macros están en el sampleo (paso
+1) pero no en el cálculo financiero (pasos 3-4); aparecen en el tornado
+porque el sampleo las mantuvo correlacionadas con las cuatro variables
+que sí entran al VAN.</strong></p>
+<h3 data-number="6.2.3" id="la-intuición-de-directorio"><span
+class="header-section-number">6.2.3</span> La intuición de
+directorio</h3>
+<p>Es lo mismo que decir “este AUDP perdió plata porque vendió poco y
+caro” (lectura computacional, vía velocidad y ticket) o “este AUDP
+perdió plata porque coincidió con una recesión” (lectura interpretativa,
+vía IMACEC y desempleo). Son la misma simulación vista desde dos
+ángulos. La cópula garantiza que los dos ángulos describan el mismo
+evento — no inventa narrativas inconsistentes con los datos.</p>
+<h2 data-number="6.3"
 id="sobre-la-velocidad-una-variable-dos-efectos"><span
-class="header-section-number">6.2</span> 5.2 Sobre la velocidad: una
+class="header-section-number">6.3</span> 5.3 Sobre la velocidad: una
 variable, dos efectos</h2>
 <figure>
 <img src="figures/07_velocidad_acoplamiento.png" style="width:100.0%"
