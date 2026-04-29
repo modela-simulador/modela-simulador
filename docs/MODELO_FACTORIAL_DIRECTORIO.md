@@ -1,8 +1,8 @@
 ---
 title: "Modelo Factorial Estocástico para Valoración de AUDPs"
-subtitle: "Documento Técnico para Directorio · Modela · Versión 6 (flujo MC clarificado)"
+subtitle: "Documento Técnico para Directorio · Modela · Versión 7 (residual recalibrado)"
 author: "Equipo Modela"
-date: "Abril 2026 · v6 con explicación clara del flujo macro→VAN y tabla de variables del tornado"
+date: "Abril 2026 · v7 con sensibilidades del residual derivadas teóricamente y nueva variable coef. vendible"
 geometry: "margin=2.5cm"
 fontsize: 11pt
 mainfont: "Helvetica Neue"
@@ -821,6 +821,43 @@ Las celdas críticas `audp_zone/edif_4p` y `audp_zone/townhouse` quedaron con `n
 4. **Documentar el estado** capturando los inputs UI y la sección de productos para reproducibilidad.
 
 Esto da control determinista sobre el estado base del simulador, asegurando que los números presentados al directorio se puedan reproducir bit-a-bit sin depender de la sesión del navegador.
+
+### Mejora 9 ✓: Recalibración del residual y nueva variable "coeficiente vendible"
+
+**Problema detectado en revisión del tornado** (29 de abril): tras los fixes de los canales de costo, el tornado mostraba un orden de drivers contraintuitivo: `Plazo obra (residual) = 29.0%` como driver #1 y `Costo construcción (residual) = 0.5%` muy abajo. Económicamente esto no se sostiene — un movimiento de ICOI del 5% destruye más valor que un plazo de obra +5% en cualquier proyecto inmobiliario chileno.
+
+**Tres causas raíz identificadas**:
+
+1. **Sensibilidades mal calibradas**: los valores `_DEFAULT_SENS` (`{ticket: 0.65, costo: -0.45, plazo: -0.12}`) eran "razonables" pero no derivados de la fórmula del residual. Aplicando diferenciación analítica a la fórmula estándar `i = (P − C − U − F)/P` y evaluando en el punto base de cada familia, las sensibilidades teóricas correctas son: `costo ≈ −0.60` (no −0.45) y `plazo ≈ −0.08` (no −0.15). El plazo estaba sobreestimado y el costo subestimado.
+
+2. **Clamps de multiplicadores demasiado amplios**: `costoMult` clampaba a `[0.6, 1.5]` (±50%) y `plazoMult` a `[0.5, 2.0]` (±100%). El histórico chileno 2010-2024 muestra que ICOI YoY raramente supera ±20% y que los plazos de obra varían ±15-25% sobre el plan. Los clamps anteriores permitían colas extremas que dominaban la varianza atribuida al plazo.
+
+3. **Variable arquitectónica faltante**: el coeficiente vendible (m² útiles / m² construidos), típicamente 0.78-0.92 en proyectos chilenos, no estaba modelado. Es una variable **del proyecto, no macro** — depende de la arquitectura específica (eficiencia de plantas, % circulaciones, balcones, núcleos de baño).
+
+**Calibración nueva** (todas derivadas teóricamente del residual estándar):
+
+| Familia | ∂i/∂ticket | ∂i/∂velocidad | ∂i/∂costo | ∂i/∂plazo | ∂i/∂coef_vendible |
+|---------|-----------:|--------------:|----------:|----------:|------------------:|
+| edif_4p | +0.70 | +0.08 | **−0.60** | **−0.08** | +0.65 |
+| ds19 | +0.50 | +0.06 | −0.45 | −0.06 | +0.50 |
+| casa | +0.65 | +0.07 | −0.55 | −0.07 | +0.60 |
+| townhouse | +0.65 | +0.07 | −0.55 | −0.07 | +0.60 |
+
+**Clamps nuevos**: `costoMult ∈ [0.85, 1.20]` (rango ICOI histórico ±20%), `plazoMult ∈ [0.85, 1.25]` (rango plazo realista ±25%).
+
+**Coeficiente vendible**: distribución triangular `(0.78, 0.85, 0.92)` independiente de la cópula macro (refleja heterogeneidad arquitectónica del proyecto). Aparece en el tornado con etiqueta "Coef. vendible (m² útiles/totales)". Cada punto perdido de eficiencia destruye revenue casi 1:1 sin reducir costos, por lo cual la sensibilidad sobre la incidencia es alta (∂i/∂coef ≈ +0.65 para Edif_4p).
+
+**Comportamiento esperado del tornado post-recalibración**:
+
+| Driver | Antes (sesgado) | Esperado (calibrado) |
+|--------|-----------------:|----------------------:|
+| Plazo obra (residual) | 29.0% | 4-7% |
+| Costo construcción (residual) | 0.5% | 8-15% |
+| Coef. vendible | n/a | 6-12% (nuevo) |
+| Velocidad venta | 18.2% | 15-20% |
+| Δ Desempleo (macro) | 17.5% | 10-15% |
+
+**Limitación honesta documentada**: los valores de sensibilidad provienen de derivación analítica, no de un residual real corrido con perturbaciones. Si el directorio dispone de un residual representativo del eje Norte (Lampa/Colina/Buin) con sus sensibilidades calculadas, el simulador puede reemplazar los defaults llamando a `loadRepresentantesFromResidual()` desde `/residual`.
 
 ### Mejora 6 ✓: Cópula CROSS unificada 10D (Versión 3)
 

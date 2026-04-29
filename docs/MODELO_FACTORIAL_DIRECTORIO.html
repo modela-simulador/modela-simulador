@@ -97,10 +97,10 @@
 <h1 class="title">Modelo Factorial Estocástico para Valoración de
 AUDPs</h1>
 <p class="subtitle">Documento Técnico para Directorio · Modela · Versión
-6 (flujo MC clarificado)</p>
+7 (residual recalibrado)</p>
 <p class="author">Equipo Modela</p>
-<p class="date">Abril 2026 · v6 con explicación clara del flujo
-macro→VAN y tabla de variables del tornado</p>
+<p class="date">Abril 2026 · v7 con sensibilidades del residual
+derivadas teóricamente y nueva variable coef. vendible</p>
 </header>
 <nav id="TOC" role="doc-toc">
 <ul>
@@ -378,9 +378,14 @@ href="#mejora-8-botón-resetear-productos-a-defaults-y-trazabilidad-de-estado"
 id="toc-mejora-8-botón-resetear-productos-a-defaults-y-trazabilidad-de-estado"><span
 class="toc-section-number">9.2.7</span> Mejora 8 ✓: Botón “Resetear
 productos a defaults” y trazabilidad de estado</a></li>
+<li><a
+href="#mejora-9-recalibración-del-residual-y-nueva-variable-coeficiente-vendible"
+id="toc-mejora-9-recalibración-del-residual-y-nueva-variable-coeficiente-vendible"><span
+class="toc-section-number">9.2.8</span> Mejora 9 ✓: Recalibración del
+residual y nueva variable “coeficiente vendible”</a></li>
 <li><a href="#mejora-6-cópula-cross-unificada-10d-versión-3"
 id="toc-mejora-6-cópula-cross-unificada-10d-versión-3"><span
-class="toc-section-number">9.2.8</span> Mejora 6 ✓: Cópula CROSS
+class="toc-section-number">9.2.9</span> Mejora 6 ✓: Cópula CROSS
 unificada 10D (Versión 3)</a></li>
 </ul></li>
 </ul></li>
@@ -2375,8 +2380,156 @@ sección de productos para reproducibilidad.</li>
 asegurando que los números presentados al directorio se puedan
 reproducir bit-a-bit sin depender de la sesión del navegador.</p>
 <h3 data-number="9.2.8"
+id="mejora-9-recalibración-del-residual-y-nueva-variable-coeficiente-vendible"><span
+class="header-section-number">9.2.8</span> Mejora 9 ✓: Recalibración del
+residual y nueva variable “coeficiente vendible”</h3>
+<p><strong>Problema detectado en revisión del tornado</strong> (29 de
+abril): tras los fixes de los canales de costo, el tornado mostraba un
+orden de drivers contraintuitivo:
+<code>Plazo obra (residual) = 29.0%</code> como driver #1 y
+<code>Costo construcción (residual) = 0.5%</code> muy abajo.
+Económicamente esto no se sostiene — un movimiento de ICOI del 5%
+destruye más valor que un plazo de obra +5% en cualquier proyecto
+inmobiliario chileno.</p>
+<p><strong>Tres causas raíz identificadas</strong>:</p>
+<ol type="1">
+<li><p><strong>Sensibilidades mal calibradas</strong>: los valores
+<code>_DEFAULT_SENS</code>
+(<code>{ticket: 0.65, costo: -0.45, plazo: -0.12}</code>) eran
+“razonables” pero no derivados de la fórmula del residual. Aplicando
+diferenciación analítica a la fórmula estándar
+<code>i = (P − C − U − F)/P</code> y evaluando en el punto base de cada
+familia, las sensibilidades teóricas correctas son:
+<code>costo ≈ −0.60</code> (no −0.45) y <code>plazo ≈ −0.08</code> (no
+−0.15). El plazo estaba sobreestimado y el costo subestimado.</p></li>
+<li><p><strong>Clamps de multiplicadores demasiado amplios</strong>:
+<code>costoMult</code> clampaba a <code>[0.6, 1.5]</code> (±50%) y
+<code>plazoMult</code> a <code>[0.5, 2.0]</code> (±100%). El histórico
+chileno 2010-2024 muestra que ICOI YoY raramente supera ±20% y que los
+plazos de obra varían ±15-25% sobre el plan. Los clamps anteriores
+permitían colas extremas que dominaban la varianza atribuida al
+plazo.</p></li>
+<li><p><strong>Variable arquitectónica faltante</strong>: el coeficiente
+vendible (m² útiles / m² construidos), típicamente 0.78-0.92 en
+proyectos chilenos, no estaba modelado. Es una variable <strong>del
+proyecto, no macro</strong> — depende de la arquitectura específica
+(eficiencia de plantas, % circulaciones, balcones, núcleos de
+baño).</p></li>
+</ol>
+<p><strong>Calibración nueva</strong> (todas derivadas teóricamente del
+residual estándar):</p>
+<table>
+<colgroup>
+<col style="width: 11%" />
+<col style="width: 15%" />
+<col style="width: 19%" />
+<col style="width: 14%" />
+<col style="width: 14%" />
+<col style="width: 24%" />
+</colgroup>
+<thead>
+<tr>
+<th>Familia</th>
+<th style="text-align: right;">∂i/∂ticket</th>
+<th style="text-align: right;">∂i/∂velocidad</th>
+<th style="text-align: right;">∂i/∂costo</th>
+<th style="text-align: right;">∂i/∂plazo</th>
+<th style="text-align: right;">∂i/∂coef_vendible</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>edif_4p</td>
+<td style="text-align: right;">+0.70</td>
+<td style="text-align: right;">+0.08</td>
+<td style="text-align: right;"><strong>−0.60</strong></td>
+<td style="text-align: right;"><strong>−0.08</strong></td>
+<td style="text-align: right;">+0.65</td>
+</tr>
+<tr>
+<td>ds19</td>
+<td style="text-align: right;">+0.50</td>
+<td style="text-align: right;">+0.06</td>
+<td style="text-align: right;">−0.45</td>
+<td style="text-align: right;">−0.06</td>
+<td style="text-align: right;">+0.50</td>
+</tr>
+<tr>
+<td>casa</td>
+<td style="text-align: right;">+0.65</td>
+<td style="text-align: right;">+0.07</td>
+<td style="text-align: right;">−0.55</td>
+<td style="text-align: right;">−0.07</td>
+<td style="text-align: right;">+0.60</td>
+</tr>
+<tr>
+<td>townhouse</td>
+<td style="text-align: right;">+0.65</td>
+<td style="text-align: right;">+0.07</td>
+<td style="text-align: right;">−0.55</td>
+<td style="text-align: right;">−0.07</td>
+<td style="text-align: right;">+0.60</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Clamps nuevos</strong>: <code>costoMult ∈ [0.85, 1.20]</code>
+(rango ICOI histórico ±20%), <code>plazoMult ∈ [0.85, 1.25]</code>
+(rango plazo realista ±25%).</p>
+<p><strong>Coeficiente vendible</strong>: distribución triangular
+<code>(0.78, 0.85, 0.92)</code> independiente de la cópula macro
+(refleja heterogeneidad arquitectónica del proyecto). Aparece en el
+tornado con etiqueta “Coef. vendible (m² útiles/totales)”. Cada punto
+perdido de eficiencia destruye revenue casi 1:1 sin reducir costos, por
+lo cual la sensibilidad sobre la incidencia es alta (∂i/∂coef ≈ +0.65
+para Edif_4p).</p>
+<p><strong>Comportamiento esperado del tornado
+post-recalibración</strong>:</p>
+<table>
+<thead>
+<tr>
+<th>Driver</th>
+<th style="text-align: right;">Antes (sesgado)</th>
+<th style="text-align: right;">Esperado (calibrado)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Plazo obra (residual)</td>
+<td style="text-align: right;">29.0%</td>
+<td style="text-align: right;">4-7%</td>
+</tr>
+<tr>
+<td>Costo construcción (residual)</td>
+<td style="text-align: right;">0.5%</td>
+<td style="text-align: right;">8-15%</td>
+</tr>
+<tr>
+<td>Coef. vendible</td>
+<td style="text-align: right;">n/a</td>
+<td style="text-align: right;">6-12% (nuevo)</td>
+</tr>
+<tr>
+<td>Velocidad venta</td>
+<td style="text-align: right;">18.2%</td>
+<td style="text-align: right;">15-20%</td>
+</tr>
+<tr>
+<td>Δ Desempleo (macro)</td>
+<td style="text-align: right;">17.5%</td>
+<td style="text-align: right;">10-15%</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Limitación honesta documentada</strong>: los valores de
+sensibilidad provienen de derivación analítica, no de un residual real
+corrido con perturbaciones. Si el directorio dispone de un residual
+representativo del eje Norte (Lampa/Colina/Buin) con sus sensibilidades
+calculadas, el simulador puede reemplazar los defaults llamando a
+<code>loadRepresentantesFromResidual()</code> desde
+<code>/residual</code>.</p>
+<h3 data-number="9.2.9"
 id="mejora-6-cópula-cross-unificada-10d-versión-3"><span
-class="header-section-number">9.2.8</span> Mejora 6 ✓: Cópula CROSS
+class="header-section-number">9.2.9</span> Mejora 6 ✓: Cópula CROSS
 unificada 10D (Versión 3)</h3>
 <p><strong>Brecha que cerró</strong>: la versión 2 mantenía dos cópulas
 separadas (macro-macro y producto-producto). La dependencia

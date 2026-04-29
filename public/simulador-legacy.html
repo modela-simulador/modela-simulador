@@ -11706,20 +11706,29 @@ const MC = (function(){
   function _resetRepCache(){ _REP_CACHE = null; }
 
   // Sensibilidades default por familia (fallback si los representantes
-  // no tienen las suyas calculadas). Valores empíricamente razonables del
-  // residual chileno: ∂incidencia/∂(fracción de cambio en parámetro).
+  // no tienen las suyas calculadas). DERIVADAS TEÓRICAMENTE de la fórmula
+  // residual estándar: i = (P − C − U − F) / P, donde P=precio venta,
+  // C=costo construcción, U=utilidad bruta, F=costos financieros (función
+  // de plazo y velocidad de venta).
   //
-  // Interpretación: si ticket +1% (fTicket=0.01), incidencia sube ~0.7pp.
-  // Si costo +1%, incidencia cae ~0.5pp. Si vel +1%, incidencia +0.10pp.
-  // Si plazo +1%, incidencia cae ~0.15pp.
+  // Diferenciando y evaluando en punto base (P=100, C=60, U=18, F=8, i=0.14
+  // para Edif_4p) se obtienen las elasticidades:
+  //   ∂i/∂ticket  ≈ +(C+U+F)/P    ≈ +0.86 → clamp a 0.70 conservador
+  //   ∂i/∂costo   ≈ −C/P          ≈ −0.60
+  //   ∂i/∂plazo   ≈ −F/(P × Δt)   ≈ −0.08  (intereses son ~8% del precio)
+  //   ∂i/∂vel     ≈ +F/(P × Δv)   ≈ +0.08
   //
-  // Estos defaults aseguran que el factor model produzca shocks visibles
-  // incluso si el usuario no recalculó representantes con sensibilidades.
+  // CALIBRACIÓN PREVIA (29-abr): valores ad-hoc producían tornado con
+  // plazo=29% y costo=0.5% — directionalmente correcto pero magnitudes
+  // mal balanceadas. La nueva calibración revierte esa asimetría: el
+  // costo construcción debería pegar 8-15% del tornado y el plazo 3-7%,
+  // consistente con la sensibilidad real del residual chileno donde el
+  // ICOI moviéndose 5% destruye más valor que un plazo +5%.
   var _DEFAULT_SENS = {
-    edif_4p:   { ticket: 0.70, velocidad: 0.10, costo: -0.50, plazo: -0.15 },
-    ds19:      { ticket: 0.45, velocidad: 0.05, costo: -0.35, plazo: -0.10 },
-    casa:      { ticket: 0.65, velocidad: 0.08, costo: -0.45, plazo: -0.12 },
-    townhouse: { ticket: 0.65, velocidad: 0.08, costo: -0.45, plazo: -0.12 },
+    edif_4p:   { ticket: 0.70, velocidad: 0.08, costo: -0.60, plazo: -0.08, coef_vendible: 0.65 },
+    ds19:      { ticket: 0.50, velocidad: 0.06, costo: -0.45, plazo: -0.06, coef_vendible: 0.50 },
+    casa:      { ticket: 0.65, velocidad: 0.07, costo: -0.55, plazo: -0.07, coef_vendible: 0.60 },
+    townhouse: { ticket: 0.65, velocidad: 0.07, costo: -0.55, plazo: -0.07, coef_vendible: 0.60 },
   };
 
   // Aplicar Δincidencia linealizado a la tabla PRODUCTS según sensibilidades
@@ -11743,14 +11752,16 @@ const MC = (function(){
       } else {
         s = _DEFAULT_SENS[fam] || _DEFAULT_SENS.edif_4p;
       }
-      var fTicket = (shocks.tm || 1) - 1;
-      var fVel    = (shocks.vel || 0) / 100;
-      var fCosto  = (shocks.costoMult || 1) - 1;
-      var fPlazo  = (shocks.plazoMult || 1) - 1;
-      var dIncidencia = (s.ticket||0)    * fTicket
-                       + (s.velocidad||0) * fVel
-                       + (s.costo||0)     * fCosto
-                       + (s.plazo||0)     * fPlazo;
+      var fTicket   = (shocks.tm || 1) - 1;
+      var fVel      = (shocks.vel || 0) / 100;
+      var fCosto    = (shocks.costoMult || 1) - 1;
+      var fPlazo    = (shocks.plazoMult || 1) - 1;
+      var fCoefVend = (shocks.coefVendibleMult || 1) - 1;
+      var dIncidencia = (s.ticket||0)        * fTicket
+                       + (s.velocidad||0)     * fVel
+                       + (s.costo||0)         * fCosto
+                       + (s.plazo||0)         * fPlazo
+                       + (s.coef_vendible||0) * fCoefVend;
       var products = _FAMILY_TO_PRODUCTS_MC[fam];
       for (var i = 0; i < products.length; i++) {
         var pName = products[i];
@@ -11823,8 +11834,8 @@ const MC = (function(){
         const draw = sampler.sampleOne(rng);
         tm = Math.max(0.5, Math.min(2.0, 1 + draw.precio_yoy / 100));
         vel = Math.max(-80, Math.min(150, draw.velocidad_yoy));
-        factorCostoMult = Math.max(0.6, Math.min(1.5, 1 + draw.costo_yoy / 100));
-        factorPlazoMult = Math.max(0.5, Math.min(2.0, 1 + draw.plazo_yoy / 100));
+        factorCostoMult = Math.max(0.85, Math.min(1.20, 1 + draw.costo_yoy / 100));
+        factorPlazoMult = Math.max(0.85, Math.min(1.25, 1 + draw.plazo_yoy / 100));
         factorShadow = _extractMacros(draw);
       } else {
         vel = Math.max(-60, Math.min(80, (cfg.velSigma || 22) * c[0]));
@@ -11839,8 +11850,8 @@ const MC = (function(){
         const draw = sampler.sampleOne(rng);
         tm = Math.max(0.5, Math.min(2.0, 1 + draw.precio_yoy / 100));
         vel = Math.max(-80, Math.min(150, draw.velocidad_yoy));
-        factorCostoMult = Math.max(0.6, Math.min(1.5, 1 + draw.costo_yoy / 100));
-        factorPlazoMult = Math.max(0.5, Math.min(2.0, 1 + draw.plazo_yoy / 100));
+        factorCostoMult = Math.max(0.85, Math.min(1.20, 1 + draw.costo_yoy / 100));
+        factorPlazoMult = Math.max(0.85, Math.min(1.25, 1 + draw.plazo_yoy / 100));
         factorShadow = _extractMacros(draw);
       } else {
         // Fallback paramétrico
@@ -11856,8 +11867,8 @@ const MC = (function(){
         const draw = sampler.sampleOne(rng);
         tm = Math.max(0.5, Math.min(2.0, 1 + draw.precio_yoy / 100));
         vel = Math.max(-80, Math.min(150, draw.velocidad_yoy));
-        factorCostoMult = Math.max(0.6, Math.min(1.5, 1 + draw.costo_yoy / 100));
-        factorPlazoMult = Math.max(0.5, Math.min(2.0, 1 + draw.plazo_yoy / 100));
+        factorCostoMult = Math.max(0.85, Math.min(1.20, 1 + draw.costo_yoy / 100));
+        factorPlazoMult = Math.max(0.85, Math.min(1.25, 1 + draw.plazo_yoy / 100));
         factorShadow = _extractMacros(draw);
       } else {
         vel = Math.max(-60, Math.min(80, (cfg.velSigma || 22) * c[0]));
@@ -11916,9 +11927,18 @@ const MC = (function(){
                       (_isSan ? 1.0 : triangularCDF(rng(),
                         cfg.plazoLo  || 0.85, cfg.plazoMode  || 1.00, cfg.plazoHi  || 1.20));
 
+    // Coeficiente vendible (m² vendibles / m² construidos): variable
+    // ARQUITECTÓNICA del proyecto, no macro. Distribución triangular
+    // independiente: rangos típicos chilenos 0.78–0.92, mode 0.85.
+    // Se expresa como multiplicador relativo al baseline (mode):
+    //   coefVendibleMult = coef_real / 0.85
+    // Sensibilidad ∂i/∂coefVendible ≈ +0.65 (alta — cada punto perdido
+    // de eficiencia de planta destruye revenue casi 1:1 sin reducir costos).
+    const coefVendibleMult = _isSan ? 1.0 : triangularCDF(rng(), 0.78/0.85, 1.00, 0.92/0.85);
+
     // Aplicar Δincidencia linealizado a las familias con representante
     // antes del peResimulate. Reset a baseline + suma de derivadas × shocks.
-    _applyResidualShocks({ tm, vel, costoMult, plazoMult });
+    _applyResidualShocks({ tm, vel, costoMult, plazoMult, coefVendibleMult });
 
     peVelocidadPct = vel;
     pePlusvalia    = plusv;
@@ -12051,7 +12071,7 @@ const MC = (function(){
     return {
       inputs: { vel, plusv, tm, im, mm, sm, prcOn: prcOn?1:0, crisisOn: crisisOn?1:0, discRate,
                 sanRevMult, sanCostMult, sanSaleMult,
-                costoMult, plazoMult,
+                costoMult, plazoMult, coefVendibleMult,
                 ..._shadowInputs },
       outputs: {
         vanPrinc, vanSan, anosVenta,
@@ -12124,7 +12144,8 @@ const MC = (function(){
     // Variables expandidas: incluye las 3 sanitarias + las 9 originales.
     // computeTornado filtra automáticamente las que tienen varianza ~0
     // (ej: sanRevMult en modo venta tierra siempre vale ~1 → rho ≈ 0).
-    const vars_ = ['vel','plusv','tm','costoMult','plazoMult','im','mm','sm','prcOn','crisisOn','discRate',
+    const vars_ = ['vel','plusv','tm','costoMult','plazoMult','coefVendibleMult',
+                   'im','mm','sm','prcOn','crisisOn','discRate',
                    'sanRevMult','sanCostMult','sanSaleMult',
                    // Factor model (v1/v2/v3): macros + producto adicional
                    'imacec_var','d_tasa_hipo','d_desempleo','ipv_yoy','icoi_yoy',
@@ -12132,6 +12153,7 @@ const MC = (function(){
     const labels = {
       vel:'Velocidad venta', plusv:'Plusval\u00eda anual', tm:'Ticket multiplier',
       costoMult:'Costo construcci\u00f3n (residual)', plazoMult:'Plazo obra (residual)',
+      coefVendibleMult:'Coef. vendible (m\u00b2 \u00fatiles/totales)',
       im:'Costo infraestructura', mm:'Costo mitigaciones', sm:'Costo sanitaria CAPEX',
       prcOn:'PRC aprobado', crisisOn:'Crisis en horizonte', discRate:'Tasa descuento',
       sanRevMult:'Ingresos op. sanitaria', sanCostMult:'Costos op. sanitaria',
