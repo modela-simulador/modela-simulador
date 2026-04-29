@@ -3374,6 +3374,11 @@ const STOCK_INI = {
 };
 
 const MAX_GLOBAL_OPS = 25;  // Tope combinado de operadores PDUC (Distrito G + 4.0)
+// Tope combinado de operadores AUDP (Batuco + Colina), escalable por escenario.
+// Realidad chilena: las AUDPs ubicadas en el mismo eje vial comparten demanda
+// regional. Sin este tope, el modelo podía llegar a 32 ops simultáneos
+// (4 productos × 4 ops × 2 zonas), produciendo absorciones anuales irreales.
+const AUDP_GLOBAL_OPS_CAP = { pesimista: 8, esperada: 14, optimista: 20 };
 
 // ── INDUSTRIAL LOTS ──
 let IND_HA_TOTAL    = 112.56;
@@ -4857,6 +4862,34 @@ function simulate(params) {
           if (excess <= 0) break;
           const reduce = Math.min(excess, opsMap[z]['Deptos 3'] - 1);
           if (reduce > 0) { opsMap[z]['Deptos 3'] -= reduce; totalDesiredOps -= reduce; excess -= reduce; }
+        }
+      }
+    }
+
+    // ── Cap GLOBAL combinado AUDP (Batuco + Colina) ──
+    // Sin este cap, el modelo permitía hasta 32 operadores simultáneos
+    // (4 productos × 4 ops × 2 zonas en escenario "esperada"), produciendo
+    // absorciones de ~1500-2000 ud/año combinadas — irreales para el eje Norte
+    // de Santiago. Las AUDPs adyacentes comparten demanda regional. El cap
+    // está calibrado al MAX_GLOBAL_OPS de PDUC pero más restrictivo (las AUDPs
+    // tienen menos diferenciación de producto entre sí).
+    {
+      const audpCap = AUDP_GLOBAL_OPS_CAP[opsEscenario] ?? AUDP_GLOBAL_OPS_CAP.esperada;
+      const audpEntries = Object.entries(opsMap).filter(([z]) => z.startsWith('AUDP'));
+      let audpTotal = audpEntries.reduce((s, [, prods]) =>
+        s + Object.values(prods).reduce((a, b) => a + (b || 0), 0), 0);
+      if (audpTotal > audpCap) {
+        // Reducción proporcional uniforme — preserva el mix relativo de productos
+        const scale = audpCap / audpTotal;
+        for (const [z, prods] of audpEntries) {
+          for (const pName in prods) {
+            const before = prods[pName] || 0;
+            const after = Math.max(1, Math.floor(before * scale));  // mínimo 1 op activo
+            if (before !== after) {
+              totalDesiredOps -= (before - after);
+              prods[pName] = after;
+            }
+          }
         }
       }
     }
@@ -11697,17 +11730,15 @@ const MC = (function(){
     for (var fam in _FAMILY_TO_PRODUCTS_MC) {
       var rep = store ? store[fam] : null;
       // Sensibilidades: del representante si existen, sino defaults razonables.
-      // Los defaults solo se usan si hay representantes guardados (PRODUCTS
-      // baseline tiene incidencia significativa) — sino no aplicamos shock.
+      // FIX: aplicar defaults SIEMPRE (incluso sin representante) para que
+      // costoMult/plazoMult/precio_yoy siempre afecten el VAN. Sin esto los
+      // shocks eran inertes para usuarios que abren el simulador sin pasar
+      // por /residual primero — costoMult no aparecía en el tornado.
       var s;
       if (rep && rep.sensitivities && rep.sensitivities.incidencia) {
         s = rep.sensitivities.incidencia;
-      } else if (rep) {
-        // Representante existe pero sin sensibilidades → usar defaults
-        s = _DEFAULT_SENS[fam] || _DEFAULT_SENS.edif_4p;
       } else {
-        // Sin representante para esta familia, no aplicamos shock
-        continue;
+        s = _DEFAULT_SENS[fam] || _DEFAULT_SENS.edif_4p;
       }
       var fTicket = (shocks.tm || 1) - 1;
       var fVel    = (shocks.vel || 0) / 100;
@@ -11855,8 +11886,25 @@ const MC = (function(){
     // (no afectan el FCF sanitario pero el Cholesky genera correlaciones
     // espurias si se varían → contaminan el tornado)
     const plusv = _isSan ? cfg.plusvMode : triangularCDF(u[1], cfg.plusvA, cfg.plusvMode, cfg.plusvB);
-    const im    = _isSan ? 1.0 : triangularCDF(u[3], 0.95, 1.00, 1.30);
-    const mm    = _isSan ? 1.0 : triangularCDF(u[4], 0.90, 1.00, 1.35);
+    // im/mm: en modo factor (v1/v2/v3), vienen acoplados al costoMult del
+    // sampler macro (ICOI YoY → mismo shock para todos los costos de
+    // construcción y obras públicas del AUDP). Esto cierra el "doble canal"
+    // del costoMult: afecta incidencia (vía residual) Y afecta directamente
+    // el FCF del AUDP (vía infra/mitigaciones). Antes eran independientes.
+    const _isFactorMode = _mode === 'factor' || _mode === 'factor_v2' || _mode === 'factor_v3';
+    let im, mm;
+    if (_isSan) {
+      im = 1.0; mm = 1.0;
+    } else if (_isFactorMode && factorCostoMult != null) {
+      // Acoplar a costoMult con leve amplificación (las obras públicas suelen
+      // tener mayor sensibilidad cíclica que las viviendas): ×1.0 para infra
+      // común, ×1.1 para mitigaciones (mayor componente regulatorio/social).
+      im = Math.max(0.7, Math.min(1.5, factorCostoMult));
+      mm = Math.max(0.7, Math.min(1.6, 1 + (factorCostoMult - 1) * 1.1));
+    } else {
+      im = triangularCDF(u[3], 0.95, 1.00, 1.30);
+      mm = triangularCDF(u[4], 0.90, 1.00, 1.35);
+    }
     const sm    = triangularCDF(u[5], 0.95, 1.00, 1.25);  // CAPEX sanitario sí varía siempre
     const prcOn = _isSan ? false : rng() < cfg.prcP;
     const cU = rng();
@@ -12386,16 +12434,16 @@ function openMCAnalysis(){
     if (diagEl && diagText) {
       if (d.total === 0) {
         diagEl.style.display = 'block';
-        diagEl.style.background = '#fee2e2';
-        diagEl.style.borderColor = '#ef4444';
-        diagEl.style.color = '#991b1b';
-        diagText.textContent = '⚠ No hay representantes guardados. Los shocks de costo/plazo NO afectan el VAN. Guarda 4 representantes en /residual primero.';
+        diagEl.style.background = '#fef3c7';
+        diagEl.style.borderColor = '#f59e0b';
+        diagEl.style.color = '#92400e';
+        diagText.textContent = 'ℹ Sin representantes guardados. El modelo usa sensibilidades default razonables (ticket +0.65, costo -0.45, etc.) y los shocks de costo/plazo SÍ afectan el VAN vía dos canales: incidencia (residual) e infraestructura (FCF directo). Para mayor precisión, guarda representantes en /residual.';
       } else if (d.withoutSens > 0) {
         diagEl.style.display = 'block';
         diagEl.style.background = '#fef3c7';
         diagEl.style.borderColor = '#f59e0b';
         diagEl.style.color = '#92400e';
-        diagText.textContent = '⚠ ' + d.total + '/4 representantes guardados, pero ' + d.withoutSens + ' sin sensibilidades calculadas. Usando defaults razonables. Para mayor precision: re-guardar representantes en /residual.';
+        diagText.textContent = 'ℹ ' + d.total + '/4 representantes guardados, pero ' + d.withoutSens + ' sin sensibilidades calculadas. Usando defaults razonables — los shocks afectan el VAN normalmente. Para mayor precisión: re-guardar representantes en /residual.';
       } else {
         diagEl.style.display = 'block';
         diagEl.style.background = '#dcfce7';

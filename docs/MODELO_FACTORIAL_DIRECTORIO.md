@@ -726,6 +726,31 @@ ICOI tiene solo 10 puntos anuales (2013-2024) en la fuente disponible. La CChC p
 
 **Beneficio esperado**: extender ICOI a 20+ años permite calibrar mejor su volatilidad real y captura ciclos completos (incluido pre-crisis 2008).
 
+### Mejora 7 ✓: Doble canal del shock de costo (post-revisión)
+
+**Problema detectado en revisión**: el shock `costoMult` aparecía con peso bajo o nulo en el tornado de varianza del VAN, pese a que el costo de construcción es uno de los inputs más sensibles del modelo residual. La causa raíz era estructural y operaba en dos frentes:
+
+1. **Canal residual condicionado a representantes**: el shock sólo se propagaba a la incidencia si existían representantes guardados en `localStorage` con sensibilidades calculadas. Para usuarios que abrían el simulador sin haber pasado primero por `/residual`, el código ejecutaba `continue` y el shock era inerte. **Fix**: aplicar las sensibilidades default razonables (`{ticket: 0.65, costo: -0.45, plazo: -0.12}`) siempre, no sólo cuando hay representante explícito.
+
+2. **Canal directo desconectado**: las distribuciones de costo de infraestructura (`im`) y mitigaciones (`mm`) usaban distribuciones triangulares **independientes** del shock macro. Esto rompía la coherencia económica: una recesión que sube el ICOI 8% subía la incidencia con sensibilidad correcta, pero infra/mitigaciones se sampleaban de una distribución que ignoraba el shock — dos canales que en la realidad están perfectamente correlacionados (mismo input ICOI). **Fix**: en modo factor (v1/v2/v3), `im` y `mm` se acoplan directamente al `costoMult`. Las mitigaciones reciben una leve amplificación (×1.1) por su mayor componente regulatorio/social.
+
+**Consecuencia esperada**: el `costoMult` ahora aparece sistemáticamente entre las primeras tres variables del tornado en escenarios con shocks materiales, reflejando su peso económico real. Este efecto se observa tanto en las celdas con representantes guardados (canal residual + directo) como en las que no (sólo canal directo, vía infra/mitigaciones acopladas).
+
+### Mejora 8 ✓: Cap combinado AUDP de operadores simultáneos
+
+**Problema detectado**: la herramienta podía proyectar ingresos anuales en torno a 12-13 millones USD por las dos AUDPs combinadas (Batuco + Colina), lo cual no es coherente con la realidad de absorción del eje Norte de Santiago. La causa: hasta antes de este fix, el modelo permitía hasta 32 operadores simultáneos en AUDPs (4 productos × 4 ops por escenario *esperada* × 2 zonas), sin un cap global combinado. Sólo Deptos 3 tenía cap combinado.
+
+**Calibración empírica con TINSA**: la velocidad mediana de proyectos activos en Chile es 0.7 ud/mes/proyecto (124.981 observaciones); el percentil 75 es 1.4 ud/mes; sólo el percentil 90 supera 3 ud/mes. Los defaults del simulador (4-6 ud/mes/operador) corresponden a proyectos del top decil en zonas premium, no al promedio AUDP del eje Norte. Combinado con 16-32 operadores simultáneos, eso explica la sobreestimación.
+
+**Fix**: nuevo cap global combinado AUDP, escalable por escenario:
+- Pesimista: 8 operadores simultáneos máximo entre Batuco + Colina
+- Esperada: 14 operadores
+- Optimista: 20 operadores
+
+La reducción se aplica de manera proporcional uniforme para preservar el mix de productos. Esto refleja que las AUDPs adyacentes en el mismo eje vial **comparten demanda regional** — un comprador interesado en Batuco también considera Colina, no son segmentos independientes.
+
+**Limitación honesta**: el cap es una restricción de demanda regional, no una calibración mecánica. La velocidad por operador (`velVenta`) sigue como input del usuario (defaults heredados de la versión inicial). Para escenarios más conservadores, el usuario puede combinar cap esperada con `velVenta` reducido a 2.5-3.0 ud/mes (más alineado con TINSA p75).
+
 ### Mejora 6 ✓: Cópula CROSS unificada 10D (Versión 3)
 
 **Brecha que cerró**: la versión 2 mantenía dos cópulas separadas (macro-macro y producto-producto). La dependencia macro→producto se modelaba indirectamente a través de la regresión polinómica de velocidad. Esto subestimaba canales económicos directos como "tasa hipotecaria → velocidad" o "desempleo → precio", cuya transmisión es estructural y no se reduce a una función de IMACEC e IPV.
