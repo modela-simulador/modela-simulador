@@ -2052,66 +2052,6 @@
           </div>
         </div>
 
-        <!-- Panel Stress Test Dirigido v3 (presets + sliders de percentil) -->
-        <div id="mc-stress-v3-panel" style="background:#fdf4ff;border:1px solid #d8b4fe;border-radius:6px;padding:10px;margin-top:6px">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-            <div style="font-size:10px;font-weight:700;color:#7c3aed;text-transform:uppercase;letter-spacing:0.5px">🎯 Stress test dirigido (v3)</div>
-            <button type="button" id="mc-stress-clear" onclick="clearMacroConstraints()" style="padding:3px 8px;font-size:9px;font-weight:600;border:1px solid #d8b4fe;border-radius:4px;background:#fff;color:#7c3aed;cursor:pointer">↺ Limpiar</button>
-          </div>
-          <div style="font-size:9px;color:#64748b;margin-bottom:6px;font-style:italic">Fija el percentile histórico de una o varias macros. Las demás se sampleán correlacionadas vía cópula. Sin selección = escenario base estocástico libre.</div>
-
-          <!-- Presets históricos -->
-          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:3px;margin-bottom:8px">
-            <button type="button" onclick="applyStressPreset('libre')"     class="stress-preset-btn" id="stress-preset-libre" style="grid-column:1/-1">📊 Libre (cópula completa)</button>
-            <button type="button" onclick="applyStressPreset('subprime')"  class="stress-preset-btn">📉 Subprime 2009</button>
-            <button type="button" onclick="applyStressPreset('covid')"     class="stress-preset-btn">🔥 COVID 2020</button>
-            <button type="button" onclick="applyStressPreset('boom')"      class="stress-preset-btn">🚀 Boom 2021</button>
-            <button type="button" onclick="applyStressPreset('slowdown')"  class="stress-preset-btn">⚠ Slowdown 2023</button>
-            <button type="button" onclick="applyStressPreset('stress_severo')" class="stress-preset-btn">💥 Stress severo</button>
-            <button type="button" onclick="applyStressPreset('upside')"    class="stress-preset-btn">✨ Upside</button>
-          </div>
-
-          <!-- Sliders manuales por macro -->
-          <div style="font-size:9px;font-weight:700;color:#7c3aed;margin-bottom:4px">Percentile objetivo por macro</div>
-          <div style="display:flex;flex-direction:column;gap:6px">
-            <div class="stress-row" data-macro="imacec_var">
-              <span class="stress-label">IMACEC (PIB) %</span>
-              <input type="range" min="0" max="100" value="50" step="5" oninput="setMacroConstraint('imacec_var', this.value)">
-              <span class="stress-pct" id="stress-pct-imacec_var">libre</span>
-            </div>
-            <div class="stress-row" data-macro="d_tasa_hipo">
-              <span class="stress-label">Δ Tasa hipotecaria pp</span>
-              <input type="range" min="0" max="100" value="50" step="5" oninput="setMacroConstraint('d_tasa_hipo', this.value)">
-              <span class="stress-pct" id="stress-pct-d_tasa_hipo">libre</span>
-            </div>
-            <div class="stress-row" data-macro="d_desempleo">
-              <span class="stress-label">Δ Desempleo pp</span>
-              <input type="range" min="0" max="100" value="50" step="5" oninput="setMacroConstraint('d_desempleo', this.value)">
-              <span class="stress-pct" id="stress-pct-d_desempleo">libre</span>
-            </div>
-            <div class="stress-row" data-macro="ipv_yoy">
-              <span class="stress-label">IPV YoY %</span>
-              <input type="range" min="0" max="100" value="50" step="5" oninput="setMacroConstraint('ipv_yoy', this.value)">
-              <span class="stress-pct" id="stress-pct-ipv_yoy">libre</span>
-            </div>
-            <div class="stress-row" data-macro="icoi_yoy">
-              <span class="stress-label">Costo construcción YoY %</span>
-              <input type="range" min="0" max="100" value="50" step="5" oninput="setMacroConstraint('icoi_yoy', this.value)">
-              <span class="stress-pct" id="stress-pct-icoi_yoy">libre</span>
-            </div>
-          </div>
-        </div>
-
-        <style>
-          .stress-preset-btn { padding:5px 4px; font-size:9.5px; font-weight:600; border:1px solid #d8b4fe; border-radius:4px; background:#fff; color:#7c3aed; cursor:pointer; transition: all 0.15s; }
-          .stress-preset-btn:hover { background:#fae8ff; }
-          .stress-preset-btn.active { background:#7c3aed; border-color:#6d28d9; color:#fff; }
-          .stress-row { display:grid; grid-template-columns: 1fr 100px 50px; gap:6px; align-items:center; }
-          .stress-label { font-size:10px; color:#334155; }
-          .stress-row input[type=range] { width:100%; accent-color:#7c3aed; }
-          .stress-pct { font-size:9px; font-weight:700; color:#7c3aed; text-align:right; font-variant-numeric:tabular-nums; }
-          .stress-pct.fixed { background:#7c3aed; color:#fff; padding:1px 4px; border-radius:3px; }
-        </style>
 
         <!-- Panel Factor Macro: presets históricos + sliders -->
         <div id="mc-factor-panel" style="background:#eff6ff;border:1px solid #93c5fd;border-radius:6px;padding:10px;display:flex;flex-direction:column;gap:8px;margin-top:6px">
@@ -11694,68 +11634,6 @@ const MC = (function(){
     }
   }
 
-  // ── Muestreo condicional v3: aceptación-rechazo ──
-  // window.mcMacroConstraints: { imacec_var: {percentile: 0.50}, ... }
-  // Cada constraint es un percentile [0,1] objetivo. El sample se acepta si
-  // todas las macros restringidas caen dentro de una banda de tolerancia
-  // alrededor del percentile objetivo.
-  //
-  // Algoritmo: tomar K samples (K=400), seleccionar el más cercano al objetivo
-  // multidimensional. Esto es más eficiente y robusto que rejection puro
-  // cuando hay constraints simultáneos en varias macros — siempre converge
-  // a algún sample, aunque no perfecto, manteniendo la coherencia macro
-  // del resto de variables (la cópula sigue gobernando las correlaciones
-  // entre las macros no fijadas y las variables de producto).
-  function _percentileOf(value, pcts){
-    // Marginal empírica: pcts es array de 99 percentiles [p1, p2, ..., p99]
-    // Devuelve el percentile [0,1] correspondiente a value vía búsqueda lineal.
-    if (!pcts || pcts.length < 99) return 0.5;
-    if (value <= pcts[0]) return 0.01;
-    if (value >= pcts[98]) return 0.99;
-    for (let i = 0; i < 98; i++) {
-      if (value >= pcts[i] && value <= pcts[i+1]) {
-        const t = (pcts[i+1] === pcts[i]) ? 0 : (value - pcts[i]) / (pcts[i+1] - pcts[i]);
-        return (i + 1 + t) / 100;
-      }
-    }
-    return 0.5;
-  }
-  function _sampleV3WithConstraints(rng, sampler){
-    const constraints = window.mcMacroConstraints || {};
-    const active = Object.keys(constraints).filter(k => constraints[k] != null && constraints[k].percentile != null);
-    if (active.length === 0) return sampler.sampleOne(rng);
-    // Mapear nombres del UI a nombres en el draw.macros
-    const NAME_MAP = {
-      imacec_var: 'imacec_var',
-      d_tasa_hipo: 'd_tasa_hipo',
-      d_desempleo: 'd_desempleo',
-      ipv_yoy: 'ipv_general_yoy',
-      icoi_yoy: 'icoi_yoy',
-    };
-    const fam = sampler.familyModel;
-    const K = 400;  // pool de candidatos
-    let bestDraw = null;
-    let bestDist = Infinity;
-    for (let k = 0; k < K; k++) {
-      const draw = sampler.sampleOne(rng);
-      let dist = 0;
-      for (const uiName of active) {
-        const macroName = NAME_MAP[uiName];
-        const target = constraints[uiName].percentile;
-        const value = (draw.macros || {})[macroName];
-        if (value == null || !fam.marginals[macroName]) continue;
-        const p = _percentileOf(value, fam.marginals[macroName].pcts);
-        dist += Math.pow(p - target, 2);
-      }
-      if (dist < bestDist) {
-        bestDist = dist;
-        bestDraw = draw;
-        if (dist < 0.0001) break;  // suficientemente cerca de todos los objetivos
-      }
-    }
-    return bestDraw || sampler.sampleOne(rng);
-  }
-
   // ── Cache del Factor Model v2 (1 por familia × zona) ──
   const _factorV2Cache = {};
   function _getFactorSamplerV2(family, zone){
@@ -11942,10 +11820,7 @@ const MC = (function(){
       const zone = window.mcZone || 'audp_zone';
       const sampler = _getFactorSamplerV3(fam, zone);
       if (sampler && !_isSan) {
-        // Muestreo condicional: si hay macros fijadas (window.mcMacroConstraints),
-        // usar aceptación-rechazo para que la macro objetivo caiga cerca del
-        // percentil seleccionado. Las demás se sampleán correlacionadas.
-        const draw = _sampleV3WithConstraints(rng, sampler);
+        const draw = sampler.sampleOne(rng);
         tm = Math.max(0.5, Math.min(2.0, 1 + draw.precio_yoy / 100));
         vel = Math.max(-80, Math.min(150, draw.velocidad_yoy));
         factorCostoMult = Math.max(0.6, Math.min(1.5, 1 + draw.costo_yoy / 100));
@@ -12459,10 +12334,6 @@ function setMCMode(mode){
   }
   if (factorPanel) factorPanel.style.display = (mode === 'factor' || mode === 'factor_v2') ? 'flex' : 'none';
   if (zonePanel)   zonePanel.style.display   = (mode === 'factor_v2' || mode === 'factor_v3') ? 'block' : 'none';
-  // Panel de stress test dirigido: solo en modo v3 (es el que tiene cópula unificada
-  // 10D y permite muestreo condicional sobre las macros)
-  const stressPanel = document.getElementById('mc-stress-v3-panel');
-  if (stressPanel) stressPanel.style.display = (mode === 'factor_v3') ? 'block' : 'none';
 }
 
 function setMCZone(zone){
@@ -12480,86 +12351,6 @@ function setMCZone(zone){
     } else {
       hint.textContent = 'Nacional: 124.5k obs - sigma Edif 9.5pp - referencia, subestima riesgo para AUDPs especificos';
     }
-  }
-}
-
-// ═══════════════════════════════════════════════════════════════════
-// Stress test dirigido v3 — control de percentiles macro
-// ═══════════════════════════════════════════════════════════════════
-window.mcMacroConstraints = {};
-
-function setMacroConstraint(macro, sliderValue){
-  // sliderValue está en [0,100]; lo convertimos a percentile [0.05, 0.95]
-  const pct = Math.max(0.05, Math.min(0.95, sliderValue / 100));
-  window.mcMacroConstraints[macro] = { percentile: pct };
-  const el = document.getElementById('stress-pct-' + macro);
-  if (el) {
-    el.textContent = 'p' + Math.round(pct * 100);
-    el.classList.add('fixed');
-  }
-  // Limpiar selección de presets (modo manual)
-  document.querySelectorAll('.stress-preset-btn').forEach(b => b.classList.remove('active'));
-}
-
-function clearMacroConstraints(){
-  window.mcMacroConstraints = {};
-  ['imacec_var', 'd_tasa_hipo', 'd_desempleo', 'ipv_yoy', 'icoi_yoy'].forEach(m => {
-    const el = document.getElementById('stress-pct-' + m);
-    if (el) { el.textContent = 'libre'; el.classList.remove('fixed'); }
-    const slider = document.querySelector('.stress-row[data-macro="' + m + '"] input[type=range]');
-    if (slider) slider.value = 50;
-  });
-  document.querySelectorAll('.stress-preset-btn').forEach(b => b.classList.remove('active'));
-  const libreBtn = document.getElementById('stress-preset-libre');
-  if (libreBtn) libreBtn.classList.add('active');
-}
-
-// Presets traducidos a percentiles macro. Cada preset fija las cinco macros
-// en sus percentiles históricos correspondientes al evento. La cópula propaga
-// el shock a las variables de producto (precio, velocidad, plazo).
-const STRESS_PRESETS = {
-  libre:    null,  // sin constraints
-  // Subprime 2009: IMACEC bajo, tasa hipo bajó (estímulo), desempleo subió, IPV plano, ICOI bajó
-  subprime: { imacec_var: 0.10, d_tasa_hipo: 0.20, d_desempleo: 0.85, ipv_yoy: 0.40, icoi_yoy: 0.20 },
-  // COVID 2020: IMACEC desplome, tasa estable-baja, desempleo alto, IPV mantuvo, ICOI subió
-  covid:    { imacec_var: 0.05, d_tasa_hipo: 0.30, d_desempleo: 0.95, ipv_yoy: 0.55, icoi_yoy: 0.85 },
-  // Boom post-COVID 2021: IMACEC fuerte, tasa baja, desempleo cae, IPV +12%, ICOI +7%
-  boom:     { imacec_var: 0.95, d_tasa_hipo: 0.15, d_desempleo: 0.10, ipv_yoy: 0.95, icoi_yoy: 0.85 },
-  // Slowdown 2023: IMACEC débil, tasa alta, desempleo modesto, ICOI cae
-  slowdown: { imacec_var: 0.30, d_tasa_hipo: 0.85, d_desempleo: 0.65, ipv_yoy: 0.50, icoi_yoy: 0.10 },
-  // Stress severo (combinación adversa peor que cualquier histórico)
-  stress_severo: { imacec_var: 0.05, d_tasa_hipo: 0.95, d_desempleo: 0.95, ipv_yoy: 0.10, icoi_yoy: 0.90 },
-  // Upside (combinación favorable)
-  upside:   { imacec_var: 0.90, d_tasa_hipo: 0.10, d_desempleo: 0.10, ipv_yoy: 0.90, icoi_yoy: 0.40 },
-};
-
-function applyStressPreset(name){
-  const preset = STRESS_PRESETS[name];
-  document.querySelectorAll('.stress-preset-btn').forEach(b => b.classList.remove('active'));
-  const btnId = {
-    libre: 'stress-preset-libre',
-  }[name] || null;
-  // Identificar el botón por onclick
-  const btns = document.querySelectorAll('.stress-preset-btn');
-  btns.forEach(b => {
-    const onClickAttr = b.getAttribute('onclick') || '';
-    if (onClickAttr.indexOf("'" + name + "'") !== -1) b.classList.add('active');
-  });
-  if (preset == null) {
-    // Modo libre
-    clearMacroConstraints();
-    document.querySelectorAll('.stress-preset-btn').forEach(b => b.classList.remove('active'));
-    const libreBtn = document.getElementById('stress-preset-libre');
-    if (libreBtn) libreBtn.classList.add('active');
-    return;
-  }
-  window.mcMacroConstraints = {};
-  for (const macro in preset) {
-    window.mcMacroConstraints[macro] = { percentile: preset[macro] };
-    const el = document.getElementById('stress-pct-' + macro);
-    if (el) { el.textContent = 'p' + Math.round(preset[macro] * 100); el.classList.add('fixed'); }
-    const slider = document.querySelector('.stress-row[data-macro="' + macro + '"] input[type=range]');
-    if (slider) slider.value = Math.round(preset[macro] * 100);
   }
 }
 
