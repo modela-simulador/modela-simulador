@@ -97,10 +97,10 @@
 <h1 class="title">Modelo Factorial Estocástico para Valoración de
 AUDPs</h1>
 <p class="subtitle">Documento Técnico para Directorio · Modela · Versión
-4 (cópula CROSS)</p>
+5 (cópula CROSS + filtro de precio)</p>
 <p class="author">Equipo Modela</p>
-<p class="date">Abril 2026 · v4 con verificación exhaustiva 200/200
-correlaciones macro×producto</p>
+<p class="date">Abril 2026 · v5 con filtro de precio TINSA para
+comparable AUDP-coherente y verificación 200/200</p>
 </header>
 <nav id="TOC" role="doc-toc">
 <ul>
@@ -348,14 +348,16 @@ lags principales</a></li>
 id="toc-mejora-5-cobertura-icoi-más-larga-pendiente"><span
 class="toc-section-number">9.2.5</span> Mejora 5 ⏳: Cobertura ICOI más
 larga (pendiente)</a></li>
-<li><a href="#mejora-7-doble-canal-del-shock-de-costo-post-revisión"
-id="toc-mejora-7-doble-canal-del-shock-de-costo-post-revisión"><span
-class="toc-section-number">9.2.6</span> Mejora 7 ✓: Doble canal del
-shock de costo (post-revisión)</a></li>
-<li><a href="#mejora-8-cap-combinado-audp-de-operadores-simultáneos"
-id="toc-mejora-8-cap-combinado-audp-de-operadores-simultáneos"><span
-class="toc-section-number">9.2.7</span> Mejora 8 ✓: Cap combinado AUDP
-de operadores simultáneos</a></li>
+<li><a
+href="#mejora-7-filtro-de-precio-tinsa-para-comparable-audp-coherente"
+id="toc-mejora-7-filtro-de-precio-tinsa-para-comparable-audp-coherente"><span
+class="toc-section-number">9.2.6</span> Mejora 7 ✓: Filtro de precio
+TINSA para comparable AUDP-coherente</a></li>
+<li><a
+href="#mejora-8-botón-resetear-productos-a-defaults-y-trazabilidad-de-estado"
+id="toc-mejora-8-botón-resetear-productos-a-defaults-y-trazabilidad-de-estado"><span
+class="toc-section-number">9.2.7</span> Mejora 8 ✓: Botón “Resetear
+productos a defaults” y trazabilidad de estado</a></li>
 <li><a href="#mejora-6-cópula-cross-unificada-10d-versión-3"
 id="toc-mejora-6-cópula-cross-unificada-10d-versión-3"><span
 class="toc-section-number">9.2.8</span> Mejora 6 ✓: Cópula CROSS
@@ -2043,75 +2045,182 @@ construcción, costos commodities).</p>
 calibrar mejor su volatilidad real y captura ciclos completos (incluido
 pre-crisis 2008).</p>
 <h3 data-number="9.2.6"
-id="mejora-7-doble-canal-del-shock-de-costo-post-revisión"><span
-class="header-section-number">9.2.6</span> Mejora 7 ✓: Doble canal del
-shock de costo (post-revisión)</h3>
-<p><strong>Problema detectado en revisión</strong>: el shock
-<code>costoMult</code> aparecía con peso bajo o nulo en el tornado de
-varianza del VAN, pese a que el costo de construcción es uno de los
-inputs más sensibles del modelo residual. La causa raíz era estructural
-y operaba en dos frentes:</p>
-<ol type="1">
-<li><p><strong>Canal residual condicionado a representantes</strong>: el
-shock sólo se propagaba a la incidencia si existían representantes
-guardados en <code>localStorage</code> con sensibilidades calculadas.
-Para usuarios que abrían el simulador sin haber pasado primero por
-<code>/residual</code>, el código ejecutaba <code>continue</code> y el
-shock era inerte. <strong>Fix</strong>: aplicar las sensibilidades
-default razonables
-(<code>{ticket: 0.65, costo: -0.45, plazo: -0.12}</code>) siempre, no
-sólo cuando hay representante explícito.</p></li>
-<li><p><strong>Canal directo desconectado</strong>: las distribuciones
-de costo de infraestructura (<code>im</code>) y mitigaciones
-(<code>mm</code>) usaban distribuciones triangulares
-<strong>independientes</strong> del shock macro. Esto rompía la
-coherencia económica: una recesión que sube el ICOI 8% subía la
-incidencia con sensibilidad correcta, pero infra/mitigaciones se
-sampleaban de una distribución que ignoraba el shock — dos canales que
-en la realidad están perfectamente correlacionados (mismo input ICOI).
-<strong>Fix</strong>: en modo factor (v1/v2/v3), <code>im</code> y
-<code>mm</code> se acoplan directamente al <code>costoMult</code>. Las
-mitigaciones reciben una leve amplificación (×1.1) por su mayor
-componente regulatorio/social.</p></li>
-</ol>
-<p><strong>Consecuencia esperada</strong>: el <code>costoMult</code>
-ahora aparece sistemáticamente entre las primeras tres variables del
-tornado en escenarios con shocks materiales, reflejando su peso
-económico real. Este efecto se observa tanto en las celdas con
-representantes guardados (canal residual + directo) como en las que no
-(sólo canal directo, vía infra/mitigaciones acopladas).</p>
+id="mejora-7-filtro-de-precio-tinsa-para-comparable-audp-coherente"><span
+class="header-section-number">9.2.6</span> Mejora 7 ✓: Filtro de precio
+TINSA para comparable AUDP-coherente</h3>
+<p><strong>Diagnóstico inicial</strong>: la base TINSA cruda contiene
+124.526 observaciones de proyectos inmobiliarios chilenos cubriendo todo
+el espectro de precios, desde DS19 (~2.000 UF) hasta proyectos premium
+en Las Condes y Vitacura (&gt;20.000 UF). Para una calibración
+macro→producto que sirva como comparable de las AUDPs del eje Norte de
+Santiago (Lampa, Colina, Buin, Padre Hurtado), el segmento alto
+distorsiona los percentiles y las velocidades observadas — un Edif 4-6
+pisos en La Dehesa con ticket de 18.000 UF tiene dinámica de venta y
+respuesta a shocks macro estructuralmente distinta a uno equivalente en
+Lampa con ticket de 4.500 UF.</p>
+<p><strong>Filtro propuesto y aplicado</strong>:</p>
+<table>
+<colgroup>
+<col style="width: 22%" />
+<col style="width: 48%" />
+<col style="width: 30%" />
+</colgroup>
+<thead>
+<tr>
+<th>Categoría</th>
+<th>Umbral de precio total</th>
+<th>Justificación</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Departamentos</td>
+<td>≤ 5.000 UF</td>
+<td>Cubre el rango DS19 → estándar AUDP, excluye premium urbano</td>
+</tr>
+<tr>
+<td>Casas</td>
+<td>≤ 7.500 UF</td>
+<td>Cubre primera vivienda en periferia, excluye casas de barrio cerrado
+alto</td>
+</tr>
+<tr>
+<td>Townhouses</td>
+<td>≤ 7.500 UF</td>
+<td>Mismo principio que casas; segmento medio-bajo</td>
+</tr>
+</tbody>
+</table>
+<p>Precio total = <code>UFM2P × SUPP</code> (UF por m² de venta ×
+superficie del producto). El filtro se aplica directamente al script
+<code>analysis/build_macro_v3_cross.py</code> antes de la categorización
+en familias.</p>
+<p><strong>Impacto cuantitativo</strong>:</p>
+<pre><code>TINSA bruto:           124.526 observaciones
+Tras filtro de precio:  89.743 observaciones (72,1% retenidas)
+Eliminadas:             34.783 observaciones (27,9% — segmento alto)</code></pre>
+<p><strong>Sample size por celda tras filtro</strong>:</p>
+<table>
+<thead>
+<tr>
+<th>Zona / Familia</th>
+<th>n trim. (filtrado)</th>
+<th>n trim. (sin filtro)</th>
+<th>Δ</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>audp_zone / edif_4p</td>
+<td><strong>17</strong></td>
+<td>27</td>
+<td>-37%</td>
+</tr>
+<tr>
+<td>audp_zone / ds19</td>
+<td>27</td>
+<td>27</td>
+<td>0%</td>
+</tr>
+<tr>
+<td>audp_zone / casa</td>
+<td>47</td>
+<td>47</td>
+<td>0%</td>
+</tr>
+<tr>
+<td>audp_zone / townhouse</td>
+<td><strong>18</strong></td>
+<td>25</td>
+<td>-28%</td>
+</tr>
+<tr>
+<td>nacional / edif_4p</td>
+<td>48</td>
+<td>48</td>
+<td>0%</td>
+</tr>
+<tr>
+<td>nacional / ds19</td>
+<td>32</td>
+<td>32</td>
+<td>0%</td>
+</tr>
+<tr>
+<td>nacional / casa</td>
+<td>48</td>
+<td>48</td>
+<td>0%</td>
+</tr>
+<tr>
+<td>nacional / townhouse</td>
+<td>33</td>
+<td>39</td>
+<td>-15%</td>
+</tr>
+</tbody>
+</table>
+<p>Las celdas críticas <code>audp_zone/edif_4p</code> y
+<code>audp_zone/townhouse</code> quedaron con <code>n=17-18</code>
+trimestres, debajo del umbral conservador de 20 — la calibración se
+mantiene con un caveat documentado: las correlaciones de esas dos celdas
+deben leerse con una banda aproximada de <strong>±0.25</strong> (una
+desviación estándar al ratio obs/var = 1.7-1.8). El resto de celdas
+mantiene <code>n=27-48</code> y las correlaciones siguen siendo
+estadísticamente robustas.</p>
+<p><strong>Validación de signos económicos post-filtro</strong>: -
+<code>Δ tasa hipo → Velocidad</code>: persiste negativa unánime en las 8
+celdas (rango -0.31 a -0.46) — el canal de <em>affordability</em>
+sobrevive al filtro intacto. - <code>Δ desempleo → Precio</code>: -0.16
+a -0.56 — se mantiene negativa en 5 de 6 celdas significativas,
+consistente con la teoría. - <code>IMACEC → Velocidad</code> en
+<code>audp_zone/edif_4p</code>: pasa a ρ=+0.47 (vs +0.65 sin filtro) —
+efecto más moderado pero del signo correcto.</p>
+<p><strong>Independencia explícita del simulador determinista</strong>:
+este filtro afecta <strong>únicamente la calibración del Monte
+Carlo</strong>, donde se sampleán shocks macro correlacionados. La
+pestaña Primeras Etapas del simulador inmobiliario es
+<strong>completamente independiente</strong> de TINSA y opera con sus
+propios <code>velVenta</code>, <code>incidencia</code> y
+<code>ticket</code> configurados por el usuario en la interfaz. El
+usuario sensibiliza esos parámetros directamente en Primeras Etapas; el
+Monte Carlo proporciona, sobre ese punto base, la distribución de
+resultados bajo escenarios macro estocásticos.</p>
 <h3 data-number="9.2.7"
-id="mejora-8-cap-combinado-audp-de-operadores-simultáneos"><span
-class="header-section-number">9.2.7</span> Mejora 8 ✓: Cap combinado
-AUDP de operadores simultáneos</h3>
-<p><strong>Problema detectado</strong>: la herramienta podía proyectar
-ingresos anuales en torno a 12-13 millones USD por las dos AUDPs
-combinadas (Batuco + Colina), lo cual no es coherente con la realidad de
-absorción del eje Norte de Santiago. La causa: hasta antes de este fix,
-el modelo permitía hasta 32 operadores simultáneos en AUDPs (4 productos
-× 4 ops por escenario <em>esperada</em> × 2 zonas), sin un cap global
-combinado. Sólo Deptos 3 tenía cap combinado.</p>
-<p><strong>Calibración empírica con TINSA</strong>: la velocidad mediana
-de proyectos activos en Chile es 0.7 ud/mes/proyecto (124.981
-observaciones); el percentil 75 es 1.4 ud/mes; sólo el percentil 90
-supera 3 ud/mes. Los defaults del simulador (4-6 ud/mes/operador)
-corresponden a proyectos del top decil en zonas premium, no al promedio
-AUDP del eje Norte. Combinado con 16-32 operadores simultáneos, eso
-explica la sobreestimación.</p>
-<p><strong>Fix</strong>: nuevo cap global combinado AUDP, escalable por
-escenario: - Pesimista: 8 operadores simultáneos máximo entre Batuco +
-Colina - Esperada: 14 operadores - Optimista: 20 operadores</p>
-<p>La reducción se aplica de manera proporcional uniforme para preservar
-el mix de productos. Esto refleja que las AUDPs adyacentes en el mismo
-eje vial <strong>comparten demanda regional</strong> — un comprador
-interesado en Batuco también considera Colina, no son segmentos
-independientes.</p>
-<p><strong>Limitación honesta</strong>: el cap es una restricción de
-demanda regional, no una calibración mecánica. La velocidad por operador
-(<code>velVenta</code>) sigue como input del usuario (defaults heredados
-de la versión inicial). Para escenarios más conservadores, el usuario
-puede combinar cap esperada con <code>velVenta</code> reducido a 2.5-3.0
-ud/mes (más alineado con TINSA p75).</p>
+id="mejora-8-botón-resetear-productos-a-defaults-y-trazabilidad-de-estado"><span
+class="header-section-number">9.2.7</span> Mejora 8 ✓: Botón “Resetear
+productos a defaults” y trazabilidad de estado</h3>
+<p><strong>Caso de uso</strong>: el simulador legacy ofrece la función
+<code>loadRepresentantesFromResidual()</code> (botón 🔮) que carga las
+incidencias previamente calculadas en <code>/residual</code> y las
+aplica a la tabla de productos en memoria. Estos cambios son típicamente
+menores (±3-5% sobre los defaults), pero crean un estado de la sesión
+que no es trivialmente reversible — al recargar, los productos vuelven a
+defaults, pero durante la sesión activa pueden quedar mezclados.</p>
+<p><strong>Fix</strong>: nuevo botón “↺ Resetear productos a defaults”
+(color ámbar) ubicado al lado del botón de cargar representantes.
+Restaura los valores originales de <code>ticket</code>,
+<code>velVenta</code>, <code>incidencia</code>, <code>eficiencia</code>,
+<code>minUnidades</code> y <code>siguiente</code> desde
+<code>PRODUCTS_DEFAULTS</code> (snapshot inmutable creado al inicio del
+simulador). Re-renderiza la tabla y dispara <code>peResimulate()</code>
+automáticamente para que la pestaña Primeras Etapas refleje el cambio
+inmediatamente.</p>
+<p><strong>Política de uso recomendada para presentaciones a
+directorio</strong>:</p>
+<ol type="1">
+<li><strong>Partir desde defaults limpios</strong>: clickear “↺ Resetear
+productos” antes de cualquier evaluación nueva.</li>
+<li><strong>Configurar inputs UI</strong> (escenario operadores,
+plusvalía, hito tren, modo PRC) según el caso a evaluar.</li>
+<li><strong>Cargar representantes</strong> sólo si se quiere usar las
+incidencias específicas del residual ejecutado para ese AUDP.</li>
+<li><strong>Documentar el estado</strong> capturando los inputs UI y la
+sección de productos para reproducibilidad.</li>
+</ol>
+<p>Esto da control determinista sobre el estado base del simulador,
+asegurando que los números presentados al directorio se puedan
+reproducir bit-a-bit sin depender de la sesión del navegador.</p>
 <h3 data-number="9.2.8"
 id="mejora-6-cópula-cross-unificada-10d-versión-3"><span
 class="header-section-number">9.2.8</span> Mejora 6 ✓: Cópula CROSS
@@ -2130,11 +2239,14 @@ las cinco de producto (precio, velocidad, plazo, descuento, tamaño),
 todas en YoY o variación interanual. Calibración por Spearman empírico
 convertido a Pearson y luego a matriz de correlación PSD vía
 Cholesky.</p>
-<p><strong>Verificación 200/200</strong>: el script
-<code>analysis/verify_all_cross_correlations.py</code> recorre las 200
-combinaciones (5 macros × 5 productos × 4 familias × 2 zonas) y reporta
-el ρ empírico, su significancia y el sample size. Las 200 están
-calibradas; 102 son significativas y 27 fuertes.</p>
+<p><strong>Verificación 200/200</strong> (post-filtro de precio): el
+script <code>analysis/verify_all_cross_correlations.py</code> recorre
+las 200 combinaciones (5 macros × 5 productos × 4 familias × 2 zonas) y
+reporta el ρ empírico, su significancia y el sample size. Las 200 están
+calibradas; 98 son significativas (|ρ| &gt; 0.20) y 23 fuertes (|ρ| &gt;
+0.40). Los caveats de sample size aplican a
+<code>audp_zone/edif_4p</code> (n=17) y <code>audp_zone/townhouse</code>
+(n=18) post-filtro.</p>
 <p><strong>Validación económica de signos</strong>:</p>
 <pre><code>✓ Δ tasa hipo → Velocidad: -0.28 a -0.46 (8/8 celdas)
    Affordability confirmada: tasa sube → menos compradores califican.
@@ -2155,12 +2267,14 @@ macroeconómicos sampleados” en el resultado del Monte Carlo muestra
 histogramas con la distribución observada de las cinco macros durante
 las N iteraciones, permitiendo verificar visualmente que el sample
 respeta los regímenes históricos (boom, COVID, slowdown).</p>
-<p><strong>Limitación documentada</strong>: con <code>n=25-48</code>
-trimestres por celda y 10 dimensiones, el ratio observaciones/variables
-va de 2.5 a 4.8. La t-cópula con ν=4 introduce <em>tail dependence</em>
-y mitiga el sobreajuste, pero las correlaciones extremas individuales
-(e.g., -0.78) deben interpretarse con una banda aproximada de ±0.20. El
-detalle por celda está en
+<p><strong>Limitación documentada</strong>: con <code>n=17-48</code>
+trimestres por celda (post-filtro de precio) y 10 dimensiones, el ratio
+observaciones/variables va de 1.7 a 4.8. La t-cópula con ν=4 introduce
+<em>tail dependence</em> y mitiga el sobreajuste, pero las correlaciones
+de las celdas con <code>n&lt;20</code> deben interpretarse con una banda
+aproximada de ±0.25 (<code>audp_zone/edif_4p</code> y
+<code>audp_zone/townhouse</code>); el resto, ±0.15-0.20. El detalle por
+celda con sample size está en
 <code>analysis/all_cross_correlations.csv</code>.</p>
 <h1 data-number="10" id="conclusiones-para-el-directorio"><span
 class="header-section-number">10</span> 9. Conclusiones para el
@@ -2394,23 +2508,23 @@ class="header-section-number">13</span> Anexo C — Reproducibilidad
 técnica</h1>
 <h2 data-number="13.1" id="c.1-pipeline-reproducible"><span
 class="header-section-number">13.1</span> C.1 Pipeline reproducible</h2>
-<div class="sourceCode" id="cb5"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> batucoterra-cabida/</span>
-<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="co"># Recalibrar el modelo desde cero</span></span>
-<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a><span class="ex">python3</span> analysis/build_macro_option_c.py</span>
-<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a><span class="ex">python3</span> analysis/build_macro_c_js.py</span>
-<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a><span class="co"># Análisis profundo (correlaciones con lags + variable importance)</span></span>
-<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a><span class="ex">python3</span> analysis/deep_correlation_analysis.py</span>
-<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a><span class="ex">python3</span> analysis/extra_dimensions.py</span>
-<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a><span class="co"># Generar visualizaciones</span></span>
-<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a><span class="ex">python3</span> analysis/build_visualizations.py</span>
-<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a><span class="co"># Validar</span></span>
-<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a><span class="ex">node</span> analysis/test_factor_macro.js</span>
-<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a><span class="ex">node</span> analysis/test_factor_with_sens.js</span></code></pre></div>
+<div class="sourceCode" id="cb6"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> batucoterra-cabida/</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a><span class="co"># Recalibrar el modelo desde cero</span></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a><span class="ex">python3</span> analysis/build_macro_option_c.py</span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a><span class="ex">python3</span> analysis/build_macro_c_js.py</span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a><span class="co"># Análisis profundo (correlaciones con lags + variable importance)</span></span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a><span class="ex">python3</span> analysis/deep_correlation_analysis.py</span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a><span class="ex">python3</span> analysis/extra_dimensions.py</span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a><span class="co"># Generar visualizaciones</span></span>
+<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a><span class="ex">python3</span> analysis/build_visualizations.py</span>
+<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-14"><a href="#cb6-14" aria-hidden="true" tabindex="-1"></a><span class="co"># Validar</span></span>
+<span id="cb6-15"><a href="#cb6-15" aria-hidden="true" tabindex="-1"></a><span class="ex">node</span> analysis/test_factor_macro.js</span>
+<span id="cb6-16"><a href="#cb6-16" aria-hidden="true" tabindex="-1"></a><span class="ex">node</span> analysis/test_factor_with_sens.js</span></code></pre></div>
 <h2 data-number="13.2" id="c.2-archivos-clave"><span
 class="header-section-number">13.2</span> C.2 Archivos clave</h2>
 <table>

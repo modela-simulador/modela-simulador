@@ -1,8 +1,8 @@
 ---
 title: "Modelo Factorial Estocástico para Valoración de AUDPs"
-subtitle: "Documento Técnico para Directorio · Modela · Versión 4 (cópula CROSS)"
+subtitle: "Documento Técnico para Directorio · Modela · Versión 5 (cópula CROSS + filtro de precio)"
 author: "Equipo Modela"
-date: "Abril 2026 · v4 con verificación exhaustiva 200/200 correlaciones macro×producto"
+date: "Abril 2026 · v5 con filtro de precio TINSA para comparable AUDP-coherente y verificación 200/200"
 geometry: "margin=2.5cm"
 fontsize: 11pt
 mainfont: "Helvetica Neue"
@@ -726,30 +726,64 @@ ICOI tiene solo 10 puntos anuales (2013-2024) en la fuente disponible. La CChC p
 
 **Beneficio esperado**: extender ICOI a 20+ años permite calibrar mejor su volatilidad real y captura ciclos completos (incluido pre-crisis 2008).
 
-### Mejora 7 ✓: Doble canal del shock de costo (post-revisión)
+### Mejora 7 ✓: Filtro de precio TINSA para comparable AUDP-coherente
 
-**Problema detectado en revisión**: el shock `costoMult` aparecía con peso bajo o nulo en el tornado de varianza del VAN, pese a que el costo de construcción es uno de los inputs más sensibles del modelo residual. La causa raíz era estructural y operaba en dos frentes:
+**Diagnóstico inicial**: la base TINSA cruda contiene 124.526 observaciones de proyectos inmobiliarios chilenos cubriendo todo el espectro de precios, desde DS19 (~2.000 UF) hasta proyectos premium en Las Condes y Vitacura (>20.000 UF). Para una calibración macro→producto que sirva como comparable de las AUDPs del eje Norte de Santiago (Lampa, Colina, Buin, Padre Hurtado), el segmento alto distorsiona los percentiles y las velocidades observadas — un Edif 4-6 pisos en La Dehesa con ticket de 18.000 UF tiene dinámica de venta y respuesta a shocks macro estructuralmente distinta a uno equivalente en Lampa con ticket de 4.500 UF.
 
-1. **Canal residual condicionado a representantes**: el shock sólo se propagaba a la incidencia si existían representantes guardados en `localStorage` con sensibilidades calculadas. Para usuarios que abrían el simulador sin haber pasado primero por `/residual`, el código ejecutaba `continue` y el shock era inerte. **Fix**: aplicar las sensibilidades default razonables (`{ticket: 0.65, costo: -0.45, plazo: -0.12}`) siempre, no sólo cuando hay representante explícito.
+**Filtro propuesto y aplicado**:
 
-2. **Canal directo desconectado**: las distribuciones de costo de infraestructura (`im`) y mitigaciones (`mm`) usaban distribuciones triangulares **independientes** del shock macro. Esto rompía la coherencia económica: una recesión que sube el ICOI 8% subía la incidencia con sensibilidad correcta, pero infra/mitigaciones se sampleaban de una distribución que ignoraba el shock — dos canales que en la realidad están perfectamente correlacionados (mismo input ICOI). **Fix**: en modo factor (v1/v2/v3), `im` y `mm` se acoplan directamente al `costoMult`. Las mitigaciones reciben una leve amplificación (×1.1) por su mayor componente regulatorio/social.
+| Categoría | Umbral de precio total | Justificación |
+|-----------|------------------------|---------------|
+| Departamentos | ≤ 5.000 UF | Cubre el rango DS19 → estándar AUDP, excluye premium urbano |
+| Casas | ≤ 7.500 UF | Cubre primera vivienda en periferia, excluye casas de barrio cerrado alto |
+| Townhouses | ≤ 7.500 UF | Mismo principio que casas; segmento medio-bajo |
 
-**Consecuencia esperada**: el `costoMult` ahora aparece sistemáticamente entre las primeras tres variables del tornado en escenarios con shocks materiales, reflejando su peso económico real. Este efecto se observa tanto en las celdas con representantes guardados (canal residual + directo) como en las que no (sólo canal directo, vía infra/mitigaciones acopladas).
+Precio total = `UFM2P × SUPP` (UF por m² de venta × superficie del producto). El filtro se aplica directamente al script `analysis/build_macro_v3_cross.py` antes de la categorización en familias.
 
-### Mejora 8 ✓: Cap combinado AUDP de operadores simultáneos
+**Impacto cuantitativo**:
 
-**Problema detectado**: la herramienta podía proyectar ingresos anuales en torno a 12-13 millones USD por las dos AUDPs combinadas (Batuco + Colina), lo cual no es coherente con la realidad de absorción del eje Norte de Santiago. La causa: hasta antes de este fix, el modelo permitía hasta 32 operadores simultáneos en AUDPs (4 productos × 4 ops por escenario *esperada* × 2 zonas), sin un cap global combinado. Sólo Deptos 3 tenía cap combinado.
+```
+TINSA bruto:           124.526 observaciones
+Tras filtro de precio:  89.743 observaciones (72,1% retenidas)
+Eliminadas:             34.783 observaciones (27,9% — segmento alto)
+```
 
-**Calibración empírica con TINSA**: la velocidad mediana de proyectos activos en Chile es 0.7 ud/mes/proyecto (124.981 observaciones); el percentil 75 es 1.4 ud/mes; sólo el percentil 90 supera 3 ud/mes. Los defaults del simulador (4-6 ud/mes/operador) corresponden a proyectos del top decil en zonas premium, no al promedio AUDP del eje Norte. Combinado con 16-32 operadores simultáneos, eso explica la sobreestimación.
+**Sample size por celda tras filtro**:
 
-**Fix**: nuevo cap global combinado AUDP, escalable por escenario:
-- Pesimista: 8 operadores simultáneos máximo entre Batuco + Colina
-- Esperada: 14 operadores
-- Optimista: 20 operadores
+| Zona / Familia | n trim. (filtrado) | n trim. (sin filtro) | Δ |
+|----------------|---------------------|----------------------|---|
+| audp_zone / edif_4p | **17** | 27 | -37% |
+| audp_zone / ds19 | 27 | 27 | 0% |
+| audp_zone / casa | 47 | 47 | 0% |
+| audp_zone / townhouse | **18** | 25 | -28% |
+| nacional / edif_4p | 48 | 48 | 0% |
+| nacional / ds19 | 32 | 32 | 0% |
+| nacional / casa | 48 | 48 | 0% |
+| nacional / townhouse | 33 | 39 | -15% |
 
-La reducción se aplica de manera proporcional uniforme para preservar el mix de productos. Esto refleja que las AUDPs adyacentes en el mismo eje vial **comparten demanda regional** — un comprador interesado en Batuco también considera Colina, no son segmentos independientes.
+Las celdas críticas `audp_zone/edif_4p` y `audp_zone/townhouse` quedaron con `n=17-18` trimestres, debajo del umbral conservador de 20 — la calibración se mantiene con un caveat documentado: las correlaciones de esas dos celdas deben leerse con una banda aproximada de **±0.25** (una desviación estándar al ratio obs/var = 1.7-1.8). El resto de celdas mantiene `n=27-48` y las correlaciones siguen siendo estadísticamente robustas.
 
-**Limitación honesta**: el cap es una restricción de demanda regional, no una calibración mecánica. La velocidad por operador (`velVenta`) sigue como input del usuario (defaults heredados de la versión inicial). Para escenarios más conservadores, el usuario puede combinar cap esperada con `velVenta` reducido a 2.5-3.0 ud/mes (más alineado con TINSA p75).
+**Validación de signos económicos post-filtro**:
+- `Δ tasa hipo → Velocidad`: persiste negativa unánime en las 8 celdas (rango -0.31 a -0.46) — el canal de *affordability* sobrevive al filtro intacto.
+- `Δ desempleo → Precio`: -0.16 a -0.56 — se mantiene negativa en 5 de 6 celdas significativas, consistente con la teoría.
+- `IMACEC → Velocidad` en `audp_zone/edif_4p`: pasa a ρ=+0.47 (vs +0.65 sin filtro) — efecto más moderado pero del signo correcto.
+
+**Independencia explícita del simulador determinista**: este filtro afecta **únicamente la calibración del Monte Carlo**, donde se sampleán shocks macro correlacionados. La pestaña Primeras Etapas del simulador inmobiliario es **completamente independiente** de TINSA y opera con sus propios `velVenta`, `incidencia` y `ticket` configurados por el usuario en la interfaz. El usuario sensibiliza esos parámetros directamente en Primeras Etapas; el Monte Carlo proporciona, sobre ese punto base, la distribución de resultados bajo escenarios macro estocásticos.
+
+### Mejora 8 ✓: Botón "Resetear productos a defaults" y trazabilidad de estado
+
+**Caso de uso**: el simulador legacy ofrece la función `loadRepresentantesFromResidual()` (botón 🔮) que carga las incidencias previamente calculadas en `/residual` y las aplica a la tabla de productos en memoria. Estos cambios son típicamente menores (±3-5% sobre los defaults), pero crean un estado de la sesión que no es trivialmente reversible — al recargar, los productos vuelven a defaults, pero durante la sesión activa pueden quedar mezclados.
+
+**Fix**: nuevo botón "↺ Resetear productos a defaults" (color ámbar) ubicado al lado del botón de cargar representantes. Restaura los valores originales de `ticket`, `velVenta`, `incidencia`, `eficiencia`, `minUnidades` y `siguiente` desde `PRODUCTS_DEFAULTS` (snapshot inmutable creado al inicio del simulador). Re-renderiza la tabla y dispara `peResimulate()` automáticamente para que la pestaña Primeras Etapas refleje el cambio inmediatamente.
+
+**Política de uso recomendada para presentaciones a directorio**:
+
+1. **Partir desde defaults limpios**: clickear "↺ Resetear productos" antes de cualquier evaluación nueva.
+2. **Configurar inputs UI** (escenario operadores, plusvalía, hito tren, modo PRC) según el caso a evaluar.
+3. **Cargar representantes** sólo si se quiere usar las incidencias específicas del residual ejecutado para ese AUDP.
+4. **Documentar el estado** capturando los inputs UI y la sección de productos para reproducibilidad.
+
+Esto da control determinista sobre el estado base del simulador, asegurando que los números presentados al directorio se puedan reproducir bit-a-bit sin depender de la sesión del navegador.
 
 ### Mejora 6 ✓: Cópula CROSS unificada 10D (Versión 3)
 
@@ -757,7 +791,7 @@ La reducción se aplica de manera proporcional uniforme para preservar el mix de
 
 **Implementación**: una única cópula t (ν=4) de 10 dimensiones por celda (familia × zona). Las 10 variables son las cinco macros (IMACEC, Δ tasa hipotecaria, Δ desempleo, IPV YoY, ICOI YoY) y las cinco de producto (precio, velocidad, plazo, descuento, tamaño), todas en YoY o variación interanual. Calibración por Spearman empírico convertido a Pearson y luego a matriz de correlación PSD vía Cholesky.
 
-**Verificación 200/200**: el script `analysis/verify_all_cross_correlations.py` recorre las 200 combinaciones (5 macros × 5 productos × 4 familias × 2 zonas) y reporta el ρ empírico, su significancia y el sample size. Las 200 están calibradas; 102 son significativas y 27 fuertes.
+**Verificación 200/200** (post-filtro de precio): el script `analysis/verify_all_cross_correlations.py` recorre las 200 combinaciones (5 macros × 5 productos × 4 familias × 2 zonas) y reporta el ρ empírico, su significancia y el sample size. Las 200 están calibradas; 98 son significativas (|ρ| > 0.20) y 23 fuertes (|ρ| > 0.40). Los caveats de sample size aplican a `audp_zone/edif_4p` (n=17) y `audp_zone/townhouse` (n=18) post-filtro.
 
 **Validación económica de signos**:
 
@@ -779,7 +813,7 @@ La reducción se aplica de manera proporcional uniforme para preservar el mix de
 
 **Toggle en el simulador**: ⭐ v3 CROSS (default) | 🌟 v2 | 🌎 v1 | 📊 Empírico | ⚙ Paramétrico. El panel "Drivers macroeconómicos sampleados" en el resultado del Monte Carlo muestra histogramas con la distribución observada de las cinco macros durante las N iteraciones, permitiendo verificar visualmente que el sample respeta los regímenes históricos (boom, COVID, slowdown).
 
-**Limitación documentada**: con `n=25-48` trimestres por celda y 10 dimensiones, el ratio observaciones/variables va de 2.5 a 4.8. La t-cópula con ν=4 introduce *tail dependence* y mitiga el sobreajuste, pero las correlaciones extremas individuales (e.g., -0.78) deben interpretarse con una banda aproximada de ±0.20. El detalle por celda está en `analysis/all_cross_correlations.csv`.
+**Limitación documentada**: con `n=17-48` trimestres por celda (post-filtro de precio) y 10 dimensiones, el ratio observaciones/variables va de 1.7 a 4.8. La t-cópula con ν=4 introduce *tail dependence* y mitiga el sobreajuste, pero las correlaciones de las celdas con `n<20` deben interpretarse con una banda aproximada de ±0.25 (`audp_zone/edif_4p` y `audp_zone/townhouse`); el resto, ±0.15-0.20. El detalle por celda con sample size está en `analysis/all_cross_correlations.csv`.
 
 \newpage
 

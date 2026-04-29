@@ -48,6 +48,24 @@ cidu['quarter_str'] = cidu.apply(
 )
 cidu = cidu[(cidu['UFM2P'] > 0) & (cidu['UMESP'] > 0) & (cidu['UVEND'] > 0)]
 
+# ── Filtro de precio: limpia el segmento alto que no es comparable AUDP ──
+# Las AUDP (Lampa, Colina, Buin, etc.) atienden segmento medio-bajo. Los
+# proyectos premium (Las Condes, Vitacura) en TINSA inflan los percentiles
+# y velocidades observadas. Filtros propuestos por el usuario:
+#   - Departamentos:      precio total ≤ 5000 UF
+#   - Casas y Townhouses: precio total ≤ 7500 UF
+# Precio total = UFM2P × SUPP
+cidu['_ticket_uf'] = cidu['UFM2P'] * cidu['SUPP']
+n0 = len(cidu)
+mask_depto = (cidu['TPROP']=='DEPARTAMENTO') & (cidu['_ticket_uf'] <= 5000)
+mask_casa  = (cidu['TPROP'].isin(['CASA', 'TOWNHOUSE'])) & (cidu['_ticket_uf'] <= 7500)
+mask_other = ~cidu['TPROP'].isin(['DEPARTAMENTO', 'CASA', 'TOWNHOUSE'])
+# También aplicar TCAT==TOWNHOUSE para capturar townhouses con TPROP=CASA
+mask_th_alt = (cidu['TCAT']=='TOWNHOUSE') & (cidu['_ticket_uf'] <= 7500)
+cidu = cidu[mask_depto | mask_casa | mask_th_alt | mask_other].copy()
+print(f'  Filtro precio aplicado: {n0:,} → {len(cidu):,} obs ({100*len(cidu)/n0:.1f}%)')
+print(f'  - Deptos ≤ 5.000 UF, Casas/Townhouses ≤ 7.500 UF')
+
 # Estratos por familia
 def is_townhouse(row):
     return row['TPROP'] == 'TOWNHOUSE' or row['TCAT'] == 'TOWNHOUSE'
@@ -212,9 +230,14 @@ for zone_label in agg_tinsa:
         present = [v for v in ALL_VARS if v in marginals]
         df_corr = df[present].dropna()
 
-        if len(df_corr) < 20:
+        # Threshold relajado tras filtro de precio: AUDP zone Edif_4p y Townhouse
+        # quedan con 17-18 obs (vs 25-27 sin filtro). Mantener cópula con caveat
+        # documentado en lugar de perder esas celdas críticas.
+        if len(df_corr) < 15:
             print(f'  ⚠ {zone_label}/{fam}: solo {len(df_corr)} obs limpias, skipping')
             continue
+        if len(df_corr) < 20:
+            print(f'  ⚠ {zone_label}/{fam}: n={len(df_corr)} obs (bajo umbral conservador 20) — calibración ruidosa, leer con banda ±0.25')
 
         spearman = {}
         for vi in present:
