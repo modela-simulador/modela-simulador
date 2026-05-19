@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: modela-cabida-api
+    runtime: docker
+    dockerfilePath: api/Dockerfile
+    dockerContext: api
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: PORT
+        value: "8000"
