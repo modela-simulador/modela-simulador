@@ -17,16 +17,6 @@
   <script src="https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
-  <!-- Estadísticas de mercado y t-cópula con marginales empíricas (CIDU) -->
-  <script src="market_stats.js"></script>
-  <script src="market_copula.js"></script>
-  <!-- Factor Model Opción C (macros + regresión velocidad + presets) -->
-  <script src="macro_factor_c.js"></script>
-  <!-- Factor Model v2: cópula expandida (8 vars) + zona AUDP + IPV lag-3 + polinómica -->
-  <script src="macro_factor_v2.js"></script>
-  <!-- Factor Model v3: cópula CROSS unificada (10D macros + producto, sin regresión) -->
-  <script src="macro_factor_v3.js"></script>
-  <script src="macro_factor.js"></script>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
@@ -1983,7 +1973,7 @@
     <div class="mc-topbar">
       <div style="display:flex;align-items:baseline;gap:10px">
         <h2 id="mc-title">Análisis Monte Carlo</h2>
-        <span class="mc-subtitle" id="mc-subtitle">Simulación probabilística con cópula t · 5 macros + 5 producto correlacionadas · n iteraciones configurable</span>
+        <span class="mc-subtitle" id="mc-subtitle">Simulación probabilística con 9 variables correlacionadas · n iteraciones configurable</span>
       </div>
       <button class="un-close" onclick="closeMCAnalysis()">&#10005;</button>
     </div>
@@ -2011,86 +2001,6 @@
           <span class="mc-field-hint">Mismo seed + mismos inputs → mismo resultado</span>
         </div>
 
-        <!-- Toggle de modos: Factor v2 / Factor v1 / Empírico / Paramétrico -->
-        <div class="mc-section-title" style="margin-top:10px">Modelo de marginales</div>
-        <div style="background:#f1f5f9;border:1px solid #e2e8f0;border-radius:6px;padding:8px 10px;display:flex;flex-direction:column;gap:6px">
-          <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr;gap:2px">
-            <button id="mc-mode-factor-v3" type="button" onclick="setMCMode('factor_v3')" style="padding:6px 2px;font-size:8.5px;font-weight:700;border:1px solid #db2777;border-radius:5px;background:#db2777;color:#fff;cursor:pointer">
-              ⭐ v3 CROSS
-            </button>
-            <button id="mc-mode-factor-v2" type="button" onclick="setMCMode('factor_v2')" style="padding:6px 2px;font-size:8.5px;font-weight:600;border:1px solid #cbd5e1;border-radius:5px;background:#fff;color:#334155;cursor:pointer">
-              🌟 Factor v2
-            </button>
-            <button id="mc-mode-factor" type="button" onclick="setMCMode('factor')" style="padding:6px 2px;font-size:8.5px;font-weight:600;border:1px solid #cbd5e1;border-radius:5px;background:#fff;color:#334155;cursor:pointer">
-              🌎 v1
-            </button>
-            <button id="mc-mode-empirical" type="button" onclick="setMCMode('empirical')" style="padding:6px 2px;font-size:8.5px;font-weight:600;border:1px solid #cbd5e1;border-radius:5px;background:#fff;color:#334155;cursor:pointer">
-              📊 Empírico
-            </button>
-            <button id="mc-mode-parametric" type="button" onclick="setMCMode('parametric')" style="padding:6px 2px;font-size:8.5px;font-weight:600;border:1px solid #cbd5e1;border-radius:5px;background:#fff;color:#334155;cursor:pointer">
-              ⚙ Param.
-            </button>
-          </div>
-          <div id="mc-mode-hint" style="font-size:10px;color:#64748b;line-height:1.3;font-style:italic">
-            Factor v2: cópula expandida (8 vars con lags) + zona AUDP-relevante + IPV con lag t-3 + regresión polinómica. Recomendado para AUDPs.
-          </div>
-        </div>
-
-        <!-- Selector de zona (solo en Factor v2) -->
-        <div id="mc-zone-panel" style="background:#f0fdf4;border:1px solid #86efac;border-radius:6px;padding:8px 10px;margin-top:4px">
-          <div style="font-size:10px;font-weight:700;color:#15803d;margin-bottom:5px">Zona de calibración</div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px">
-            <button id="mc-zone-audp" type="button" onclick="setMCZone('audp_zone')" style="padding:6px;font-size:10px;font-weight:700;border:1px solid #16a34a;border-radius:5px;background:#16a34a;color:#fff;cursor:pointer">
-              🏘 AUDP zone
-            </button>
-            <button id="mc-zone-nacional" type="button" onclick="setMCZone('nacional')" style="padding:6px;font-size:10px;font-weight:600;border:1px solid #cbd5e1;border-radius:5px;background:#fff;color:#334155;cursor:pointer">
-              🇨🇱 Nacional
-            </button>
-          </div>
-          <div id="mc-zone-hint" style="font-size:9px;color:#15803d;margin-top:4px;font-style:italic">
-            AUDP zone: Lampa, Colina, Buin, Padre Hurtado, San Bernardo, Tiltil, Melipilla (14.7k obs · σ Edif 21.7pp)
-          </div>
-        </div>
-
-
-        <!-- Panel Factor Macro: presets históricos + sliders -->
-        <div id="mc-factor-panel" style="background:#eff6ff;border:1px solid #93c5fd;border-radius:6px;padding:10px;display:flex;flex-direction:column;gap:8px;margin-top:6px">
-          <div style="font-size:10px;font-weight:700;color:#1d4ed8;text-transform:uppercase;letter-spacing:0.5px">Escenario macro</div>
-
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px">
-            <button type="button" onclick="setFactorPreset('base_esperado')" id="factor-preset-base" class="factor-preset-btn">📈 Base esperado</button>
-            <button type="button" onclick="setFactorPreset('subprime_2009')" id="factor-preset-subprime" class="factor-preset-btn">📉 Subprime 2009</button>
-            <button type="button" onclick="setFactorPreset('estallido_covid_2019_2020')" id="factor-preset-covid" class="factor-preset-btn">🔥 Estallido + COVID</button>
-            <button type="button" onclick="setFactorPreset('boom_post_covid_2021')" id="factor-preset-boom" class="factor-preset-btn">🚀 Boom 2021</button>
-            <button type="button" onclick="setFactorPreset('slowdown_2023')" id="factor-preset-slowdown" class="factor-preset-btn" style="grid-column:1/-1">⚠ Slowdown 2023</button>
-          </div>
-
-          <div style="font-size:9px;color:#64748b;font-style:italic" id="mc-factor-preset-info">Centro del shock = mediana histórica · variabilidad sortada por cópula t</div>
-
-          <!-- Diagnóstico de estado de representantes -->
-          <div id="mc-factor-diag" style="font-size:10px;padding:6px 8px;border-radius:4px;background:#fef3c7;border:1px solid #f59e0b;color:#92400e;display:none">
-            <span id="mc-factor-diag-text"></span>
-          </div>
-
-          <div style="border-top:1px solid #cbd5e1;padding-top:8px;display:flex;flex-direction:column;gap:4px">
-            <div style="font-size:9px;font-weight:700;color:#1d4ed8">Variables sampleadas (5)</div>
-            <div style="display:grid;grid-template-columns:1fr auto;gap:2px;font-size:10px">
-              <span>IMACEC variación %</span><span id="mc-factor-imacec" style="font-variant-numeric:tabular-nums;font-weight:600">+2.5%</span>
-              <span>Δ Tasa hipotecaria</span><span id="mc-factor-tasa" style="font-variant-numeric:tabular-nums;font-weight:600">−0.1pp</span>
-              <span>Δ Desempleo</span><span id="mc-factor-desempleo" style="font-variant-numeric:tabular-nums;font-weight:600">+0.0pp</span>
-              <span>IPV deptos YoY</span><span id="mc-factor-ipv-deptos" style="font-variant-numeric:tabular-nums;font-weight:600">+1.6%</span>
-              <span>IPV casas YoY</span><span id="mc-factor-ipv-casas" style="font-variant-numeric:tabular-nums;font-weight:600">+1.4%</span>
-              <span>ICOI YoY</span><span id="mc-factor-icoi" style="font-variant-numeric:tabular-nums;font-weight:600">+0.8%</span>
-            </div>
-          </div>
-        </div>
-
-        <style>
-          .factor-preset-btn { padding:6px 4px; font-size:10px; font-weight:600; border:1px solid #cbd5e1; border-radius:4px; background:#fff; color:#334155; cursor:pointer; transition: all 0.15s; }
-          .factor-preset-btn:hover { background:#dbeafe; border-color:#60a5fa; }
-          .factor-preset-btn.active { background:#2563eb; border-color:#1d4ed8; color:#fff; }
-        </style>
-
         <div class="mc-section-title" style="margin-top:10px">Distribuciones (editables)</div>
 
         <div class="mc-dist-group">
@@ -2103,15 +2013,7 @@
         </div>
         <div class="mc-dist-group">
           <div class="mc-dist-title">Ticket multiplier</div>
-          <div class="mc-dist-params">normal μ=1, σ=<input id="mc-tm-sigma" type="number" value="8" min="1" max="25" step="1" style="width:38px;padding:2px 4px;font-size:10px;border:1px solid #cbd5e1;border-radius:3px">% · empírico clamp ±20%</div>
-        </div>
-        <div class="mc-dist-group" style="border-left:3px solid #ef4444;padding-left:8px">
-          <div class="mc-dist-title">Costo construcción <span style="font-weight:400;color:#94a3b8;font-size:9px">(via residual)</span></div>
-          <div class="mc-dist-params">triang [<input id="mc-costo-lo" type="number" value="0.92" min="0.7" max="1" step="0.01" style="width:42px;padding:2px 4px;font-size:10px;border:1px solid #cbd5e1;border-radius:3px">, <input id="mc-costo-mode" type="number" value="1.00" min="0.9" max="1.1" step="0.01" style="width:42px;padding:2px 4px;font-size:10px;border:1px solid #cbd5e1;border-radius:3px">, <input id="mc-costo-hi" type="number" value="1.10" min="1" max="1.5" step="0.01" style="width:42px;padding:2px 4px;font-size:10px;border:1px solid #cbd5e1;border-radius:3px">] × baseline</div>
-        </div>
-        <div class="mc-dist-group" style="border-left:3px solid #ef4444;padding-left:8px">
-          <div class="mc-dist-title">Plazo obra <span style="font-weight:400;color:#94a3b8;font-size:9px">(via residual)</span></div>
-          <div class="mc-dist-params">triang [<input id="mc-plazo-lo" type="number" value="0.85" min="0.5" max="1" step="0.05" style="width:42px;padding:2px 4px;font-size:10px;border:1px solid #cbd5e1;border-radius:3px">, <input id="mc-plazo-mode" type="number" value="1.00" min="0.9" max="1.1" step="0.05" style="width:42px;padding:2px 4px;font-size:10px;border:1px solid #cbd5e1;border-radius:3px">, <input id="mc-plazo-hi" type="number" value="1.20" min="1" max="2" step="0.05" style="width:42px;padding:2px 4px;font-size:10px;border:1px solid #cbd5e1;border-radius:3px">] × baseline</div>
+          <div class="mc-dist-params">normal μ=1, σ=<input id="mc-tm-sigma" type="number" value="8" min="1" max="25" step="1" style="width:38px;padding:2px 4px;font-size:10px;border:1px solid #cbd5e1;border-radius:3px">%</div>
         </div>
         <div class="mc-dist-group">
           <div class="mc-dist-title">PRC aprobado</div>
@@ -2295,15 +2197,8 @@
           <tbody id="prod-table-body"></tbody>
         </table>
         </div>
-        <div style="margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <div style="margin-top:10px">
           <button class="btn-add-product" onclick="addNewProduct()">+ Agregar Producto</button>
-          <button class="btn-add-product" id="btn-load-representantes" onclick="loadRepresentantesFromResidual()" style="background:#f3e8ff;border-color:#a855f7;color:#7c3aed" title="Carga las incidencias guardadas en /residual y las aplica a los productos correspondientes">
-            🔮 Cargar representantes desde Residual
-          </button>
-          <button class="btn-add-product" id="btn-reset-products" onclick="resetProductsToDefaults()" style="background:#fef3c7;border-color:#f59e0b;color:#92400e" title="Restaura ticket, velVenta e incidencia originales del simulador (limpia cualquier modificación previa por carga de representantes)">
-            ↺ Resetear productos a defaults
-          </button>
-          <span id="representantes-status" style="font-size:11px;color:#7c3aed;font-weight:600"></span>
         </div>
       </div>
       <div class="prod-tab-content" id="tab-stock">
@@ -2883,17 +2778,20 @@ function handleLogin(evt) {
 }
 
 function handleLogout() {
-  // Limpia el token compartido y vuelve al chooser de Next.js (root).
-  // El chooser (página landing) detectará el sessionStorage vacío y
-  // mostrará su propia pantalla de login.
   sessionStorage.removeItem('modela_token');
   sessionStorage.removeItem('modela_user');
-  // Path relativo a la raíz: simulador-legacy.html y la landing (index.html
-  // o /residual o /cabidas) viven en el mismo directorio bajo /modela-simulador/
-  // o en localhost:3000/. Resolver al pathname actual sin el archivo.
-  var target = window.location.pathname.replace(/simulador-legacy\.html$/, '');
-  if (!target) target = '/';
-  window.location.replace(target);
+  const sim = document.getElementById('simulator-app');
+  const lp  = document.getElementById('landing-page');
+  sim.classList.add('hidden');
+  sim.style.display = '';
+  lp.classList.remove('hidden');
+  lp.style.display = '';
+  window.scrollTo(0, 0);
+  document.getElementById('login-user').value = '';
+  document.getElementById('login-pass').value = '';
+  const errorEl = document.getElementById('login-error');
+  errorEl.style.display = 'none';
+  errorEl.textContent = 'Usuario o contraseña incorrectos';
 }
 
 let _simInitialized = false;
@@ -2928,10 +2826,6 @@ function transitionToSimulator() {
 }
 
 // Check session on load
-// Si está autenticado: monta el simulador.
-// Si NO está autenticado: redirige al chooser (root) que es el ÚNICO punto
-// de login canónico. El login local del legacy queda como fallback solo
-// si el chooser no responde (improbable pero defensivo).
 (function checkAuthOnLoad() {
   if (isAuthenticated()) {
     const lp  = document.getElementById('landing-page');
@@ -2945,12 +2839,6 @@ function transitionToSimulator() {
       if (typeof runAndRender === 'function') runAndRender();
       if (typeof pducInit === 'function') pducInit();
     }, 0);
-  } else {
-    // Redirige al chooser/login del Next.js (mismo dominio, root).
-    // El chooser detectará la ausencia de token y mostrará su login.
-    var target = window.location.pathname.replace(/simulador-legacy\.html$/, '');
-    if (!target) target = '/';
-    window.location.replace(target);
   }
 })();
 
@@ -4011,127 +3899,6 @@ function escapeHTML(str) {
 function safeJSStr(str) {
   return String(str).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'\\"')
     .replace(/</g,'\\x3c').replace(/>/g,'\\x3e');
-}
-
-// ──────────────────────────────────────────────────────────────
-// Representantes desde /residual (compartidos via localStorage)
-// ──────────────────────────────────────────────────────────────
-//
-// El simulador residual (Next.js, mismo dominio) puede guardar hasta 4
-// "representantes" — uno por familia (edif_4p, ds19, casa, townhouse) —
-// con sus parámetros completos e incidencia calculada. Esta función
-// los lee y los aplica a la tabla PRODUCTS:
-//   - edif_4p   → Deptos 1/2/3 (todos comparten incidencia; ticket y
-//                                velVenta del representante van al tier base)
-//   - ds19      → DS19 (1:1, todo se reemplaza)
-//   - casa      → Casas 1/2/3 (igual que Deptos)
-//   - townhouse → Townhouses 1/2/3 (igual)
-function loadRepresentantesFromResidual() {
-  const STORAGE_KEY = 'modela_representantes_v1';
-  let store;
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    store = raw ? JSON.parse(raw) : {};
-  } catch (e) {
-    alert('No se pudieron leer los representantes del almacenamiento local: ' + e.message);
-    return;
-  }
-
-  const families = Object.keys(store).filter((k) => store[k]);
-  if (families.length === 0) {
-    alert(
-      'No hay representantes guardados.\n\n' +
-      'Para crearlos, abre el Simulador Residual Dinámico, evalúa una familia ' +
-      '(Edificio 4p, DS19, Casa o Townhouse), y usa el botón "💾 Guardar como representante".'
-    );
-    return;
-  }
-
-  // Mapeo familia → lista de productNames a actualizar (en orden, base primero)
-  const FAMILY_TO_PRODUCTS = {
-    edif_4p:   ['Deptos 1', 'Deptos 2', 'Deptos 3'],
-    ds19:      ['DS19'],
-    casa:      ['Casas 1', 'Casas 2', 'Casas 3'],
-    townhouse: ['Townhouses 1', 'Townhouses 2', 'Townhouses 3'],
-  };
-  const FAMILY_LABELS = {
-    edif_4p:   'Edificio 4-6 pisos',
-    ds19:      'DS19',
-    casa:      'Casa',
-    townhouse: 'Townhouse',
-  };
-
-  let updated = [];
-  let skipped = [];
-
-  for (const fam of families) {
-    const rep = store[fam];
-    if (!rep || !rep.result) continue;
-
-    const targets = FAMILY_TO_PRODUCTS[fam];
-    if (!targets) { skipped.push(fam); continue; }
-
-    const incidencia = Math.max(0.01, Math.min(0.5, +rep.result.incidencia));
-    // El ticket y velocidad del representante van al tier "base" (índice 0).
-    // Para el resto, solo actualizamos la incidencia (cada tier mantiene su
-    // ticket/velocidad propios — son anchors de mercado por segmento).
-    const baseTicket = rep.inputs?.unitModels?.[0]
-      ? Math.round(rep.inputs.unitModels[0].priceUFm2 * rep.inputs.unitModels[0].supVendibleM2)
-      : null;
-    const baseVel = +rep.inputs?.salesVelocity || null;
-
-    targets.forEach((prodName, idx) => {
-      if (!PRODUCTS[prodName]) return;
-      PRODUCTS[prodName].incidencia = incidencia;
-      if (idx === 0) {
-        if (baseTicket && baseTicket > 100) PRODUCTS[prodName].ticket = baseTicket;
-        if (baseVel && baseVel > 0) PRODUCTS[prodName].velVenta = baseVel;
-      }
-      updated.push(prodName);
-    });
-  }
-
-  // Refrescar tabla y mostrar status
-  if (typeof renderProductsTable === 'function') renderProductsTable();
-  const statusEl = document.getElementById('representantes-status');
-  if (statusEl) {
-    const list = families.map((f) => FAMILY_LABELS[f] || f).join(', ');
-    statusEl.textContent = '✓ Cargados: ' + list + ' (' + updated.length + ' productos actualizados)';
-    setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 8000);
-  }
-  console.log('[representantes] applied:', { families, updated, skipped });
-}
-
-// Restaura ticket, velVenta e incidencia originales del simulador.
-// Útil cuando el usuario clickeó "Cargar representantes" en una sesión y
-// quiere volver al estado base (incidencias 0.10-0.14 vs los 0.20-0.25
-// típicos del residual real). NO toca STOCK_INI ni los inputs UI.
-function resetProductsToDefaults() {
-  if (typeof PRODUCTS_DEFAULTS === 'undefined') {
-    alert('PRODUCTS_DEFAULTS no disponible — recarga la página.');
-    return;
-  }
-  let touched = 0;
-  for (const name in PRODUCTS_DEFAULTS) {
-    if (!PRODUCTS[name]) continue;
-    const def = PRODUCTS_DEFAULTS[name];
-    for (const k of ['ticket', 'velVenta', 'incidencia', 'eficiencia', 'minUnidades', 'siguiente']) {
-      if (def[k] !== undefined && PRODUCTS[name][k] !== def[k]) {
-        PRODUCTS[name][k] = def[k];
-        touched++;
-      }
-    }
-  }
-  if (typeof renderProductsTable === 'function') renderProductsTable();
-  if (typeof peResimulate === 'function') peResimulate();
-  if (typeof renderPrimerasEtapas === 'function') renderPrimerasEtapas();
-  const statusEl = document.getElementById('representantes-status');
-  if (statusEl) {
-    statusEl.style.color = '#92400e';
-    statusEl.textContent = '↺ Productos restaurados a defaults (' + touched + ' campos modificados)';
-    setTimeout(() => { if (statusEl) { statusEl.textContent = ''; statusEl.style.color = '#7c3aed'; } }, 8000);
-  }
-  console.log('[reset productos] touched=' + touched);
 }
 
 function renderProductsTable() {
@@ -11457,11 +11224,7 @@ function peResimulate() {
   const velFactor = 1 + (peVelocidadPct || 0) / 100;
   const p = Object.assign({}, peBaseParams);
   p.velMult = velFactor;
-  // FIX (auditoría 29-abr): respetar opsEscenario del UI (antes hardcodeado
-  // a 'esperada', sobrescribiendo el panel del usuario silenciosamente).
-  // Usar el valor de peBaseParams que viene de la última simulación 'Ejecutar'.
-  // Si está vacío, default 'esperada'.
-  p.opsEscenario = peBaseParams.opsEscenario || 'esperada';
+  p.opsEscenario = 'esperada'; // baseline fijo: la velocidad es el único dial
   p.maxAnnualUnitsOverride = 900 * velFactor;
   // Override plusvalía con el valor del input de PE (default 1%).
   // Esto afecta: tickets de viviendas (DS19, Casas, Deptos, Townhouses)
@@ -11607,301 +11370,20 @@ const MC = (function(){
       ? a + Math.sqrt(u * (b - a) * (m - a))
       : b - Math.sqrt((1 - u) * (b - a) * (b - m));
   }
-  // ── Cache del Factor Model Op.C v1 (1 por familia × preset) ──
-  const _factorCache = {};
-  function _getFactorSampler(family, preset){
-    const key = family + '|' + preset;
-    if (_factorCache[key]) return _factorCache[key];
-    if (!window.MacroFactor || !window.MACRO_FACTOR_C) return null;
-    try {
-      _factorCache[key] = window.MacroFactor.create(family, { nu: 4, preset: preset });
-      return _factorCache[key];
-    } catch (e) {
-      console.warn('[MC] no se pudo crear factor sampler v1:', family, preset, e);
-      return null;
-    }
-  }
-
-  // ── Cache del Factor Model v3 (cross-cópula) ──
-  const _factorV3Cache = {};
-  function _getFactorSamplerV3(family, zone){
-    const key = family + '|' + zone;
-    if (_factorV3Cache[key]) return _factorV3Cache[key];
-    if (!window.MacroFactor || !window.MACRO_FACTOR_V3) return null;
-    if (!window.MacroFactor.createV3) return null;
-    try {
-      _factorV3Cache[key] = window.MacroFactor.createV3(family, { nu: 4, zone: zone });
-      return _factorV3Cache[key];
-    } catch (e) {
-      console.warn('[MC] no se pudo crear factor sampler v3:', family, zone, e);
-      return null;
-    }
-  }
-
-  // ── Cache del Factor Model v2 (1 por familia × zona) ──
-  const _factorV2Cache = {};
-  function _getFactorSamplerV2(family, zone){
-    const key = family + '|' + zone;
-    if (_factorV2Cache[key]) return _factorV2Cache[key];
-    if (!window.MacroFactor || !window.MACRO_FACTOR_V2) return null;
-    if (!window.MacroFactor.createV2) return null;
-    try {
-      _factorV2Cache[key] = window.MacroFactor.createV2(family, { nu: 4, zone: zone });
-      return _factorV2Cache[key];
-    } catch (e) {
-      console.warn('[MC] no se pudo crear factor sampler v2:', family, zone, e);
-      return null;
-    }
-  }
-
-  // ── Cache de cópulas empíricas (1 por familia) ──
-  // Calibrar Iman-Conover requiere ~3000 samples internos, ~80ms por familia.
-  // Cacheamos para que no se recalibre en cada iteración del MC.
-  const _copulaCache = {};
-  function _getEmpiricalCopula(family){
-    if (_copulaCache[family]) return _copulaCache[family];
-    if (!window.MarketCopula || !window.MARKET_STATS || !window.MARKET_STATS[family]) return null;
-    try {
-      _copulaCache[family] = window.MarketCopula.create(family, { nu: 4, calibrate: true });
-      return _copulaCache[family];
-    } catch (e) {
-      console.warn('[MC] no se pudo crear cópula empírica para ' + family + ':', e);
-      return null;
-    }
-  }
-
-  // ── Snapshot de PRODUCTS para correcciones residuales ──
-  // Cada iteración del MC empieza desde el baseline de incidencia capturado al
-  // inicio de la corrida. Sin esto, los shocks se acumularían iter tras iter.
-  let _PRODUCTS_INCIDENCIA_BACKUP = null;
-  function _captureProductsBackup(){
-    _PRODUCTS_INCIDENCIA_BACKUP = {};
-    if (typeof PRODUCTS !== 'object' || !PRODUCTS) return;
-    for (var name in PRODUCTS) {
-      _PRODUCTS_INCIDENCIA_BACKUP[name] = PRODUCTS[name].incidencia;
-    }
-  }
-  function _restoreProductsBackup(){
-    if (!_PRODUCTS_INCIDENCIA_BACKUP) return;
-    for (var name in _PRODUCTS_INCIDENCIA_BACKUP) {
-      if (PRODUCTS[name]) PRODUCTS[name].incidencia = _PRODUCTS_INCIDENCIA_BACKUP[name];
-    }
-  }
-
-  // Mapa familia → productos del legacy. Mismo que en loadRepresentantesFromResidual.
-  const _FAMILY_TO_PRODUCTS_MC = {
-    edif_4p:   ['Deptos 1', 'Deptos 2', 'Deptos 3'],
-    ds19:      ['DS19'],
-    casa:      ['Casas 1', 'Casas 2', 'Casas 3'],
-    townhouse: ['Townhouses 1', 'Townhouses 2', 'Townhouses 3'],
-  };
-
-  // Cargar representantes (con sensibilidades) desde localStorage.
-  // Cacheado para no parsear en cada iteración.
-  let _REP_CACHE = null;
-  function _getRepresentantesCached(){
-    if (_REP_CACHE !== null) return _REP_CACHE;
-    try {
-      var raw = localStorage.getItem('modela_representantes_v1');
-      _REP_CACHE = raw ? JSON.parse(raw) : {};
-    } catch (e) { _REP_CACHE = {}; }
-    return _REP_CACHE;
-  }
-  function _resetRepCache(){ _REP_CACHE = null; }
-
-  // Sensibilidades default por familia (fallback si los representantes
-  // no tienen las suyas calculadas). DERIVADAS TEÓRICAMENTE de la fórmula
-  // residual estándar: i = (P − C − U − F) / P, donde P=precio venta,
-  // C=costo construcción, U=utilidad bruta, F=costos financieros (función
-  // de plazo y velocidad de venta).
-  //
-  // Diferenciando y evaluando en punto base (P=100, C=60, U=18, F=8, i=0.14
-  // para Edif_4p) se obtienen las elasticidades:
-  //   ∂i/∂ticket  ≈ +(C+U+F)/P    ≈ +0.86 → clamp a 0.70 conservador
-  //   ∂i/∂costo   ≈ −C/P          ≈ −0.60
-  //   ∂i/∂plazo   ≈ −F/(P × Δt)   ≈ −0.08  (intereses son ~8% del precio)
-  //   ∂i/∂vel     ≈ +F/(P × Δv)   ≈ +0.08
-  //
-  // CALIBRACIÓN PREVIA (29-abr): valores ad-hoc producían tornado con
-  // plazo=29% y costo=0.5% — directionalmente correcto pero magnitudes
-  // mal balanceadas. La nueva calibración revierte esa asimetría: el
-  // costo construcción debería pegar 8-15% del tornado y el plazo 3-7%,
-  // consistente con la sensibilidad real del residual chileno donde el
-  // ICOI moviéndose 5% destruye más valor que un plazo +5%.
-  var _DEFAULT_SENS = {
-    edif_4p:   { ticket: 0.70, velocidad: 0.08, costo: -0.60, plazo: -0.08, coef_vendible: 0.65 },
-    ds19:      { ticket: 0.50, velocidad: 0.06, costo: -0.45, plazo: -0.06, coef_vendible: 0.50 },
-    casa:      { ticket: 0.65, velocidad: 0.07, costo: -0.55, plazo: -0.07, coef_vendible: 0.60 },
-    townhouse: { ticket: 0.65, velocidad: 0.07, costo: -0.55, plazo: -0.07, coef_vendible: 0.60 },
-  };
-
-  // Aplicar Δincidencia linealizado a la tabla PRODUCTS según sensibilidades
-  // pre-calculadas del residual. Usa defaults si el representante no las tiene.
-  //
-  // Δincidencia = ∂i/∂ticket × Δticket% + ∂i/∂vel × Δvel% + ∂i/∂costo × Δcosto% + ∂i/∂plazo × Δplazo%
-  function _applyResidualShocks(shocks){
-    _restoreProductsBackup();
-    var store = _getRepresentantesCached();
-    var anyApplied = false;
-    for (var fam in _FAMILY_TO_PRODUCTS_MC) {
-      var rep = store ? store[fam] : null;
-      // Sensibilidades: del representante si existen, sino defaults razonables.
-      // FIX: aplicar defaults SIEMPRE (incluso sin representante) para que
-      // costoMult/plazoMult/precio_yoy siempre afecten el VAN. Sin esto los
-      // shocks eran inertes para usuarios que abren el simulador sin pasar
-      // por /residual primero — costoMult no aparecía en el tornado.
-      var s;
-      if (rep && rep.sensitivities && rep.sensitivities.incidencia) {
-        s = rep.sensitivities.incidencia;
-      } else {
-        s = _DEFAULT_SENS[fam] || _DEFAULT_SENS.edif_4p;
-      }
-      var fTicket   = (shocks.tm || 1) - 1;
-      var fVel      = (shocks.vel || 0) / 100;
-      var fCosto    = (shocks.costoMult || 1) - 1;
-      var fPlazo    = (shocks.plazoMult || 1) - 1;
-      var fCoefVend = (shocks.coefVendibleMult || 1) - 1;
-      var dIncidencia = (s.ticket||0)        * fTicket
-                       + (s.velocidad||0)     * fVel
-                       + (s.costo||0)         * fCosto
-                       + (s.plazo||0)         * fPlazo
-                       + (s.coef_vendible||0) * fCoefVend;
-      var products = _FAMILY_TO_PRODUCTS_MC[fam];
-      for (var i = 0; i < products.length; i++) {
-        var pName = products[i];
-        if (!PRODUCTS[pName] || !_PRODUCTS_INCIDENCIA_BACKUP) continue;
-        var base = _PRODUCTS_INCIDENCIA_BACKUP[pName] || 0;
-        PRODUCTS[pName].incidencia = Math.max(0.01, Math.min(0.50, base + dIncidencia));
-        anyApplied = true;
-      }
-    }
-    return anyApplied;
-  }
-
-  // Diagnóstico: estado de representantes (cuántos hay, cuántos con sens)
-  function _diagnosticReps(){
-    var store = _getRepresentantesCached() || {};
-    var withSens = 0, withoutSens = 0;
-    var families = ['edif_4p', 'ds19', 'casa', 'townhouse'];
-    for (var i = 0; i < families.length; i++) {
-      var rep = store[families[i]];
-      if (!rep) continue;
-      if (rep.sensitivities && rep.sensitivities.incidencia) withSens++;
-      else withoutSens++;
-    }
-    return { total: withSens + withoutSens, withSens: withSens, withoutSens: withoutSens };
-  }
-
   function sampleOne(rng, cfg){
     const c = sampleCorrelated(rng);
     const u = c.map(phi);
     const _isSan = peMode === 'sanAudp' || peMode === 'sanPduc';
-    const _isEmpirical = (typeof window !== 'undefined') && window.mcEmpiricalMode === true;
 
-    // ── VEL / TICKET / COSTO / PLAZO según modo ──
-    // factor: shocks directos IPV/ICOI + regresión velocidad (recomendado)
-    // empirical: cópula t con marginales empíricas CIDU
-    // parametric: Normal/Triangular legacy
-    let vel, tm;
-    let factorCostoMult = null, factorPlazoMult = null;
-    // Shadow variables: se sampleán en cópulas factor_v2/v3 pero no entran al
-    // modelo financiero. Se persisten en inputs para que el tornado y los
-    // histogramas las muestren — el Cholesky ya las correlacionó con vel/tm.
-    let factorShadow = null;
-    const _mode = window.mcMode || 'factor';
-
-    // Helper: extraer macros desde el sub-objeto draw.macros (v1/v2/v3) y
-    // normalizar nombres entre versiones (v1/v2 usa imacec_var_pct, v3 usa
-    // imacec_var; v1/v2 usa ipv_deptos_nuevos_yoy/ipv_casas_nuevas_yoy/ipv_general_yoy).
-    function _extractMacros(draw){
-      const m = draw.macros || {};
-      const ipv = m.ipv_general_yoy != null ? m.ipv_general_yoy
-                : (m.ipv_deptos_nuevos_yoy != null ? m.ipv_deptos_nuevos_yoy
-                : (m.ipv_casas_nuevas_yoy != null ? m.ipv_casas_nuevas_yoy : null));
-      return {
-        imacec_var:    m.imacec_var != null ? m.imacec_var : m.imacec_var_pct,
-        d_tasa_hipo:   m.d_tasa_hipo,
-        d_desempleo:   m.d_desempleo,
-        ipv_yoy:       ipv,
-        icoi_yoy:      m.icoi_yoy,
-        descuento_yoy: m.descuento_yoy,
-        sup_yoy:       m.sup_yoy,
-      };
-    }
-
-    if (_mode === 'factor_v3') {
-      // Factor v3: cópula CROSS unificada (10D macros + producto)
-      const fam = window.mcEmpiricalFamily || 'edif_4p';
-      const zone = window.mcZone || 'audp_zone';
-      const sampler = _getFactorSamplerV3(fam, zone);
-      if (sampler && !_isSan) {
-        const draw = sampler.sampleOne(rng);
-        tm = Math.max(0.5, Math.min(2.0, 1 + draw.precio_yoy / 100));
-        vel = Math.max(-80, Math.min(150, draw.velocidad_yoy));
-        factorCostoMult = Math.max(0.85, Math.min(1.20, 1 + draw.costo_yoy / 100));
-        factorPlazoMult = Math.max(0.85, Math.min(1.25, 1 + draw.plazo_yoy / 100));
-        factorShadow = _extractMacros(draw);
-      } else {
-        vel = Math.max(-60, Math.min(80, (cfg.velSigma || 22) * c[0]));
-        tm = _isSan ? 1.0 : 1.0 + (cfg.tmSigma / 100) * c[2];
-      }
-    } else if (_mode === 'factor_v2') {
-      // Factor v2: cópula expandida + zona AUDP + IPV lag-3 + polinómica
-      const fam = window.mcEmpiricalFamily || 'edif_4p';
-      const zone = window.mcZone || 'audp_zone';
-      const sampler = _getFactorSamplerV2(fam, zone);
-      if (sampler && !_isSan) {
-        const draw = sampler.sampleOne(rng);
-        tm = Math.max(0.5, Math.min(2.0, 1 + draw.precio_yoy / 100));
-        vel = Math.max(-80, Math.min(150, draw.velocidad_yoy));
-        factorCostoMult = Math.max(0.85, Math.min(1.20, 1 + draw.costo_yoy / 100));
-        factorPlazoMult = Math.max(0.85, Math.min(1.25, 1 + draw.plazo_yoy / 100));
-        factorShadow = _extractMacros(draw);
-      } else {
-        // Fallback paramétrico
-        vel = Math.max(-60, Math.min(80, (cfg.velSigma || 22) * c[0]));
-        tm = _isSan ? 1.0 : 1.0 + (cfg.tmSigma / 100) * c[2];
-      }
-    } else if (_mode === 'factor') {
-      // Factor v1 (Op. C nacional con presets)
-      const fam = window.mcEmpiricalFamily || 'edif_4p';
-      const preset = window.mcFactorPreset || 'base_esperado';
-      const sampler = _getFactorSampler(fam, preset);
-      if (sampler && !_isSan) {
-        const draw = sampler.sampleOne(rng);
-        tm = Math.max(0.5, Math.min(2.0, 1 + draw.precio_yoy / 100));
-        vel = Math.max(-80, Math.min(150, draw.velocidad_yoy));
-        factorCostoMult = Math.max(0.85, Math.min(1.20, 1 + draw.costo_yoy / 100));
-        factorPlazoMult = Math.max(0.85, Math.min(1.25, 1 + draw.plazo_yoy / 100));
-        factorShadow = _extractMacros(draw);
-      } else {
-        vel = Math.max(-60, Math.min(80, (cfg.velSigma || 22) * c[0]));
-        tm = _isSan ? 1.0 : 1.0 + (cfg.tmSigma / 100) * c[2];
-      }
-    } else if (_isEmpirical) {
-      const fam = window.mcEmpiricalFamily || 'edif_4p';
-      const cop = _getEmpiricalCopula(fam);
-      if (cop) {
-        const draw = cop.sampleOne(rng);
-        const m = window.MARKET_STATS[fam].marginals;
-        const baseVel = m.velocidad_uds_mes.p50;
-        const basePrice = m.precio_uf_m2.p50;
-        vel = Math.max(-80, Math.min(200, (draw.velocidad_uds_mes / baseVel - 1) * 100));
-        tm = _isSan ? 1.0 : Math.max(0.4, Math.min(2.5, draw.precio_uf_m2 / basePrice));
-      } else {
-        vel = Math.max(-60, Math.min(80, (cfg.velSigma || 22) * c[0]));
-        tm = _isSan ? 1.0 : 1.0 + (cfg.tmSigma / 100) * c[2];
-      }
-    } else {
-      vel = Math.max(-60, Math.min(80, (cfg.velSigma || 22) * c[0]));
-      tm = _isSan ? 1.0 : 1.0 + (cfg.tmSigma / 100) * c[2];
-    }
+    // Velocidad y tasa descuento: aplican en TODOS los modos
+    const vel   = Math.max(-60, Math.min(80, (cfg.velSigma || 22) * c[0]));
     const discRate = (cfg.discLo + (cfg.discHi - cfg.discLo) * rng()) / 100;
 
     // Variables de venta de tierra: se fijan en base en modos sanitaria
     // (no afectan el FCF sanitario pero el Cholesky genera correlaciones
     // espurias si se varían → contaminan el tornado)
     const plusv = _isSan ? cfg.plusvMode : triangularCDF(u[1], cfg.plusvA, cfg.plusvMode, cfg.plusvB);
+    const tm    = _isSan ? 1.0 : 1.0 + (cfg.tmSigma / 100) * c[2];
     const im    = _isSan ? 1.0 : triangularCDF(u[3], 0.95, 1.00, 1.30);
     const mm    = _isSan ? 1.0 : triangularCDF(u[4], 0.90, 1.00, 1.35);
     const sm    = triangularCDF(u[5], 0.95, 1.00, 1.25);  // CAPEX sanitario sí varía siempre
@@ -11919,30 +11401,6 @@ const MC = (function(){
     const sanRevMult  = triangularCDF(rng(), cfg.sanRevLo  || 0.85, cfg.sanRevMode  || 1.00, cfg.sanRevHi  || 1.15);
     const sanCostMult = triangularCDF(rng(), cfg.sanCostLo || 0.90, cfg.sanCostMode || 1.00, cfg.sanCostHi || 1.30);
     const sanSaleMult = triangularCDF(rng(), cfg.sanSaleLo || 0.70, cfg.sanSaleMode || 1.00, cfg.sanSaleHi || 1.30);
-
-    // ── Shocks proyecto-side: costo construcción y plazo obra ──
-    // En modo Factor Macro, vienen del sampleo conjunto del modelo (ICOI
-    // shock directo + plazo shock idiosincrático). En otros modos, son
-    // triangulares independientes leídas de los sliders del UI.
-    const costoMult = factorCostoMult != null ? factorCostoMult :
-                      (_isSan ? 1.0 : triangularCDF(rng(),
-                        cfg.costoLo  || 0.92, cfg.costoMode  || 1.00, cfg.costoHi  || 1.10));
-    const plazoMult = factorPlazoMult != null ? factorPlazoMult :
-                      (_isSan ? 1.0 : triangularCDF(rng(),
-                        cfg.plazoLo  || 0.85, cfg.plazoMode  || 1.00, cfg.plazoHi  || 1.20));
-
-    // Coeficiente vendible (m² vendibles / m² construidos): variable
-    // ARQUITECTÓNICA del proyecto, no macro. Distribución triangular
-    // independiente: rangos típicos chilenos 0.78–0.92, mode 0.85.
-    // Se expresa como multiplicador relativo al baseline (mode):
-    //   coefVendibleMult = coef_real / 0.85
-    // Sensibilidad ∂i/∂coefVendible ≈ +0.65 (alta — cada punto perdido
-    // de eficiencia de planta destruye revenue casi 1:1 sin reducir costos).
-    const coefVendibleMult = _isSan ? 1.0 : triangularCDF(rng(), 0.78/0.85, 1.00, 0.92/0.85);
-
-    // Aplicar Δincidencia linealizado a las familias con representante
-    // antes del peResimulate. Reset a baseline + suma de derivadas × shocks.
-    _applyResidualShocks({ tm, vel, costoMult, plazoMult, coefVendibleMult });
 
     peVelocidadPct = vel;
     pePlusvalia    = plusv;
@@ -12069,14 +11527,9 @@ const MC = (function(){
       if (acums[i] > 0) { paybackYear = years[i]; break; }
     }
 
-    // Shadow vars del factor: se sampleán correlacionadas pero no
-    // entran al modelo. Se exponen en inputs para tornado / histogramas.
-    const _shadowInputs = factorShadow || {};
     return {
       inputs: { vel, plusv, tm, im, mm, sm, prcOn: prcOn?1:0, crisisOn: crisisOn?1:0, discRate,
-                sanRevMult, sanCostMult, sanSaleMult,
-                costoMult, plazoMult, coefVendibleMult,
-                ..._shadowInputs },
+                sanRevMult, sanCostMult, sanSaleMult },
       outputs: {
         vanPrinc, vanSan, anosVenta,
         capTrabajo: -minAcum,
@@ -12148,35 +11601,20 @@ const MC = (function(){
     // Variables expandidas: incluye las 3 sanitarias + las 9 originales.
     // computeTornado filtra automáticamente las que tienen varianza ~0
     // (ej: sanRevMult en modo venta tierra siempre vale ~1 → rho ≈ 0).
-    const vars_ = ['vel','plusv','tm','costoMult','plazoMult','coefVendibleMult',
-                   'im','mm','sm','prcOn','crisisOn','discRate',
-                   'sanRevMult','sanCostMult','sanSaleMult',
-                   // Factor model (v1/v2/v3): macros + producto adicional
-                   'imacec_var','d_tasa_hipo','d_desempleo','ipv_yoy','icoi_yoy',
-                   'descuento_yoy','sup_yoy'];
+    const vars_ = ['vel','plusv','tm','im','mm','sm','prcOn','crisisOn','discRate',
+                   'sanRevMult','sanCostMult','sanSaleMult'];
     const labels = {
       vel:'Velocidad venta', plusv:'Plusval\u00eda anual', tm:'Ticket multiplier',
-      costoMult:'Costo construcci\u00f3n (residual)', plazoMult:'Plazo obra (residual)',
-      coefVendibleMult:'Coef. vendible (m\u00b2 \u00fatiles/totales)',
       im:'Costo infraestructura', mm:'Costo mitigaciones', sm:'Costo sanitaria CAPEX',
       prcOn:'PRC aprobado', crisisOn:'Crisis en horizonte', discRate:'Tasa descuento',
       sanRevMult:'Ingresos op. sanitaria', sanCostMult:'Costos op. sanitaria',
       sanSaleMult:'Venta sanitaria',
-      imacec_var:    'IMACEC (PIB) %',
-      d_tasa_hipo:   'Δ Tasa hipotecaria (pp)',
-      d_desempleo:   'Δ Desempleo (pp)',
-      ipv_yoy:       'IPV YoY %',
-      icoi_yoy:      'Costo construcción YoY %',
-      descuento_yoy: 'Descuentos YoY %',
-      sup_yoy:       'Tamaño unidad YoY %',
     };
     const rhos = {};
     for (const k of vars_) {
       const x = results.map(r => r.inputs[k]);
-      // Si la variable está ausente (modo no factor) o sin varianza, skip
-      const xFinite = x.filter(v => Number.isFinite(v));
-      if (xFinite.length < results.length * 0.9) { rhos[k] = 0; continue; }
-      const xMin = Math.min.apply(null, xFinite), xMax = Math.max.apply(null, xFinite);
+      // Si la variable no tiene varianza (todos iguales), skip
+      const xMin = Math.min.apply(null, x), xMax = Math.max.apply(null, x);
       if (xMax - xMin < 1e-9) { rhos[k] = 0; continue; }
       rhos[k] = rankCorr(x, van);
     }
@@ -12294,10 +11732,6 @@ const MC = (function(){
   return {
     mulberry32, sampleOne, snapshotState, restoreState,
     metrics, computeTornado, drawHistogram, drawTornado,
-    captureProductsBackup: _captureProductsBackup,
-    restoreProductsBackup: _restoreProductsBackup,
-    resetRepCache: _resetRepCache,
-    diagnosticReps: _diagnosticReps,
   };
 })();
 
@@ -12317,104 +11751,6 @@ const MC_MODE_LABELS = {
   'sanPduc': 'Sanitaria PDUC',
 };
 
-// MC mode: 'factor_v2' (default) | 'factor' (v1) | 'empirical' | 'parametric'
-window.mcMode = 'factor_v3';  // default: cópula CROSS (más completa)
-window.mcEmpiricalMode = false;
-window.mcEmpiricalFamily = 'edif_4p';
-window.mcFactorPreset = 'base_esperado';
-window.mcZone = 'audp_zone';
-
-function setMCMode(mode){
-  window.mcMode = mode;
-  window.mcEmpiricalMode = (mode === 'empirical');
-  const factorV3Btn = document.getElementById('mc-mode-factor-v3');
-  const factorV2Btn = document.getElementById('mc-mode-factor-v2');
-  const factorBtn = document.getElementById('mc-mode-factor');
-  const empBtn = document.getElementById('mc-mode-empirical');
-  const parBtn = document.getElementById('mc-mode-parametric');
-  const hint = document.getElementById('mc-mode-hint');
-  const factorPanel = document.getElementById('mc-factor-panel');
-  const zonePanel = document.getElementById('mc-zone-panel');
-
-  const styleActive = (color) => 'padding:6px 2px;font-size:8.5px;font-weight:700;border:1px solid '+color+';border-radius:5px;background:'+color+';color:#fff;cursor:pointer';
-  const styleInactive = 'padding:6px 2px;font-size:8.5px;font-weight:600;border:1px solid #cbd5e1;border-radius:5px;background:#fff;color:#334155;cursor:pointer';
-
-  if (factorV3Btn) factorV3Btn.style.cssText = mode === 'factor_v3' ? styleActive('#db2777') : styleInactive;
-  if (factorV2Btn) factorV2Btn.style.cssText = mode === 'factor_v2' ? styleActive('#16a34a') : styleInactive;
-  if (factorBtn)   factorBtn.style.cssText   = mode === 'factor'    ? styleActive('#2563eb') : styleInactive;
-  if (empBtn)      empBtn.style.cssText      = mode === 'empirical' ? styleActive('#7c3aed') : styleInactive;
-  if (parBtn)      parBtn.style.cssText      = mode === 'parametric'? styleActive('#475569') : styleInactive;
-
-  if (hint) {
-    if (mode === 'factor_v3') {
-      hint.textContent = 'Factor v3 CROSS (mas completo): copula UNIFICADA 10D que correlaciona 5 macros con 5 variables producto directamente. Captura desempleo->precio, tasa-hipo->velocidad, etc. Sin pasar por regresion intermedia.';
-    } else if (mode === 'factor_v2') {
-      hint.textContent = 'Factor v2: copula expandida 8 vars con lags + zona AUDP + IPV lag-3 + regresion polinomica.';
-    } else if (mode === 'factor') {
-      hint.textContent = 'Factor v1 (Op.C nacional): shocks directos IPV + ICOI + regresion OLS velocidad. Copula t 5 macros nacional.';
-    } else if (mode === 'empirical') {
-      hint.textContent = 'Copula t calibrada con Iman-Conover sobre 124k obs CIDU. Marginales empiricas, sin macros.';
-    } else {
-      hint.textContent = 'Distribuciones parametricas legacy: Normal/Triangular independientes.';
-    }
-  }
-  if (factorPanel) factorPanel.style.display = (mode === 'factor' || mode === 'factor_v2') ? 'flex' : 'none';
-  if (zonePanel)   zonePanel.style.display   = (mode === 'factor_v2' || mode === 'factor_v3') ? 'block' : 'none';
-}
-
-function setMCZone(zone){
-  window.mcZone = zone;
-  const audpBtn = document.getElementById('mc-zone-audp');
-  const natBtn = document.getElementById('mc-zone-nacional');
-  const hint = document.getElementById('mc-zone-hint');
-  const styleActive = 'padding:6px;font-size:10px;font-weight:700;border:1px solid #16a34a;border-radius:5px;background:#16a34a;color:#fff;cursor:pointer';
-  const styleInactive = 'padding:6px;font-size:10px;font-weight:600;border:1px solid #cbd5e1;border-radius:5px;background:#fff;color:#334155;cursor:pointer';
-  if (audpBtn) audpBtn.style.cssText = zone === 'audp_zone' ? styleActive : styleInactive;
-  if (natBtn)  natBtn.style.cssText  = zone === 'nacional'  ? styleActive : styleInactive;
-  if (hint) {
-    if (zone === 'audp_zone') {
-      hint.textContent = 'AUDP zone: Lampa, Colina, Buin, Padre Hurtado, San Bernardo, Tiltil, Melipilla (14.7k obs - sigma Edif 21.7pp - mas variabilidad real para AUDPs)';
-    } else {
-      hint.textContent = 'Nacional: 124.5k obs - sigma Edif 9.5pp - referencia, subestima riesgo para AUDPs especificos';
-    }
-  }
-}
-
-// Aplica un preset historico + actualiza displays de macro
-function setFactorPreset(name){
-  if (!window.MacroFactor || !window.MACRO_FACTOR_C) return;
-  window.mcFactorPreset = name;
-  const preset = window.MacroFactor.getPreset(name);
-  if (!preset) return;
-  document.querySelectorAll('.factor-preset-btn').forEach(b => b.classList.remove('active'));
-  const btnId = {
-    'base_esperado': 'factor-preset-base',
-    'subprime_2009': 'factor-preset-subprime',
-    'estallido_covid_2019_2020': 'factor-preset-covid',
-    'boom_post_covid_2021': 'factor-preset-boom',
-    'slowdown_2023': 'factor-preset-slowdown',
-  }[name];
-  const activeBtn = document.getElementById(btnId);
-  if (activeBtn) activeBtn.classList.add('active');
-  const fmt = (v, suffix) => (v >= 0 ? '+' : '') + v.toFixed(2) + (suffix || '');
-  const setEl = (id, v, sfx) => { const e = document.getElementById(id); if (e) e.textContent = fmt(v, sfx); };
-  setEl('mc-factor-imacec', preset.imacec_var_pct, '%');
-  setEl('mc-factor-tasa', preset.d_tasa_hipo, 'pp');
-  setEl('mc-factor-desempleo', preset.d_desempleo, 'pp');
-  setEl('mc-factor-ipv-deptos', preset.ipv_deptos_nuevos_yoy, '%');
-  setEl('mc-factor-ipv-casas', preset.ipv_casas_nuevas_yoy, '%');
-  setEl('mc-factor-icoi', preset.icoi_yoy, '%');
-  const infoEl = document.getElementById('mc-factor-preset-info');
-  const labels = {
-    'base_esperado': 'Centro = mediana historica 2010-2024 · referencia neutral',
-    'subprime_2009': 'Crisis subprime · IMACEC -1.1% · IPV cayo',
-    'estallido_covid_2019_2020': 'IMACEC -6.8% · desempleo +2.2pp · ICOI +5.7%',
-    'boom_post_covid_2021': 'IMACEC +11.7% · desempleo -1.9pp · rebote',
-    'slowdown_2023': 'IMACEC +0.7% · ICOI -16.4% · contraccion costos',
-  };
-  if (infoEl) infoEl.textContent = labels[name] || '';
-}
-
 function openMCAnalysis(){
   if (!peBaseParams) {
     alert('Primero abre Primeras Etapas y corre la simulaci\u00f3n (Ejecutar).');
@@ -12427,42 +11763,6 @@ function openMCAnalysis(){
   // Mostrar/ocultar distribuciones sanitarias según modo
   const sanDist = document.getElementById('mc-san-distributions');
   if (sanDist) sanDist.style.display = (peMode === 'sanAudp' || peMode === 'sanPduc') ? 'block' : 'none';
-  // Sincronizar UI del toggle de modo (default Factor v2)
-  setMCMode(window.mcMode || 'factor_v3');
-  if ((window.mcMode === 'factor_v2' || window.mcMode === 'factor') && typeof setFactorPreset === 'function') {
-    setFactorPreset(window.mcFactorPreset || 'base_esperado');
-  }
-  if ((window.mcMode === 'factor_v2' || window.mcMode === 'factor_v3') && typeof setMCZone === 'function') {
-    setMCZone(window.mcZone || 'audp_zone');
-  }
-  // Diagnóstico de representantes
-  if (typeof MC !== 'undefined' && MC.diagnosticReps) {
-    MC.resetRepCache();
-    var d = MC.diagnosticReps();
-    var diagEl = document.getElementById('mc-factor-diag');
-    var diagText = document.getElementById('mc-factor-diag-text');
-    if (diagEl && diagText) {
-      if (d.total === 0) {
-        diagEl.style.display = 'block';
-        diagEl.style.background = '#fef3c7';
-        diagEl.style.borderColor = '#f59e0b';
-        diagEl.style.color = '#92400e';
-        diagText.textContent = 'ℹ Sin representantes guardados. El modelo usa sensibilidades default razonables (ticket +0.65, costo -0.45, etc.) y los shocks de costo/plazo SÍ afectan el VAN vía dos canales: incidencia (residual) e infraestructura (FCF directo). Para mayor precisión, guarda representantes en /residual.';
-      } else if (d.withoutSens > 0) {
-        diagEl.style.display = 'block';
-        diagEl.style.background = '#fef3c7';
-        diagEl.style.borderColor = '#f59e0b';
-        diagEl.style.color = '#92400e';
-        diagText.textContent = 'ℹ ' + d.total + '/4 representantes guardados, pero ' + d.withoutSens + ' sin sensibilidades calculadas. Usando defaults razonables — los shocks afectan el VAN normalmente. Para mayor precisión: re-guardar representantes en /residual.';
-      } else {
-        diagEl.style.display = 'block';
-        diagEl.style.background = '#dcfce7';
-        diagEl.style.borderColor = '#16a34a';
-        diagEl.style.color = '#14532d';
-        diagText.textContent = '✓ ' + d.total + '/4 representantes con sensibilidades del residual. Modelo en plena capacidad.';
-      }
-    }
-  }
   document.getElementById('mc-overlay').style.display = 'flex';
 }
 
@@ -12498,15 +11798,6 @@ function runMCAnalysis(){
     prcP: parseFloat(document.getElementById('mc-prc-p').value) || 0.55,
     discLo: parseFloat(document.getElementById('mc-disc-lo').value) || 7,
     discHi: parseFloat(document.getElementById('mc-disc-hi').value) || 10,
-    // Shocks proyecto-side (via residual): costo construcción y plazo obra.
-    // Se propagan a la incidencia de cada familia con representante guardado
-    // usando sensibilidades pre-calculadas (∂incidencia/∂param × Δparam).
-    costoLo: parseFloat(document.getElementById('mc-costo-lo')?.value) || 0.92,
-    costoMode: parseFloat(document.getElementById('mc-costo-mode')?.value) || 1.00,
-    costoHi: parseFloat(document.getElementById('mc-costo-hi')?.value) || 1.10,
-    plazoLo: parseFloat(document.getElementById('mc-plazo-lo')?.value) || 0.85,
-    plazoMode: parseFloat(document.getElementById('mc-plazo-mode')?.value) || 1.00,
-    plazoHi: parseFloat(document.getElementById('mc-plazo-hi')?.value) || 1.20,
     // Distribuciones sanitarias (leídas del panel, con defaults)
     sanRevLo: parseFloat(document.getElementById('mc-san-rev-lo')?.value) || 0.85,
     sanRevMode: parseFloat(document.getElementById('mc-san-rev-mode')?.value) || 1.0,
@@ -12534,24 +11825,14 @@ function runMCAnalysis(){
   // se auto-desactiva para modos != 'audp' en _renderPE (línea 12355).
 
   const snapshot = MC.snapshotState();
-  // Capturar el baseline de PRODUCTS.incidencia para que las correcciones
-  // residuales linealizadas operen sobre un punto fijo. Reset cache de
-  // representantes (por si el usuario los actualiz\u00f3 entre corridas).
-  MC.captureProductsBackup();
-  MC.resetRepCache();
   const rng = MC.mulberry32(cfg.seed);
   const results = [];
   const BATCH = 50;
   const tStart = performance.now();
 
-  function _finishMC(){
-    MC.restoreState(snapshot);
-    MC.restoreProductsBackup();  // PRODUCTS vuelve al baseline pre-MC
-  }
-
   function runBatch(){
     if (!__mcRunning) {
-      _finishMC();
+      MC.restoreState(snapshot);
       document.getElementById('mc-run-btn').disabled = false;
       return;
     }
@@ -12576,7 +11857,7 @@ function runMCAnalysis(){
       __mcRunning = false;
       __mcResults = results;
       document.getElementById('mc-run-btn').disabled = false;
-      _finishMC();
+      MC.restoreState(snapshot);
       renderMCResults(results, cfg);
     }
   }
@@ -12635,114 +11916,6 @@ function renderMCResults(results, cfg){
   histPanel.appendChild(histCv);
   resultsEl.appendChild(histPanel);
 
-  // ── Distribución de drivers macroeconómicos (factor v1/v2/v3) ──
-  // Solo se muestra cuando hay shadow vars del factor model. Cada mini-histograma
-  // refleja la distribución sampleada de una macro durante las N iteraciones,
-  // correlacionada via cópula con precio/velocidad. El usuario puede ver
-  // qué rango de IMACEC, tasas, etc. produjo la dispersión observada del VAN.
-  const _hasShadow = ok.length > 0 && Number.isFinite(ok[0].inputs.imacec_var);
-  if (_hasShadow) {
-    const macroPanel = _mcEl('div', 'mc-chart-panel');
-    macroPanel.style.borderLeft = '4px solid #db2777';
-    macroPanel.appendChild(_mcEl('div', 'mc-chart-title', 'Drivers macroeconómicos sampleados'));
-    macroPanel.appendChild(_mcEl('div', 'mc-chart-sub',
-      'Distribución de las macro durante las ' + ok.length.toLocaleString('es-CL') +
-      ' iteraciones · cópula t (ν=4) con marginales empíricas BCCh/INE'));
-    const macroVars = [
-      {key:'imacec_var',  label:'IMACEC (PIB)',      unit:'%',  color:'#db2777'},
-      {key:'d_tasa_hipo', label:'Δ Tasa hipotecaria', unit:'pp', color:'#7c3aed'},
-      {key:'d_desempleo', label:'Δ Desempleo',  unit:'pp', color:'#dc2626'},
-      {key:'ipv_yoy',     label:'IPV YoY',           unit:'%',  color:'#2563eb'},
-      {key:'icoi_yoy',    label:'Costo construcción YoY', unit:'%', color:'#ea580c'},
-    ];
-    const grid = _mcEl('div');
-    grid.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin-top:10px';
-    const _stats = (vals) => {
-      const s = vals.slice().sort((a,b)=>a-b);
-      const n = s.length, mean = vals.reduce((a,b)=>a+b,0)/n;
-      const p10 = s[Math.floor(0.10*(n-1))], p50 = s[Math.floor(0.50*(n-1))], p90 = s[Math.floor(0.90*(n-1))];
-      const sd = Math.sqrt(vals.reduce((a,b)=>a+(b-mean)**2,0)/n);
-      return {n, mean, sd, p10, p50, p90, min:s[0], max:s[n-1]};
-    };
-    const _miniHist = (canvas, vals, color) => {
-      const ctx = canvas.getContext('2d');
-      const dpr = window.devicePixelRatio || 1;
-      const W = canvas.clientWidth, H = canvas.clientHeight;
-      canvas.width = W*dpr; canvas.height = H*dpr;
-      ctx.scale(dpr, dpr);
-      ctx.clearRect(0,0,W,H);
-      const ml=8, mr=8, mt=4, mb=18;
-      const plotW = W-ml-mr, plotH = H-mt-mb;
-      const nb = 24;
-      const lo = Math.min.apply(null, vals), hi = Math.max.apply(null, vals);
-      const bw = (hi-lo)/nb || 1;
-      const counts = new Array(nb).fill(0);
-      for (const v of vals) {
-        const i = Math.min(nb-1, Math.max(0, Math.floor((v-lo)/bw)));
-        counts[i]++;
-      }
-      const maxC = Math.max.apply(null, counts) || 1;
-      for (let k=0;k<nb;k++){
-        const x = ml + (k/nb)*plotW;
-        const h = (counts[k]/maxC)*plotH;
-        ctx.fillStyle = color;
-        ctx.globalAlpha = 0.7;
-        ctx.fillRect(x, mt+plotH-h, plotW/nb-0.5, h);
-      }
-      ctx.globalAlpha = 1;
-      // Línea P50
-      const p50 = vals.slice().sort((a,b)=>a-b)[Math.floor(0.5*(vals.length-1))];
-      const px = ml + ((p50-lo)/(hi-lo))*plotW;
-      ctx.strokeStyle = '#000'; ctx.lineWidth = 1;
-      ctx.setLineDash([3,2]);
-      ctx.beginPath(); ctx.moveTo(px, mt); ctx.lineTo(px, mt+plotH); ctx.stroke();
-      ctx.setLineDash([]);
-      // Eje X: min/max
-      ctx.fillStyle = '#475569'; ctx.font = '8px Arial';
-      ctx.textAlign = 'left';
-      ctx.fillText(lo.toFixed(1), ml, mt+plotH+10);
-      ctx.textAlign = 'right';
-      ctx.fillText(hi.toFixed(1), W-mr, mt+plotH+10);
-    };
-    const _macroCharts = [];  // (canvas, vals, color) tuples para render diferido
-    for (const mv of macroVars) {
-      const vals = ok.map(r => r.inputs[mv.key]).filter(v => Number.isFinite(v));
-      if (vals.length < 10) continue;
-      const st = _stats(vals);
-      const cell = _mcEl('div');
-      cell.style.cssText = 'background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:8px 10px';
-      // Header
-      const hdr = _mcEl('div');
-      hdr.style.cssText = 'display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px';
-      const lbl = _mcEl('div', null, mv.label);
-      lbl.style.cssText = 'font-size:11px;font-weight:700;color:#1e293b';
-      hdr.appendChild(lbl);
-      const meta = _mcEl('div', null, 'mediana ' + st.p50.toFixed(1) + mv.unit);
-      meta.style.cssText = 'font-size:10px;color:'+mv.color+';font-weight:700';
-      hdr.appendChild(meta);
-      cell.appendChild(hdr);
-      // Canvas
-      const cv = document.createElement('canvas');
-      cv.style.cssText = 'width:100%;height:60px;display:block';
-      cell.appendChild(cv);
-      _macroCharts.push([cv, vals, mv.color]);
-      // Footer estadísticas
-      const ftr = _mcEl('div');
-      ftr.style.cssText = 'display:flex;justify-content:space-between;font-size:9px;color:#64748b;margin-top:3px';
-      ftr.appendChild(_mcEl('span', null, 'P10: ' + st.p10.toFixed(1) + mv.unit));
-      ftr.appendChild(_mcEl('span', null, 'μ: ' + st.mean.toFixed(2) + ' ± ' + st.sd.toFixed(2)));
-      ftr.appendChild(_mcEl('span', null, 'P90: ' + st.p90.toFixed(1) + mv.unit));
-      cell.appendChild(ftr);
-      grid.appendChild(cell);
-    }
-    macroPanel.appendChild(grid);
-    resultsEl.appendChild(macroPanel);
-    // Render diferido (clientWidth=0 hasta que el panel está en el DOM)
-    requestAnimationFrame(() => {
-      for (const [cv, vals, color] of _macroCharts) _miniHist(cv, vals, color);
-    });
-  }
-
   // Tornado
   const tornPanel = _mcEl('div', 'mc-chart-panel');
   tornPanel.appendChild(_mcEl('div', 'mc-chart-title', 'Tornado \u2014 Contribuci\u00f3n a la varianza del VAN'));
@@ -12778,12 +11951,7 @@ function renderMCResults(results, cfg){
   const capsP95 = caps[Math.floor(0.95*(caps.length-1))];
   addBlock('A\u00f1os venta', ['mediana: ' + anosMed, 'max: ' + anosMax]);
   addBlock('Max drawdown', ['mediana: ' + fmt(capsMed), 'P95: ' + fmt(capsP95)]);
-  addBlock('Configuraci\u00f3n', ['seed: ' + cfg.seed,
-    (window.mcMode === 'factor_v3' ? 'c\u00f3pula CROSS 10D (5 macro + 5 producto)' :
-     window.mcMode === 'factor_v2' ? 'c\u00f3pula 8D + IPV lag-3 + zona AUDP' :
-     window.mcMode === 'factor'    ? 'factor v1 (5 macros nacional + presets)' :
-     window.mcMode === 'empirical' ? 'c\u00f3pula t emp\u00edrica CIDU' :
-                                     'param\u00e9trico Normal/Triangular')]);
+  addBlock('Configuraci\u00f3n', ['seed: ' + cfg.seed, '9 variables \u00b7 Cholesky 6\u00d76']);
   resPanel.appendChild(grid);
   resultsEl.appendChild(resPanel);
 
@@ -14635,19 +13803,22 @@ function _renderPE() {
     return v;
   });
 
-  // ── TIR: misma base que VAN (vanBaseFlow incluye tierra para venta, flujo puro para sanitaria) ──
+  // ── TIR (solo para modos sanitarios: descontar flujoCajaFuturo) ──
   // Edge case: si no hay flujos negativos, TIR es infinita (→ null, mostramos '—')
   let tirVal = null;
-  {
-    const hasNeg = vanBaseFlow.some(v => v < 0);
-    const hasPos = vanBaseFlow.some(v => v > 0);
+  if (isAnySanMode) {
+    const hasNeg = flujoCajaFuturo.some(v => v < 0);
+    const hasPos = flujoCajaFuturo.some(v => v > 0);
     if (hasNeg && hasPos) {
       let lo = -0.99, hi = 10.0;
+      function npvAtRate(rate) {
+        let v = 0;
+        for (let i = 0; i < W.length; i++) v += flujoCajaFuturo[i] / Math.pow(1 + rate, i);
+        return v;
+      }
       for (let k = 0; k < 200; k++) {
         const mid = (lo + hi) / 2;
-        let v = 0;
-        for (let i = 0; i < W.length; i++) v += vanBaseFlow[i] / Math.pow(1 + mid, i);
-        if (v > 0) lo = mid; else hi = mid;
+        if (npvAtRate(mid) > 0) lo = mid; else hi = mid;
       }
       tirVal = (lo + hi) / 2;
     }
@@ -14664,7 +13835,6 @@ function _renderPE() {
     { label:'Payback',                 value: pbYear || '\u2014', color: '#d97706' },
   ] : [
     { label:'VAN (8%) c/ tierra',      value: fmtCV(npv) + peUnit, color: npv >= 0 ? '#16a34a' : '#dc2626' },
-    { label:'TIR c/ tierra',           value: tirVal === null ? 'N/A' : (tirVal*100).toFixed(1).replace('.',',') + '%', color: (tirVal === null || tirVal >= 0.08) ? '#16a34a' : '#dc2626' },
     { label:'Capital de Trabajo',      value: fmtCV(capTrabajo) + peUnit, color: '#dc2626' },
     { label:'Capital por Gastar',      value: fmtCV(capPorGastar) + peUnit, color: '#d97706' },
     { label:'Payback',                 value: pbYear || '\u2014', color: '#d97706' },

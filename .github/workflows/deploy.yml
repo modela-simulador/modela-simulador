@@ -34,7 +34,7 @@ jobs:
           DEPLOY_TARGET: gh-pages
           NEXT_PUBLIC_MAPBOX_TOKEN: ${{ secrets.NEXT_PUBLIC_MAPBOX_TOKEN }}
           NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
-          NEXT_PUBLIC_BASE_PATH: /modela-simulador
+          NEXT_PUBLIC_BASE_PATH: ""
         run: npm run build
 
       - name: Add .nojekyll
