@@ -16798,7 +16798,7 @@ function colPptSlide4Resumen(pptx, agg) {
       text: label,
       options: {
         bold: true, fontSize: st.fs, color: st.color, fill,
-        align: 'left', valign: 'middle', margin: [4, 6, 4, 6],
+        align: 'left', valign: 'middle', margin: [4, 8, 4, 8],
       },
     }];
     if (style === 'section') {
@@ -16808,9 +16808,9 @@ function colPptSlide4Resumen(pptx, agg) {
     const total = vals ? vals.reduce((a, b) => a + b, 0) : null;
     cells.push({
       text: vals ? colPptFmt(total) : '',
-      options: { bold: true, fontSize: st.fs, color: st.color, fill,
+      options: { bold: true, fontSize: 9, color: st.color, fill,
                  align: 'right', valign: 'middle', fontFace: 'Consolas',
-                 margin: [4, 6, 4, 6] },
+                 margin: [4, 8, 4, 8] },
     });
     (vals || new Array(COL_N).fill(null)).forEach(v => {
       let txt = '', color = st.color;
@@ -16821,7 +16821,9 @@ function colPptSlide4Resumen(pptx, agg) {
       cells.push({
         text: txt,
         options: { fontSize: 8, color, fontFace: 'Consolas', fill,
-                   align: 'right', valign: 'middle', bold: st.bold },
+                   align: 'right', valign: 'middle',
+                   bold: ['total', 'total_acum', 'subtotal_global'].includes(style),
+                   margin: [3, 4, 3, 4] },
       });
     });
     return cells;
@@ -16851,7 +16853,8 @@ function colPptSlide4Resumen(pptx, agg) {
   tblRows.push(buildResumenRow('FLUJO NETO', agg.fluN, 'total'));
   tblRows.push(buildResumenRow('FLUJO ACUMULADO', agg.fluA, 'total_acum'));
 
-  const colW = [2.0, 0.7].concat(new Array(COL_N).fill(0.7));
+  // Anchos: Concept 2.0 + Total 1.0 + 14 × 0.6 = 11.4 in (de 13.33 widescreen)
+  const colW = [2.0, 1.0].concat(new Array(COL_N).fill(0.6));
   s.addTable(tblRows, {
     x: 0.3, y: 1.15, w: colW.reduce((a, b) => a + b, 0),
     colW, fontFace: 'Aptos',
@@ -16979,8 +16982,8 @@ function colPptSlide4(pptx, agg) {
   tblRows.push(buildRow('FLUJO NETO', agg.fluN, 'total'));
   tblRows.push(buildRow('FLUJO ACUMULADO', agg.fluA, 'total_acum'));
 
-  // Anchos columna: concept 2.0 + total 0.7 + 14 × 0.65 = 11.8 in (formato widescreen 13.33)
-  const colW = [2.0, 0.7].concat(new Array(COL_N).fill(0.7));
+  // Anchos: Concept 2.0 + Total 1.0 + 14 × 0.6 = 11.4 in (de 13.33 widescreen)
+  const colW = [2.0, 1.0].concat(new Array(COL_N).fill(0.6));
 
   s.addTable(tblRows, {
     x: 0.3, y: 0.85, w: colW.reduce((a, b) => a + b, 0),
