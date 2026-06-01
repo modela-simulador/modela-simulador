@@ -17119,6 +17119,403 @@ function colPptSlide5(pptx, agg) {
   });
 }
 
+/* ════════════════════════════════════════════════════════════════
+   SLIDE 12 — MAPA DE MERCADO COMPETITIVO (scatter editorial nativo)
+   Replica chart_competencia_mercado.py: 28 productos del mercado de
+   Batuco con shapes según tipología, bordes según DS19, curvas de
+   regresión logarítmica por sub-mercado, cuadrantes, ejes dobles.
+   ════════════════════════════════════════════════════════════════ */
+
+// Datos del mercado (mismo que chart_competencia_mercado.py)
+// [nombre, uf, util, desarrollador, tipo, esDS19]
+const MKT_COMPETIDORES = [
+  // CASAS
+  ['Hacienda Batuco',           3900,  65.00, 'Aconcagua',        'casa',      false],
+  ['Hacienda Batuco',           4100,  69.00, 'Aconcagua',        'casa',      false],
+  ['Batuco Terra',              5100,  85.00, 'Modela',           'casa',      false],
+  ['Batuco Terra',              5700,  95.00, 'Modela',           'casa',      false],
+  ['Rahue 2',                   5080,  84.37, 'Trayecta',         'casa',      false],
+  ['Rahue 2',                   5483,  93.69, 'Trayecta',         'casa',      false],
+  ['Casas del Parque',          4940,  85.75, 'Besalco',          'casa',      false],
+  ['Casas del Parque',          5575,  98.28, 'Besalco',          'casa',      false],
+  ['Barrio El Alba',            4009,  75.33, 'Lo Campino',       'casa',      false],
+  ['Barrio El Alba',            5554,  99.81, 'Lo Campino',       'casa',      false],
+  ['Chicauma',                  5169,  72.00, 'Bricsa',           'casa',      false],
+  ['Chicauma',                  5181,  82.00, 'Bricsa',           'casa',      false],
+  ['Chicauma',                  5625,  92.00, 'Bricsa',           'casa',      false],
+  ['Chicauma',                  6318,  99.77, 'Bricsa',           'casa',      false],
+  ['San Pedro',                 2740,  50.38, 'Rios Larrain',     'casa',      false],
+  ['San Pedro',                 3039,  59.26, 'Rios Larrain',     'casa',      false],
+  ['San Pedro',                 3821,  87.25, 'Rios Larrain',     'casa',      false],
+  ['San Pedro',                 4400, 124.00, 'Rios Larrain',     'casa',      false],
+  // TOWNHOUSES
+  ['Paseo Norte',               2728,  55.30, 'Travecta',         'townhouse', false],
+  ['Paseo Norte',               3050,  61.94, 'Travecta',         'townhouse', false],
+  ['Batuco Terra',              4600,  80.00, 'Modela',           'townhouse', false],
+  ['Batuco Terra',              5200,  90.00, 'Modela',           'townhouse', false],
+  ['Laguna Norte',              6273, 120.00, 'Travecta',         'townhouse', false],
+  // EDIFICIOS
+  ['Vistas de Colina',          2450,  59.79, 'Besalco',          'edificio',  true],
+  ['Jardines de Valle Grande',  2594,  64.70, 'Travecta',         'edificio',  false],
+  ['Jardines de Valle Grande',  2733,  70.20, 'Travecta',         'edificio',  false],
+  ['San José VIII',             1600,  64.00, 'Todos los Santos', 'edificio',  true],
+  ['Batuco Terra',              3300,  60.00, 'Modela',           'edificio',  false],
+];
+
+// Offsets de etiquetas [dx_pt, dy_pt, ha, va] — calibrados de matplotlib
+const MKT_LABEL_POS = [
+  [0,  -14, 'center', 'top'],     // 0  HB 3.900
+  [0,   14, 'center', 'bottom'],  // 1  HB 4.100
+  [14,  -8, 'left',   'top'],     // 2  Batuco Terra 5.100 (M)
+  [0,   18, 'center', 'bottom'],  // 3  Batuco Terra 5.700 (M)
+  [-20, -2, 'right',  'center'],  // 4  Rahue 2 5.080
+  [-20,  4, 'right',  'center'],  // 5  Rahue 2 5.483
+  [0,  -18, 'center', 'top'],     // 6  Casas Parque 4.940
+  [22,  12, 'left',   'bottom'],  // 7  Casas Parque 5.575
+  [-18,  0, 'right',  'center'],  // 8  Barrio El Alba 4.009
+  [16, -10, 'left',   'top'],     // 9  Barrio El Alba 5.554
+  [-18,  0, 'right',  'center'],  // 10 Chicauma 5.169
+  [-18,  0, 'right',  'center'],  // 11 Chicauma 5.181
+  [-18,  0, 'right',  'center'],  // 12 Chicauma 5.625
+  [0,   18, 'center', 'bottom'],  // 13 Chicauma 6.318
+  [0,  -14, 'center', 'top'],     // 14 San Pedro 2.740
+  [0,   14, 'center', 'bottom'],  // 15 San Pedro 3.039
+  [0,  -14, 'center', 'top'],     // 16 San Pedro 3.821
+  [-16,  0, 'right',  'center'],  // 17 San Pedro 4.400
+  [0,  -14, 'center', 'top'],     // 18 Paseo Norte 2.728
+  [16,  -2, 'left',   'center'],  // 19 Paseo Norte 3.050
+  [-18, -2, 'right',  'center'],  // 20 Batuco Terra TH 4.600 (M)
+  [-18,  4, 'right',  'center'],  // 21 Batuco Terra TH 5.200 (M)
+  [0,   16, 'center', 'bottom'],  // 22 Laguna Norte 6.273
+  [0,  -14, 'center', 'top'],     // 23 Vistas de Colina 2.450 DS19
+  [-18, -2, 'right',  'center'],  // 24 Jardines VG 2.594
+  [16,   4, 'left',   'center'],  // 25 Jardines VG 2.733
+  [0,  -14, 'center', 'top'],     // 26 San José VIII 1.600 DS19
+  [0,   18, 'center', 'bottom'],  // 27 Batuco Terra Edif 3.300 (M)
+];
+
+const MKT_COLORES = {
+  'Aconcagua':        '9CAA20',
+  'Modela':           '1D5142',
+  'Trayecta':         '5A96C4',
+  'Travecta':         '3A7BB5',
+  'Besalco':          '7FA5B5',
+  'Lo Campino':       'C9A577',
+  'Bricsa':           '7A4CA8',
+  'Rios Larrain':     'CF5A35',
+  'Todos los Santos': 'E6A932',
+};
+const MKT_SUB_COLORES = {
+  'Valle Grande':      '5D6975',
+  'Batuco + Chicauma': '1D5142',
+};
+
+// Dimensiones del plot area (en pulgadas, widescreen 13.333 × 7.5)
+const MKT_PLOT = { x: 0.7, y: 1.45, w: 9.4, h: 5.3 };
+const MKT_RNG  = { xMin: 40, xMax: 130, yMin: 1300, yMax: 7000 };
+const MKT_K_SUELDO = 0.8 * 1.61 / 360 * 41000 * 4;
+
+function mktX(m2) {
+  return MKT_PLOT.x + ((m2 - MKT_RNG.xMin) / (MKT_RNG.xMax - MKT_RNG.xMin)) * MKT_PLOT.w;
+}
+function mktY(uf) {
+  return MKT_PLOT.y + ((MKT_RNG.yMax - uf) / (MKT_RNG.yMax - MKT_RNG.yMin)) * MKT_PLOT.h;
+}
+function mktInBox(m2, uf) {
+  return m2 >= MKT_RNG.xMin && m2 <= MKT_RNG.xMax &&
+         uf >= MKT_RNG.yMin && uf <= MKT_RNG.yMax;
+}
+function mktSubmercado(nombre) {
+  if (nombre.includes('Batuco') || nombre.includes('Chicauma')) return 'Batuco + Chicauma';
+  return 'Valle Grande';
+}
+function mktRegresionLog(points) {
+  // Regresión y = a × ln(x) + b por mínimos cuadrados
+  const lnX = points.map(p => Math.log(p[0]));
+  const Y = points.map(p => p[1]);
+  const n = lnX.length;
+  const sumLnX = lnX.reduce((a, b) => a + b, 0);
+  const sumY   = Y.reduce((a, b) => a + b, 0);
+  const sumLnXY = lnX.reduce((s, x, i) => s + x * Y[i], 0);
+  const sumLnX2 = lnX.reduce((s, x) => s + x * x, 0);
+  const a = (n * sumLnXY - sumLnX * sumY) / (n * sumLnX2 - sumLnX * sumLnX);
+  const b = (sumY - a * sumLnX) / n;
+  return { a, b };
+}
+function mktMediana(arr) {
+  const sorted = [...arr].sort((a, b) => a - b);
+  const m = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[m] : (sorted[m - 1] + sorted[m]) / 2;
+}
+
+// ── Slide del mercado ─────────────────────────────────────────────
+function colPptSlideMercado(pptx) {
+  const s = pptx.addSlide();
+  s.background = { color: 'FFFFFF' };
+
+  // ─── Header ───
+  s.addText('Mercado Competitivo · Batuco', {
+    x: 0.5, y: 0.30, w: 12, h: 0.5,
+    fontFace: 'Aptos Display', fontSize: 22, color: COL_PPT.text, bold: true,
+  });
+  s.addShape(pptx.ShapeType.line, {
+    x: 0.5, y: 0.88, w: 1.4, h: 0,
+    line: { color: COL_PPT.brand, width: 1.5 },
+  });
+  s.addText('Modela vs. mercado · casas · townhouses · edificios · precio vs. superficie útil', {
+    x: 0.5, y: 0.92, w: 12, h: 0.3,
+    fontFace: 'Aptos', fontSize: 11, color: COL_PPT.textDim,
+  });
+
+  // ─── Plot frame ───
+  s.addShape(pptx.ShapeType.rect, {
+    x: MKT_PLOT.x, y: MKT_PLOT.y, w: MKT_PLOT.w, h: MKT_PLOT.h,
+    fill: { color: 'FFFFFF' },
+    line: { color: 'B0B0B0', width: 0.5 },
+  });
+
+  // ─── Medianas (mercado libre sin Modela ni DS19) ───
+  const libre = MKT_COMPETIDORES.filter(c => c[3] !== 'Modela' && !c[5]);
+  const medX = mktMediana(libre.map(c => c[2]));
+  const medY = mktMediana(libre.map(c => c[1]));
+
+  // Cuadrante premium sombreado (arriba-derecha)
+  s.addShape(pptx.ShapeType.rect, {
+    x: mktX(medX), y: MKT_PLOT.y,
+    w: MKT_PLOT.x + MKT_PLOT.w - mktX(medX),
+    h: mktY(medY) - MKT_PLOT.y,
+    fill: { color: '1D5142', transparency: 96 },
+    line: { type: 'none' },
+  });
+
+  // Líneas medianas dashed
+  s.addShape(pptx.ShapeType.line, {
+    x: mktX(medX), y: MKT_PLOT.y, w: 0, h: MKT_PLOT.h,
+    line: { color: '888888', width: 0.8, dashType: 'dash' },
+  });
+  s.addShape(pptx.ShapeType.line, {
+    x: MKT_PLOT.x, y: mktY(medY), w: MKT_PLOT.w, h: 0,
+    line: { color: '888888', width: 0.8, dashType: 'dash' },
+  });
+
+  // ─── Curvas de regresión por sub-mercado ───
+  ['Batuco + Chicauma', 'Valle Grande'].forEach(sub => {
+    const points = MKT_COMPETIDORES
+      .filter(c => mktSubmercado(c[0]) === sub && !c[5])
+      .map(c => [c[2], c[1]]);
+    if (points.length < 2) return;
+    const reg = mktRegresionLog(points);
+    const nSeg = 50;
+    const x0 = MKT_RNG.xMin + 2, xN = MKT_RNG.xMax - 2;
+    let prevX = null, prevY = null;
+    for (let i = 0; i <= nSeg; i++) {
+      const m2 = x0 + (xN - x0) * (i / nSeg);
+      const uf = reg.a * Math.log(m2) + reg.b;
+      if (uf < MKT_RNG.yMin || uf > MKT_RNG.yMax) { prevX = null; continue; }
+      const px = mktX(m2), py = mktY(uf);
+      if (prevX !== null) {
+        s.addShape(pptx.ShapeType.line, {
+          x: prevX, y: prevY, w: px - prevX, h: py - prevY,
+          line: { color: MKT_SUB_COLORES[sub], width: 1.3, dashType: 'dash' },
+        });
+      }
+      prevX = px; prevY = py;
+    }
+    // Label al final de la curva
+    let labelUF = reg.a * Math.log(xN - 3) + reg.b;
+    labelUF = Math.max(MKT_RNG.yMin + 100, Math.min(MKT_RNG.yMax - 100, labelUF));
+    s.addText(sub, {
+      x: mktX(xN - 18), y: mktY(labelUF) - 0.18, w: 1.6, h: 0.22,
+      fontFace: 'Aptos', fontSize: 8.5, bold: true,
+      color: MKT_SUB_COLORES[sub], align: 'right',
+    });
+  });
+
+  // ─── Eje X ───
+  for (let m2 = 40; m2 <= 130; m2 += 10) {
+    const tx = mktX(m2);
+    s.addShape(pptx.ShapeType.line, {
+      x: tx, y: MKT_PLOT.y + MKT_PLOT.h, w: 0, h: 0.06,
+      line: { color: '777777', width: 0.5 },
+    });
+    s.addText(String(m2), {
+      x: tx - 0.25, y: MKT_PLOT.y + MKT_PLOT.h + 0.08, w: 0.5, h: 0.16,
+      fontFace: 'Aptos', fontSize: 7, color: '555555', align: 'center',
+    });
+  }
+  s.addText('Superficie útil (m²)', {
+    x: MKT_PLOT.x, y: MKT_PLOT.y + MKT_PLOT.h + 0.27, w: MKT_PLOT.w, h: 0.22,
+    fontFace: 'Aptos', fontSize: 9, color: '333333', align: 'center', bold: true,
+  });
+
+  // ─── Eje Y izquierdo (UF) ───
+  for (let uf = 1500; uf <= 7000; uf += 500) {
+    const ty = mktY(uf);
+    s.addShape(pptx.ShapeType.line, {
+      x: MKT_PLOT.x - 0.05, y: ty, w: 0.05, h: 0,
+      line: { color: '777777', width: 0.5 },
+    });
+    s.addText(uf.toLocaleString('es-CL'), {
+      x: MKT_PLOT.x - 0.65, y: ty - 0.08, w: 0.55, h: 0.16,
+      fontFace: 'Aptos', fontSize: 7, color: '555555', align: 'right',
+    });
+  }
+  s.addText('Precio de venta (UF)', {
+    x: 0.05, y: MKT_PLOT.y + MKT_PLOT.h / 2 - 1.2, w: 0.3, h: 2.4,
+    fontFace: 'Aptos', fontSize: 9, color: '333333', bold: true,
+    rotate: 270, align: 'center', valign: 'middle',
+  });
+
+  // ─── Eje Y derecho (sueldo CLP/mes) ───
+  for (const mClp of [1.5, 2.0, 2.5, 3.0, 3.5, 4.0]) {
+    const uf = (mClp * 1e6) / MKT_K_SUELDO;
+    if (uf < MKT_RNG.yMin || uf > MKT_RNG.yMax) continue;
+    const ty = mktY(uf);
+    s.addShape(pptx.ShapeType.line, {
+      x: MKT_PLOT.x + MKT_PLOT.w, y: ty, w: 0.05, h: 0,
+      line: { color: 'C97B3A', width: 0.5 },
+    });
+    s.addText(`$ ${mClp.toFixed(1).replace('.', ',')}M`, {
+      x: MKT_PLOT.x + MKT_PLOT.w + 0.06, y: ty - 0.08, w: 0.5, h: 0.16,
+      fontFace: 'Aptos', fontSize: 7, color: 'C97B3A', align: 'left',
+    });
+  }
+  s.addText('Sueldo familiar (CLP/mes)', {
+    x: MKT_PLOT.x + MKT_PLOT.w + 0.55, y: MKT_PLOT.y + MKT_PLOT.h / 2 - 1.2,
+    w: 0.3, h: 2.4,
+    fontFace: 'Aptos', fontSize: 9, color: 'C97B3A', bold: true,
+    rotate: 90, align: 'center', valign: 'middle',
+  });
+
+  // ─── Puntos del scatter ───
+  MKT_COMPETIDORES.forEach((c) => {
+    const [nombre, uf, util, dev, tipo, isDs19] = c;
+    if (!mktInBox(util, uf)) return;
+    const cx = mktX(util);
+    const cy = mktY(uf);
+    const isModela = (dev === 'Modela');
+    const base = tipo === 'casa' ? 0.18 : 0.16;
+    const size = isModela ? base * 1.3 : base;
+
+    let shapeType;
+    if (tipo === 'casa')           shapeType = pptx.ShapeType.ellipse;
+    else if (tipo === 'townhouse') shapeType = pptx.ShapeType.diamond;
+    else                            shapeType = pptx.ShapeType.rect;
+
+    s.addShape(shapeType, {
+      x: cx - size / 2, y: cy - size / 2, w: size, h: size,
+      fill: { color: MKT_COLORES[dev] },
+      line: {
+        color: isDs19 ? '1A2520' : (isModela ? '0D2E25' : 'FFFFFF'),
+        width: (isDs19 || isModela) ? 1.5 : 0.75,
+        dashType: isDs19 ? 'dash' : 'solid',
+      },
+    });
+  });
+
+  // ─── Etiquetas inline ───
+  MKT_COMPETIDORES.forEach((c, i) => {
+    const [nombre, uf, util, dev, tipo, isDs19] = c;
+    if (!mktInBox(util, uf)) return;
+    const cx = mktX(util);
+    const cy = mktY(uf);
+    const [dx, dy, ha, va] = MKT_LABEL_POS[i];
+    const dxIn = dx / 72, dyIn = dy / 72;
+    const lw = 1.5, lh = 0.32;
+    let lx, ly;
+    if (ha === 'left')        lx = cx + dxIn;
+    else if (ha === 'right')  lx = cx + dxIn - lw;
+    else                       lx = cx + dxIn - lw / 2;
+    if (va === 'top')         ly = cy + dyIn;
+    else if (va === 'bottom') ly = cy + dyIn - lh;
+    else                       ly = cy + dyIn - lh / 2;
+
+    const isModela = (dev === 'Modela');
+    const ufStr = uf.toLocaleString('es-CL');
+    s.addText([
+      { text: nombre + '\n', options: { bold: isModela, fontSize: 6.5,
+        color: isModela ? '0D2E25' : '3A3A3A' } },
+      { text: `${ufStr} UF · ${util.toFixed(0)} m²`, options: { fontSize: 6,
+        color: isModela ? '0D2E25' : '666666' } },
+    ], {
+      x: lx, y: ly, w: lw, h: lh,
+      fontFace: 'Aptos',
+      align: ha === 'right' ? 'right' : (ha === 'left' ? 'left' : 'center'),
+      valign: 'middle',
+      lineSpacing: 8,
+    });
+  });
+
+  // ─── Leyenda Desarrollador (esquina superior derecha del plot) ───
+  const legDevX = MKT_PLOT.x + MKT_PLOT.w - 1.45;
+  const legDevY = MKT_PLOT.y + 0.10;
+  s.addShape(pptx.ShapeType.roundRect, {
+    x: legDevX - 0.08, y: legDevY - 0.04,
+    w: 1.55, h: 9 * 0.16 + 0.30,
+    fill: { color: 'FAFBFA', transparency: 25 },
+    line: { color: 'D0D5D2', width: 0.5 },
+    rectRadius: 0.05,
+  });
+  s.addText('DESARROLLADOR', {
+    x: legDevX, y: legDevY, w: 1.4, h: 0.18,
+    fontFace: 'Aptos', fontSize: 7, color: '1D3A32', bold: true, charSpacing: 2,
+  });
+  const devs = ['Modela', 'Aconcagua', 'Trayecta', 'Travecta', 'Besalco',
+                'Lo Campino', 'Bricsa', 'Rios Larrain', 'Todos los Santos'];
+  devs.forEach((dev, i) => {
+    const yi = legDevY + 0.22 + i * 0.16;
+    s.addShape(pptx.ShapeType.ellipse, {
+      x: legDevX + 0.02, y: yi + 0.02, w: 0.10, h: 0.10,
+      fill: { color: MKT_COLORES[dev] },
+      line: { color: dev === 'Modela' ? '0D2E25' : 'FFFFFF',
+              width: dev === 'Modela' ? 1 : 0.5 },
+    });
+    s.addText(dev, {
+      x: legDevX + 0.16, y: yi - 0.02, w: 1.3, h: 0.16,
+      fontFace: 'Aptos', fontSize: 7.5, color: '333333',
+      bold: dev === 'Modela',
+    });
+  });
+
+  // ─── Leyenda Tipología (esquina inferior izquierda del plot) ───
+  const legTipoX = MKT_PLOT.x + 0.12;
+  const legTipoY = MKT_PLOT.y + MKT_PLOT.h - 0.95;
+  s.addShape(pptx.ShapeType.roundRect, {
+    x: legTipoX - 0.08, y: legTipoY - 0.04,
+    w: 1.85, h: 4 * 0.16 + 0.30,
+    fill: { color: 'FAFBFA', transparency: 25 },
+    line: { color: 'D0D5D2', width: 0.5 },
+    rectRadius: 0.05,
+  });
+  s.addText('TIPOLOGÍA', {
+    x: legTipoX, y: legTipoY, w: 1.4, h: 0.18,
+    fontFace: 'Aptos', fontSize: 7, color: '1D3A32', bold: true, charSpacing: 2,
+  });
+  const tipos = [
+    { shape: pptx.ShapeType.ellipse, label: 'Casa',                          dash: 'solid' },
+    { shape: pptx.ShapeType.diamond, label: 'Townhouse',                     dash: 'solid' },
+    { shape: pptx.ShapeType.rect,    label: 'Edificio',                      dash: 'solid' },
+    { shape: pptx.ShapeType.rect,    label: 'DS19 (borde discontinuo)',      dash: 'dash'  },
+  ];
+  tipos.forEach((t, i) => {
+    const yi = legTipoY + 0.22 + i * 0.16;
+    s.addShape(t.shape, {
+      x: legTipoX + 0.02, y: yi + 0.02, w: 0.10, h: 0.10,
+      fill: { color: '7A7A7A' },
+      line: { color: '1A2520', width: 1, dashType: t.dash },
+    });
+    s.addText(t.label, {
+      x: legTipoX + 0.16, y: yi - 0.02, w: 1.6, h: 0.16,
+      fontFace: 'Aptos', fontSize: 7.5, color: '333333',
+    });
+  });
+
+  // ─── Footer ───
+  s.addText('Fuente: relevamiento de competencia · proyectos AUDP Batuco · Colina · Valle Grande · Chicauma',
+    { x: 0.5, y: 7.20, w: 12.5, h: 0.2,
+      fontFace: 'Aptos', fontSize: 8, color: '999999', italic: true });
+}
+
 // ════════════════════════════════════════════════════════════════
 // FUNCIÓN PRINCIPAL DE DESCARGA
 // ════════════════════════════════════════════════════════════════
@@ -17155,6 +17552,9 @@ async function colDownloadPPT() {
     colPptSlide4Resumen(pptx, aggE2);
     colPptSlide4(pptx, aggE2);
     colPptSlide5(pptx, aggE2);
+
+    // Slide final: Mapa de mercado competitivo
+    colPptSlideMercado(pptx);
 
     const fecha = new Date().toISOString().slice(0, 10);
     await pptx.writeFile({ fileName: `Modela_FlujoCaja_${fecha}.pptx` });
