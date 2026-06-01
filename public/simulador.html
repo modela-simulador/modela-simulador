@@ -2017,9 +2017,8 @@
     border-bottom:1px solid #334155;
     position:relative;
     box-sizing:border-box;
+    width:1260px;
   }
-  .col-chart-wrap > canvas { width:1260px !important; height:262px !important;
-                             display:block; }
   .col-table-wrap {
     max-height:62vh;
     overflow-y:auto;
@@ -16368,11 +16367,12 @@ function colRenderChart() {
         borderDash: [6, 3], pointRadius: 0, tension: 0.1, yAxisID: 'y2' },
     ]},
     options: {
-      responsive: false, maintainAspectRatio: false,
-      // Alineacion pixel-perfect con la tabla: canvas 1260px, area de plot
-      // arranca en padding.left=280 (= concept 200 + total 80), termina al final.
-      // Las 14 columnas semestrales de la tabla son 70px cada una; el chart distribuye
-      // las 14 barras en 1260-280=980px → 70px cada una. Alineacion exacta.
+      responsive: true, maintainAspectRatio: false,
+      // Alineacion pixel-perfect con la tabla: chart-wrap tiene width=1260px (CSS),
+      // Chart.js detecta ese ancho via responsive y configura el buffer del canvas
+      // con devicePixelRatio. Area de plot arranca en padding.left=280
+      // (= concept 200 + total 80), termina al final del canvas. 14 columnas
+      // semestrales × 70px cada una = (1260 − 280) ÷ 14 = 70px exactos por barra.
       layout: { padding: { left: 280, right: 0, top: 4, bottom: 0 } },
       plugins: {
         legend: { labels: { color: '#cbd5e1', font: { size: 11 } }, position: 'top', align: 'end' },
