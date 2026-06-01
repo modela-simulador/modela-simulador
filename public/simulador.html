@@ -1997,12 +1997,17 @@
   .col-etapa-btn.active { background:#1d5142; color:#fff; box-shadow:0 2px 6px rgba(29,81,66,0.4); }
   .col-etapa-btn:not(.active):hover { color:#e2e8f0; background:#334155; }
 
-  /* Layout: flujo a todo ancho */
-  .col-layout { display:flex; flex-direction:column; gap:16px; }
+  /* Layout: flujo a todo ancho.
+     El chart-box y el table-box comparten min-width para alinear las columnas
+     de barras del gráfico con las columnas semestrales de la tabla.
+     Ancho tabla = 240 (concept) + 90 (total) + 14 × 72 (periodos) = 1338px */
+  .col-layout { display:flex; flex-direction:column; gap:16px;
+                overflow-x:auto; }
+  .col-chart-wrap, .col-table-wrap { min-width:1338px; }
   .col-chart-box { background:#1e293b; border:1px solid #334155; border-radius:8px;
-                   padding:14px 16px; height:300px; position:relative; }
+                   padding:14px 16px 14px 16px; height:320px; position:relative; }
   .col-table-box { background:#1e293b; border:1px solid #334155; border-radius:8px;
-                   padding:14px 16px; max-height:62vh; overflow:auto; }
+                   padding:14px 16px; max-height:62vh; overflow:visible; }
 
   /* Tabla con anchos fijos por columna para alineacion perfecta */
   .col-tbl { width:100%; border-collapse:collapse; font-size:10.5px;
@@ -2063,11 +2068,15 @@
     </div>
 
     <div class="col-layout">
-      <div class="col-chart-box">
-        <canvas id="col-chart"></canvas>
+      <div class="col-chart-wrap">
+        <div class="col-chart-box">
+          <canvas id="col-chart"></canvas>
+        </div>
       </div>
-      <div class="col-table-box">
-        <table class="col-tbl" id="col-table"></table>
+      <div class="col-table-wrap">
+        <div class="col-table-box">
+          <table class="col-tbl" id="col-table"></table>
+        </div>
       </div>
     </div>
   </div>
@@ -16050,7 +16059,7 @@ const COL_GRUPOS_COSTO = {
   'Batuco · Etapa 2': ['Urbanización Etapa 2 · Batuco', 'Área verde Etapa 2 · Batuco'],
   'Colina · Etapa 1': ['Vialidades · Colina', 'Plazas · Colina', 'Área verde · Colina'],
   'Colina · Etapa 2': ['Urbanización Etapa 2 · Colina', 'Área verde Etapa 2 · Colina'],
-  'Comunes': ['Sanitaria', 'Sanitaria Etapa 2', 'Mitigaciones', 'Comercialización (2 % ventas)', 'Mantenimiento'],
+  'Comunes': ['Sanitaria', 'Sanitaria Etapa 2', 'Mitigaciones', 'Mitigaciones Etapa 2', 'Comercialización (2 % venta terreno)', 'Mantenimiento'],
   'Inversión inmobiliaria': [
     'Placas comerciales · Batuco', 'Financiamiento · Placas Batuco', 'Dividendo · Placas Batuco',
     'Placas comerciales · Colina', 'Financiamiento · Placas Colina', 'Dividendo · Placas Colina',
@@ -16148,26 +16157,32 @@ function colBuildRows() {
     Object.entries(mapa).forEach(([p, m]) => { f[colIdx(p)] = m; });
     rows[n] = { etapa: e, vals: f };
   });
-  const fMit = new Array(COL_N).fill(0);
+  // Mitigaciones Etapa 1 (2030-2033) y Etapa 2 (2034-2035)
+  const fMit1 = new Array(COL_N).fill(0);
+  const fMit2 = new Array(COL_N).fill(0);
   Object.entries(COL_MODEL.mitigaciones_anual).forEach(([a, total]) => {
-    fMit[colIdx(`S1 ${a}`)] = total / 2;
-    fMit[colIdx(`S2 ${a}`)] = total / 2;
+    const año = parseInt(a);
+    const dest = año <= 2033 ? fMit1 : fMit2;
+    dest[colIdx(`S1 ${año}`)] = total / 2;
+    dest[colIdx(`S2 ${año}`)] = total / 2;
   });
-  rows['Mitigaciones'] = { etapa: 0, vals: fMit };
+  rows['Mitigaciones']         = { etapa: 1, vals: fMit1 };
+  rows['Mitigaciones Etapa 2'] = { etapa: 2, vals: fMit2 };
   const fMan = new Array(COL_N).fill(0);
   Object.entries(COL_MODEL.mantenimiento_anual).forEach(([a, total]) => {
     fMan[colIdx(`S1 ${a}`)] = total / 2;
     fMan[colIdx(`S2 ${a}`)] = total / 2;
   });
   rows['Mantenimiento'] = { etapa: 0, vals: fMan };
-  const ingPer = new Array(COL_N).fill(0);
+  // Comercializacion: 2% solo sobre venta de terreno (no sobre AUDP)
+  const terPer = new Array(COL_N).fill(0);
   Object.entries(rows).forEach(([n, obj]) => {
-    if (n.startsWith('AUDP') || n.toLowerCase().includes('terreno')) {
-      obj.vals.forEach((v, i) => { ingPer[i] += v; });
+    if (n.toLowerCase().includes('terreno')) {
+      obj.vals.forEach((v, i) => { terPer[i] += v; });
     }
   });
-  rows['Comercialización (2 % ventas)'] = { etapa: 0,
-    vals: ingPer.map(v => -v * COL_MODEL.comercializacion_pct) };
+  rows['Comercialización (2 % venta terreno)'] = { etapa: 1,
+    vals: terPer.map(v => -v * COL_MODEL.comercializacion_pct) };
   COL_MODEL.placas.forEach(([e, n, m, p, alias]) => {
     const fComp = new Array(COL_N).fill(0); fComp[colIdx(p)] = m;
     rows[n] = { etapa: e, vals: fComp };
@@ -16332,6 +16347,10 @@ function colRenderChart() {
     ]},
     options: {
       responsive: true, maintainAspectRatio: false,
+      // Padding para alinear las barras con las columnas semestrales de la tabla.
+      // Tabla: 240 (concept) + 90 (total) = 330px de offset desde la izquierda
+      // a la derecha hay scrollbar/borde de ~16px
+      layout: { padding: { left: 318, right: 12, top: 8, bottom: 0 } },
       plugins: {
         legend: { labels: { color: '#cbd5e1', font: { size: 11 } }, position: 'top', align: 'end' },
         tooltip: { callbacks: { label: c => `${c.dataset.label}: ${fmtColUF(c.parsed.y)} UF` } },
