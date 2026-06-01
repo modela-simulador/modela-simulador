@@ -16720,12 +16720,13 @@ function colPptSlide3(pptx, agg) {
   });
   colPptAddEtapaChip(s, agg.etapaLabel);
 
-  // Combo chart: barras (Ingresos / Costos) + línea (Flujo acumulado en eje secundario)
+  // Combo chart: barras (Ingresos / Costos) + línea (Flujo acumulado) opcional.
+  // Etapa 1 sola → solo barras (la línea acumulada confunde sin el panorama de E2).
+  // Etapa 1+2 consolidada → incluir línea acumulada para ver donde está la caja.
   const dataIng = { name: 'Ingresos', labels: COL_PERIODOS, values: agg.totIng.map(v => Math.round(v)) };
   const dataCos = { name: 'Costos',   labels: COL_PERIODOS, values: agg.totCos.map(v => Math.round(v)) };
-  const dataAcc = { name: 'Flujo acumulado', labels: COL_PERIODOS, values: agg.fluA.map(v => Math.round(v)) };
 
-  s.addChart([
+  const combos = [
     {
       type: pptx.ChartType.bar,
       data: [dataIng, dataCos],
@@ -16734,9 +16735,12 @@ function colPptSlide3(pptx, agg) {
         chartColors: [COL_PPT.brand, COL_PPT.red],
       },
     },
-    {
+  ];
+  const includeAcumulado = agg.etapaScope === 2;
+  if (includeAcumulado) {
+    combos.push({
       type: pptx.ChartType.line,
-      data: [dataAcc],
+      data: [{ name: 'Flujo acumulado', labels: COL_PERIODOS, values: agg.fluA.map(v => Math.round(v)) }],
       options: {
         chartColors: [COL_PPT.accent],
         secondaryValAxis: true,
@@ -16745,34 +16749,16 @@ function colPptSlide3(pptx, agg) {
         lineDataSymbol: 'none',
         lineDash: 'dash',
       },
-    },
-  ], {
+    });
+  }
+
+  const chartOptions = {
     x: 0.6, y: 1.6, w: 12.1, h: 5.6,
     catAxisLabelFontSize: 9, catAxisLabelFontFace: 'Aptos',
     catAxisLabelColor: COL_PPT.textDim,
     valAxisLabelFontSize: 9, valAxisLabelFontFace: 'Aptos',
     valAxisLabelColor: COL_PPT.textDim,
     valAxisLabelFormatCode: '#,##0',
-    // Eje secundario (Flujo acumulado, derecha)
-    valAxes: [
-      {
-        valAxisLabelFontSize: 9, valAxisLabelFontFace: 'Aptos',
-        valAxisLabelColor: COL_PPT.textDim,
-        valAxisLabelFormatCode: '#,##0',
-        valGridLine: { color: 'EBF0EC', size: 0.5 },
-      },
-      {
-        valAxisLabelFontSize: 9, valAxisLabelFontFace: 'Aptos',
-        valAxisLabelColor: COL_PPT.accent,
-        valAxisLabelFormatCode: '#,##0',
-        valGridLine: { style: 'none' },
-      },
-    ],
-    catAxes: [
-      { catAxisLabelFontSize: 9, catAxisLabelFontFace: 'Aptos',
-        catAxisLabelColor: COL_PPT.textDim },
-      { catAxisHidden: true },
-    ],
     showLegend: true, legendPos: 'b', legendFontSize: 10,
     legendFontFace: 'Aptos', legendColor: COL_PPT.text,
     showTitle: false,
@@ -16780,7 +16766,25 @@ function colPptSlide3(pptx, agg) {
     catGridLine: { style: 'none' },
     valGridLine: { color: 'EBF0EC', size: 0.5 },
     border: { type: 'none' },
-  });
+  };
+
+  if (includeAcumulado) {
+    chartOptions.valAxes = [
+      { valAxisLabelFontSize: 9, valAxisLabelFontFace: 'Aptos',
+        valAxisLabelColor: COL_PPT.textDim, valAxisLabelFormatCode: '#,##0',
+        valGridLine: { color: 'EBF0EC', size: 0.5 } },
+      { valAxisLabelFontSize: 9, valAxisLabelFontFace: 'Aptos',
+        valAxisLabelColor: COL_PPT.accent, valAxisLabelFormatCode: '#,##0',
+        valGridLine: { style: 'none' } },
+    ];
+    chartOptions.catAxes = [
+      { catAxisLabelFontSize: 9, catAxisLabelFontFace: 'Aptos',
+        catAxisLabelColor: COL_PPT.textDim },
+      { catAxisHidden: true },
+    ];
+  }
+
+  s.addChart(combos, chartOptions);
 
   // Nota al pie
   s.addText(`Peak positivo: ${colPptFmt(agg.peakPos)} UF en ${agg.peakPosLabel}.  Punto más bajo: ${colPptFmt(agg.peakNeg)} UF en ${agg.peakNegLabel}.`, {
@@ -16904,7 +16908,150 @@ function colPptSlide4Resumen(pptx, agg) {
 }
 
 // ════════════════════════════════════════════════════════════════
-// SLIDE 4b: TABLA DETALLADA DEL FLUJO (todos los items)
+// SLIDE 4b: RESUMEN POR CONCEPTO (agrupación por tipo de gasto)
+// Vista ejecutiva: agrupa items por categoría conceptual (Vialidades,
+// Sanitaria, etc.) sin importar zona. Para directorio/CEO.
+// ════════════════════════════════════════════════════════════════
+function colPptSlide4Concepto(pptx, agg) {
+  const s = pptx.addSlide();
+  s.background = { color: COL_PPT.white };
+  s.addText(`Resumen por concepto · ${agg.etapaTitle}`, {
+    x: 0.3, y: 0.25, w: 9.5, h: 0.4,
+    fontFace: 'Aptos Display', fontSize: 18, color: COL_PPT.text, bold: true,
+  });
+  s.addShape(pptx.ShapeType.line, {
+    x: 0.3, y: 0.7, w: 1.0, h: 0,
+    line: { color: COL_PPT.brand, width: 1.2 },
+  });
+  s.addText('Vista agregada por tipo de gasto · neto por activo financiado',
+    { x: 0.3, y: 0.78, w: 9.5, h: 0.25,
+      fontFace: 'Aptos', fontSize: 9, color: COL_PPT.textDim, italic: true });
+  colPptAddEtapaChip(s, agg.etapaLabel);
+
+  const rows = agg.rows;
+  const has = (item) => rows[item] && agg.isIn(item);
+
+  // Mapeo de categorías a items concretos
+  const ingItems = Object.values(COL_GRUPOS_ING).flat().filter(it => has(it) && it !== 'Venta terreno Copec (Colina)'
+                                                                              && !it.startsWith('Arriendo'));
+  const ingTerreno = 'Venta terreno Copec (Colina)';
+  const CATEGORIAS = [
+    { label: 'Ingresos por ventas AUDP',  items: ingItems,                                      style: 'item' },
+    { label: 'Venta de terreno Copec',    items: has(ingTerreno) ? [ingTerreno] : [],            style: 'item' },
+    { label: 'Vialidades',                items: ['Vialidades · Batuco', 'Vialidades · Colina',
+                                                    'Urbanización Etapa 2 · Batuco',
+                                                    'Urbanización Etapa 2 · Colina'].filter(has), style: 'item' },
+    { label: 'Plazas y Áreas Verdes',     items: ['Plazas · Batuco', 'Plazas · Colina',
+                                                    'Área verde + Eq. deportivo · Batuco',
+                                                    'Área verde · Colina',
+                                                    'Área verde Etapa 2 · Batuco',
+                                                    'Área verde Etapa 2 · Colina'].filter(has),  style: 'item' },
+    { label: 'Sanitaria',                 items: ['Sanitaria', 'Sanitaria Etapa 2'].filter(has), style: 'item' },
+    { label: 'Mitigaciones',              items: ['Mitigaciones', 'Mitigaciones Etapa 2'].filter(has), style: 'item' },
+    { label: 'Mejoramiento entorno y barrio',
+                                          items: ['Mejoramiento entorno Estaciones',
+                                                  'Embellecimiento barrio existente'].filter(has), style: 'item' },
+    { label: 'Comercialización',          items: ['Comercialización (2 %) · Etapa 1',
+                                                  'Comercialización (2 %) · Etapa 2'].filter(has), style: 'item' },
+    { label: 'Seguridad y Mantenimiento', items: ['Mantenimiento'].filter(has),                  style: 'item' },
+    { label: 'Placas Comerciales (neto)', items: ['Placas comerciales · Batuco',
+                                                  'Placas comerciales · Colina',
+                                                  'Financiamiento · Placas Batuco',
+                                                  'Financiamiento · Placas Colina',
+                                                  'Dividendo · Placas Batuco',
+                                                  'Dividendo · Placas Colina',
+                                                  'Arriendo · Placas Batuco',
+                                                  'Arriendo · Placas Colina'].filter(has),       style: 'item' },
+    { label: 'MUB (neto)',                items: ['Construccion MUB', 'Financiamiento · MUB',
+                                                  'Dividendo · MUB', 'Arriendo · MUB'].filter(has), style: 'item' },
+    { label: 'MUC (neto)',                items: ['Construccion MUC', 'Financiamiento · MUC',
+                                                  'Dividendo · MUC', 'Arriendo · MUC'].filter(has), style: 'item' },
+  ];
+
+  // Calcular totales por semestre
+  const tblRows = [];
+  const hdrOpts = { bold: true, fontSize: 9, color: COL_PPT.white,
+                    fill: { color: COL_PPT.brand }, valign: 'middle' };
+  tblRows.push([
+    { text: 'Concepto', options: { ...hdrOpts, align: 'left',  margin: [5, 8, 5, 8] } },
+    { text: 'Total',    options: { ...hdrOpts, align: 'right', margin: [5, 8, 5, 8] } },
+    ...COL_PERIODOS.map(p => ({ text: p, options: { ...hdrOpts, align: 'right',
+                                                     fontSize: 8, margin: [5, 3, 5, 3] } })),
+  ]);
+
+  function buildCatRow(label, vals, style) {
+    const fillColor = ({
+      ingreso: COL_PPT.brandLt,
+      item: 'F8FAF9',
+      separator: 'E6EFE9',
+      total: 'D5E8DC',
+      total_acum: 'F3DBC2',
+    })[style] || 'FFFFFF';
+    const color = ({
+      ingreso: COL_PPT.brand,
+      item: COL_PPT.text,
+      separator: COL_PPT.brand,
+      total: COL_PPT.brand,
+      total_acum: COL_PPT.accent,
+    })[style] || COL_PPT.text;
+    const bold = ['ingreso', 'separator', 'total', 'total_acum'].includes(style);
+    const fs = style === 'total' || style === 'total_acum' ? 10.5 : 9.5;
+    const fill = { color: fillColor };
+
+    const cells = [{
+      text: label,
+      options: { bold, fontSize: fs, color, fill,
+                 align: 'left', valign: 'middle', margin: [4, 8, 4, 8] },
+    }];
+    const total = vals.reduce((a, b) => a + b, 0);
+    cells.push({
+      text: colPptFmt(total) || '0',
+      options: { bold: true, fontSize: fs, color, fill,
+                 align: 'right', valign: 'middle', fontFace: 'Consolas',
+                 margin: [4, 8, 4, 8] },
+    });
+    vals.forEach(v => {
+      let txt = '', cv = color;
+      if (v != null && Math.abs(v) >= 0.5) {
+        txt = colPptFmt(v);
+        if (v < 0) cv = COL_PPT.red;
+      }
+      cells.push({
+        text: txt,
+        options: { fontSize: 8.5, color: cv, fontFace: 'Consolas', fill,
+                   align: 'right', valign: 'middle', bold,
+                   margin: [3, 4, 3, 4] },
+      });
+    });
+    return cells;
+  }
+
+  // INGRESOS TOTALES
+  const totIngVals = colSumByItems(rows, [...ingItems, ...(has(ingTerreno) ? [ingTerreno] : [])]);
+  tblRows.push(buildCatRow('INGRESOS TOTALES', totIngVals, 'ingreso'));
+
+  // Categorías de costos
+  for (const cat of CATEGORIAS.slice(2)) {   // saltar los 2 primeros (ingresos detallados)
+    if (!cat.items.length) continue;
+    const vals = colSumByItems(rows, cat.items);
+    tblRows.push(buildCatRow(cat.label, vals, 'item'));
+  }
+
+  // Flujo Neto y Acumulado
+  tblRows.push(buildCatRow('FLUJO NETO',      agg.fluN, 'total'));
+  tblRows.push(buildCatRow('FLUJO ACUMULADO', agg.fluA, 'total_acum'));
+
+  const colW = [2.4, 1.0].concat(new Array(COL_N).fill(0.58));
+  s.addTable(tblRows, {
+    x: 0.3, y: 1.15, w: colW.reduce((a, b) => a + b, 0),
+    colW, fontFace: 'Aptos',
+    border: { type: 'solid', pt: 0.4, color: 'C8D4CC' },
+    autoPage: false,
+  });
+}
+
+// ════════════════════════════════════════════════════════════════
+// SLIDE 4c: TABLA DETALLADA DEL FLUJO (todos los items)
 // ════════════════════════════════════════════════════════════════
 function colPptSlide4(pptx, agg) {
   const s = pptx.addSlide();
@@ -17595,19 +17742,21 @@ async function colDownloadPPT() {
     // Portada (general, sin etapa)
     colPptSlide1(pptx, null);
 
-    // Set Etapa 1 (5 slides: KPIs, Gráfico, Tabla resumen, Tabla detalle, Insights)
+    // Set Etapa 1 (6 slides: KPIs, Gráfico, Resumen zona, Resumen concepto, Detalle, Insights)
     const aggE1 = colPptComputeAgg(1);
     colPptSlide2(pptx, aggE1);
     colPptSlide3(pptx, aggE1);
     colPptSlide4Resumen(pptx, aggE1);
+    colPptSlide4Concepto(pptx, aggE1);
     colPptSlide4(pptx, aggE1);
     colPptSlide5(pptx, aggE1);
 
-    // Set Etapa 1 + 2 consolidado (5 slides idem)
+    // Set Etapa 1 + 2 consolidado (6 slides idem)
     const aggE2 = colPptComputeAgg(2);
     colPptSlide2(pptx, aggE2);
     colPptSlide3(pptx, aggE2);
     colPptSlide4Resumen(pptx, aggE2);
+    colPptSlide4Concepto(pptx, aggE2);
     colPptSlide4(pptx, aggE2);
     colPptSlide5(pptx, aggE2);
 
