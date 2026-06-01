@@ -16737,7 +16737,118 @@ function colPptSlide3(pptx, agg) {
 }
 
 // ════════════════════════════════════════════════════════════════
-// SLIDE 4: TABLA DETALLADA DEL FLUJO (nativa)
+// SLIDE 4a: TABLA RESUMEN (solo grupos + subtotales por sub-mercado)
+// Lectura ejecutiva rápida: cada grupo (Batuco·E1, Colina·E1, Comunes, etc.)
+// muestra solo su subtotal sin desglose de items.
+// ════════════════════════════════════════════════════════════════
+function colPptSlide4Resumen(pptx, agg) {
+  const s = pptx.addSlide();
+  s.background = { color: COL_PPT.white };
+  s.addText(`Tabla resumen · ${agg.etapaTitle}`, {
+    x: 0.3, y: 0.25, w: 9.5, h: 0.4,
+    fontFace: 'Aptos Display', fontSize: 18, color: COL_PPT.text, bold: true,
+  });
+  s.addShape(pptx.ShapeType.line, {
+    x: 0.3, y: 0.7, w: 1.0, h: 0,
+    line: { color: COL_PPT.brand, width: 1.2 },
+  });
+  s.addText('Vista de alto nivel · subtotales por grupo · detalle completo en slide siguiente', {
+    x: 0.3, y: 0.78, w: 9.5, h: 0.25,
+    fontFace: 'Aptos', fontSize: 9, color: COL_PPT.textDim, italic: true,
+  });
+  colPptAddEtapaChip(s, agg.etapaLabel);
+
+  const rows = agg.rows;
+  const tblRows = [];
+  // Header
+  const hdrOpts = { bold: true, fontSize: 9, color: COL_PPT.white,
+                    fill: { color: COL_PPT.brand }, valign: 'middle' };
+  tblRows.push([
+    { text: 'CONCEPTO', options: { ...hdrOpts, align: 'left',  margin: [5, 8, 5, 8] } },
+    { text: 'TOTAL',    options: { ...hdrOpts, align: 'right', margin: [5, 8, 5, 8] } },
+    ...COL_PERIODOS.map(p => ({ text: p, options: { ...hdrOpts, align: 'right',
+                                                     fontSize: 8, margin: [5, 3, 5, 3] } })),
+  ]);
+
+  const styleFor = (style) => ({
+    section: { fill: COL_PPT.brandLt, color: COL_PPT.brand, bold: true, fs: 10 },
+    subsection: { fill: 'E6EFE9', color: COL_PPT.text, bold: true, fs: 10 },
+    subtotal_global: { fill: COL_PPT.brandLt, color: COL_PPT.brand, bold: true, fs: 10 },
+    total: { fill: 'D5E8DC', color: COL_PPT.brand, bold: true, fs: 11 },
+    total_acum: { fill: 'F3DBC2', color: COL_PPT.accent, bold: true, fs: 11 },
+  })[style];
+
+  const buildResumenRow = (label, vals, style) => {
+    const st = styleFor(style);
+    const fill = { color: st.fill };
+    const cells = [{
+      text: label,
+      options: {
+        bold: true, fontSize: st.fs, color: st.color, fill,
+        align: 'left', valign: 'middle', margin: [4, 6, 4, 6],
+      },
+    }];
+    if (style === 'section') {
+      for (let i = 0; i < COL_N + 1; i++) cells.push({ text: '', options: { fill } });
+      return cells;
+    }
+    const total = vals ? vals.reduce((a, b) => a + b, 0) : null;
+    cells.push({
+      text: vals ? colPptFmt(total) : '',
+      options: { bold: true, fontSize: st.fs, color: st.color, fill,
+                 align: 'right', valign: 'middle', fontFace: 'Consolas',
+                 margin: [4, 6, 4, 6] },
+    });
+    (vals || new Array(COL_N).fill(null)).forEach(v => {
+      let txt = '', color = st.color;
+      if (v != null && v !== 0) {
+        txt = colPptFmt(v);
+        if (v < 0) color = COL_PPT.red;
+      }
+      cells.push({
+        text: txt,
+        options: { fontSize: 8, color, fontFace: 'Consolas', fill,
+                   align: 'right', valign: 'middle', bold: st.bold },
+      });
+    });
+    return cells;
+  };
+
+  // INGRESOS (solo grupos con subtotal)
+  tblRows.push(buildResumenRow('INGRESOS', null, 'section'));
+  Object.entries(COL_GRUPOS_ING).forEach(([grp, items]) => {
+    const exist = items.filter(it => agg.isIn(it));
+    if (!exist.length) return;
+    const subVals = colSumByItems(rows, exist);
+    tblRows.push(buildResumenRow(grp, subVals, 'subsection'));
+  });
+  tblRows.push(buildResumenRow('TOTAL INGRESOS', agg.totIng, 'subtotal_global'));
+
+  // COSTOS (solo grupos con subtotal)
+  tblRows.push(buildResumenRow('COSTOS', null, 'section'));
+  Object.entries(COL_GRUPOS_COSTO).forEach(([grp, items]) => {
+    const exist = items.filter(it => agg.isIn(it));
+    if (!exist.length) return;
+    const subVals = colSumByItems(rows, exist);
+    tblRows.push(buildResumenRow(grp, subVals, 'subsection'));
+  });
+  tblRows.push(buildResumenRow('TOTAL COSTOS', agg.totCos, 'subtotal_global'));
+
+  // Totales
+  tblRows.push(buildResumenRow('FLUJO NETO', agg.fluN, 'total'));
+  tblRows.push(buildResumenRow('FLUJO ACUMULADO', agg.fluA, 'total_acum'));
+
+  const colW = [2.0, 0.7].concat(new Array(COL_N).fill(0.7));
+  s.addTable(tblRows, {
+    x: 0.3, y: 1.15, w: colW.reduce((a, b) => a + b, 0),
+    colW, fontFace: 'Aptos',
+    border: { type: 'solid', pt: 0.4, color: 'C8D4CC' },
+    autoPage: false,
+  });
+}
+
+// ════════════════════════════════════════════════════════════════
+// SLIDE 4b: TABLA DETALLADA DEL FLUJO (todos los items)
 // ════════════════════════════════════════════════════════════════
 function colPptSlide4(pptx, agg) {
   const s = pptx.addSlide();
@@ -16973,17 +17084,19 @@ async function colDownloadPPT() {
     // Portada (general, sin etapa)
     colPptSlide1(pptx, null);
 
-    // Set Etapa 1 (4 slides)
+    // Set Etapa 1 (5 slides: KPIs, Gráfico, Tabla resumen, Tabla detalle, Insights)
     const aggE1 = colPptComputeAgg(1);
     colPptSlide2(pptx, aggE1);
     colPptSlide3(pptx, aggE1);
+    colPptSlide4Resumen(pptx, aggE1);
     colPptSlide4(pptx, aggE1);
     colPptSlide5(pptx, aggE1);
 
-    // Set Etapa 1 + 2 consolidado (4 slides)
+    // Set Etapa 1 + 2 consolidado (5 slides idem)
     const aggE2 = colPptComputeAgg(2);
     colPptSlide2(pptx, aggE2);
     colPptSlide3(pptx, aggE2);
+    colPptSlide4Resumen(pptx, aggE2);
     colPptSlide4(pptx, aggE2);
     colPptSlide5(pptx, aggE2);
 
