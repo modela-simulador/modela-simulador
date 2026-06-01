@@ -16716,23 +16716,59 @@ function colPptSlide3(pptx, agg) {
   });
   colPptAddEtapaChip(s, agg.etapaLabel);
 
-  // Datos para chart nativo
-  const chartData = [
-    { name: 'Ingresos', labels: COL_PERIODOS, values: agg.totIng.map(v => Math.round(v)) },
-    { name: 'Costos',   labels: COL_PERIODOS, values: agg.totCos.map(v => Math.round(v)) },
-    { name: 'Flujo acumulado', labels: COL_PERIODOS,
-      values: agg.fluA.map(v => Math.round(v)) },
-  ];
+  // Combo chart: barras (Ingresos / Costos) + línea (Flujo acumulado en eje secundario)
+  const dataIng = { name: 'Ingresos', labels: COL_PERIODOS, values: agg.totIng.map(v => Math.round(v)) };
+  const dataCos = { name: 'Costos',   labels: COL_PERIODOS, values: agg.totCos.map(v => Math.round(v)) };
+  const dataAcc = { name: 'Flujo acumulado', labels: COL_PERIODOS, values: agg.fluA.map(v => Math.round(v)) };
 
-  s.addChart(pptx.ChartType.bar, [chartData[0], chartData[1]], {
+  s.addChart([
+    {
+      type: pptx.ChartType.bar,
+      data: [dataIng, dataCos],
+      options: {
+        barDir: 'col', barGrouping: 'clustered',
+        chartColors: [COL_PPT.brand, COL_PPT.red],
+      },
+    },
+    {
+      type: pptx.ChartType.line,
+      data: [dataAcc],
+      options: {
+        chartColors: [COL_PPT.accent],
+        secondaryValAxis: true,
+        secondaryCatAxis: true,
+        lineSize: 3,
+        lineDataSymbol: 'none',
+        lineDash: 'dash',
+      },
+    },
+  ], {
     x: 0.6, y: 1.6, w: 12.1, h: 5.6,
-    barDir: 'col', barGrouping: 'clustered',
-    chartColors: [COL_PPT.brand, COL_PPT.red],
     catAxisLabelFontSize: 9, catAxisLabelFontFace: 'Aptos',
     catAxisLabelColor: COL_PPT.textDim,
     valAxisLabelFontSize: 9, valAxisLabelFontFace: 'Aptos',
     valAxisLabelColor: COL_PPT.textDim,
     valAxisLabelFormatCode: '#,##0',
+    // Eje secundario (Flujo acumulado, derecha)
+    valAxes: [
+      {
+        valAxisLabelFontSize: 9, valAxisLabelFontFace: 'Aptos',
+        valAxisLabelColor: COL_PPT.textDim,
+        valAxisLabelFormatCode: '#,##0',
+        valGridLine: { color: 'EBF0EC', size: 0.5 },
+      },
+      {
+        valAxisLabelFontSize: 9, valAxisLabelFontFace: 'Aptos',
+        valAxisLabelColor: COL_PPT.accent,
+        valAxisLabelFormatCode: '#,##0',
+        valGridLine: { style: 'none' },
+      },
+    ],
+    catAxes: [
+      { catAxisLabelFontSize: 9, catAxisLabelFontFace: 'Aptos',
+        catAxisLabelColor: COL_PPT.textDim },
+      { catAxisHidden: true },
+    ],
     showLegend: true, legendPos: 'b', legendFontSize: 10,
     legendFontFace: 'Aptos', legendColor: COL_PPT.text,
     showTitle: false,
