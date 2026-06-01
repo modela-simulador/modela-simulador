@@ -16077,7 +16077,7 @@ const COL_GRUPOS_COSTO = {
   'Batuco · Etapa 2': ['Urbanización Etapa 2 · Batuco', 'Área verde Etapa 2 · Batuco'],
   'Colina · Etapa 1': ['Vialidades · Colina', 'Plazas · Colina', 'Área verde · Colina'],
   'Colina · Etapa 2': ['Urbanización Etapa 2 · Colina', 'Área verde Etapa 2 · Colina'],
-  'Comunes': ['Sanitaria', 'Sanitaria Etapa 2', 'Mitigaciones', 'Mitigaciones Etapa 2', 'Comercialización (2 % venta terreno)', 'Mantenimiento'],
+  'Comunes': ['Sanitaria', 'Sanitaria Etapa 2', 'Mitigaciones', 'Mitigaciones Etapa 2', 'Comercialización (2 % ventas)', 'Mantenimiento'],
   'Inversión inmobiliaria': [
     'Placas comerciales · Batuco', 'Financiamiento · Placas Batuco', 'Dividendo · Placas Batuco',
     'Placas comerciales · Colina', 'Financiamiento · Placas Colina', 'Dividendo · Placas Colina',
@@ -16192,15 +16192,19 @@ function colBuildRows() {
     fMan[colIdx(`S2 ${a}`)] = total / 2;
   });
   rows['Mantenimiento'] = { etapa: 0, vals: fMan };
-  // Comercializacion: 2% solo sobre venta de terreno (no sobre AUDP)
-  const terPer = new Array(COL_N).fill(0);
+  // Comercialización: 2% sobre todas las ventas de terreno macroloteado.
+  // Modela es un desarrollador urbano que vende paños de terreno con uso
+  // definido (DS19, Townhouses, Edificios, etc.) a otros desarrolladores.
+  // TODAS las ventas AUDP son ventas de terreno; la venta del terreno
+  // Copec también. Las placas comerciales son compra/inversión (no venta).
+  const ventaTerrenoPer = new Array(COL_N).fill(0);
   Object.entries(rows).forEach(([n, obj]) => {
-    if (n.toLowerCase().includes('terreno')) {
-      obj.vals.forEach((v, i) => { terPer[i] += v; });
+    if (n.startsWith('AUDP') || n.toLowerCase().includes('terreno')) {
+      obj.vals.forEach((v, i) => { ventaTerrenoPer[i] += v; });
     }
   });
-  rows['Comercialización (2 % venta terreno)'] = { etapa: 1,
-    vals: terPer.map(v => -v * COL_MODEL.comercializacion_pct) };
+  rows['Comercialización (2 % ventas)'] = { etapa: 0,
+    vals: ventaTerrenoPer.map(v => -v * COL_MODEL.comercializacion_pct) };
   COL_MODEL.placas.forEach(([e, n, m, p, alias]) => {
     const fComp = new Array(COL_N).fill(0); fComp[colIdx(p)] = m;
     rows[n] = { etapa: e, vals: fComp };
