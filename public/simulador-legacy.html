@@ -16510,11 +16510,18 @@ const COL_PPT = {
   white:    'FFFFFF',
 };
 
-// ── Computar agregados para los slides ──────────────────────────────
-function colPptComputeAgg() {
+// ── Computar agregados para los slides, opcionalmente filtrado por etapa ──
+// etapaScope: 1 = solo Etapa 1 (excluye items con etapa=2)
+//             2 = todo (Etapa 1 + Etapa 2 acumulado)
+function colPptComputeAgg(etapaScope) {
   const rows = COL_ROWS_CACHE;
-  const ingItems = Object.values(COL_GRUPOS_ING).flat().filter(it => rows[it]);
-  const costItems = Object.values(COL_GRUPOS_COSTO).flat().filter(it => rows[it]);
+  const isIn = (item) => {
+    if (!rows[item]) return false;
+    if (etapaScope === 2) return true;
+    return rows[item].etapa !== 2;
+  };
+  const ingItems = Object.values(COL_GRUPOS_ING).flat().filter(isIn);
+  const costItems = Object.values(COL_GRUPOS_COSTO).flat().filter(isIn);
   const totIng = colSumByItems(rows, ingItems);
   const totCos = colSumByItems(rows, costItems);
   const fluN = totIng.map((v, i) => v + totCos[i]);
@@ -16529,6 +16536,10 @@ function colPptComputeAgg() {
 
   return {
     rows, totIng, totCos, fluN, fluA,
+    etapaScope,
+    etapaLabel: etapaScope === 1 ? 'ETAPA 1' : 'ETAPA 1 + 2',
+    etapaTitle: etapaScope === 1 ? 'Etapa 1' : 'Etapa 1 + Etapa 2 (consolidado)',
+    isIn,   // función para saber si un item está incluido
     sumIng: sumTotal(totIng),
     sumCos: sumTotal(totCos),
     flujoNeto: sumTotal(fluN),
@@ -16536,6 +16547,23 @@ function colPptComputeAgg() {
     peakPos,    peakPosLabel: COL_PERIODOS[peakPosIdx],
     peakNeg,    peakNegLabel: COL_PERIODOS[peakNegIdx],
   };
+}
+
+// ── Chip de etapa en esquina superior derecha ───────────────────────
+function colPptAddEtapaChip(s, etapaLabel) {
+  const x = 11.5, y = 0.45, w = 1.4, h = 0.36;
+  s.addShape('roundRect', {
+    x, y, w, h,
+    fill: { color: COL_PPT.brand },
+    line: { color: COL_PPT.brand, width: 0 },
+    rectRadius: 0.18,
+  });
+  s.addText(etapaLabel, {
+    x, y, w, h,
+    fontFace: 'Aptos', fontSize: 9, color: COL_PPT.white,
+    bold: true, charSpacing: 3,
+    align: 'center', valign: 'middle',
+  });
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -16597,17 +16625,18 @@ function colPptSlide2(pptx, agg) {
   s.background = { color: COL_PPT.white };
   // Título
   s.addText('Resumen ejecutivo', {
-    x: 0.6, y: 0.45, w: 12, h: 0.45,
+    x: 0.6, y: 0.45, w: 9.5, h: 0.45,
     fontFace: 'Aptos Display', fontSize: 22, color: COL_PPT.text, bold: true,
   });
   s.addShape(pptx.ShapeType.line, {
     x: 0.6, y: 1.0, w: 1.2, h: 0,
     line: { color: COL_PPT.brand, width: 1.5 },
   });
-  s.addText('Métricas clave del horizonte 2029 – 2035', {
+  s.addText(`${agg.etapaTitle} · horizonte 2029 – 2035`, {
     x: 0.6, y: 1.05, w: 12, h: 0.3,
     fontFace: 'Aptos', fontSize: 11, color: COL_PPT.textDim,
   });
+  colPptAddEtapaChip(s, agg.etapaLabel);
 
   // 6 KPI cards: 3 × 2
   const kpis = [
@@ -16661,17 +16690,18 @@ function colPptSlide3(pptx, agg) {
   const s = pptx.addSlide();
   s.background = { color: COL_PPT.white };
   s.addText('Flujo de caja semestral', {
-    x: 0.6, y: 0.45, w: 12, h: 0.45,
+    x: 0.6, y: 0.45, w: 9.5, h: 0.45,
     fontFace: 'Aptos Display', fontSize: 22, color: COL_PPT.text, bold: true,
   });
   s.addShape(pptx.ShapeType.line, {
     x: 0.6, y: 1.0, w: 1.2, h: 0,
     line: { color: COL_PPT.brand, width: 1.5 },
   });
-  s.addText('Ingresos · costos · flujo acumulado en UF', {
+  s.addText(`${agg.etapaTitle} · ingresos · costos · flujo acumulado en UF`, {
     x: 0.6, y: 1.05, w: 12, h: 0.3,
     fontFace: 'Aptos', fontSize: 11, color: COL_PPT.textDim,
   });
+  colPptAddEtapaChip(s, agg.etapaLabel);
 
   // Datos para chart nativo
   const chartData = [
@@ -16712,14 +16742,15 @@ function colPptSlide3(pptx, agg) {
 function colPptSlide4(pptx, agg) {
   const s = pptx.addSlide();
   s.background = { color: COL_PPT.white };
-  s.addText('Detalle por concepto y semestre', {
-    x: 0.3, y: 0.25, w: 12.5, h: 0.4,
+  s.addText(`Detalle por concepto y semestre · ${agg.etapaTitle}`, {
+    x: 0.3, y: 0.25, w: 9.5, h: 0.4,
     fontFace: 'Aptos Display', fontSize: 18, color: COL_PPT.text, bold: true,
   });
   s.addShape(pptx.ShapeType.line, {
     x: 0.3, y: 0.7, w: 1.0, h: 0,
     line: { color: COL_PPT.brand, width: 1.2 },
   });
+  colPptAddEtapaChip(s, agg.etapaLabel);
 
   // Construir filas de la tabla
   const rows = agg.rows;
@@ -16808,7 +16839,8 @@ function colPptSlide4(pptx, agg) {
   function addGroupRows(label, grupos) {
     tblRows.push(buildRow(label, null, 'section'));
     Object.entries(grupos).forEach(([grp, items]) => {
-      const exist = items.filter(it => rows[it]);
+      // Filtrar items segun etapa actual (mismo criterio que isIn del agg)
+      const exist = items.filter(it => agg.isIn(it));
       if (!exist.length) return;
       const subVals = colSumByItems(rows, exist);
       tblRows.push(buildRow(grp, subVals, 'subsection'));
@@ -16842,13 +16874,18 @@ function colPptSlide5(pptx, agg) {
   const s = pptx.addSlide();
   s.background = { color: COL_PPT.white };
   s.addText('Lectura estratégica', {
-    x: 0.6, y: 0.45, w: 12, h: 0.45,
+    x: 0.6, y: 0.45, w: 9.5, h: 0.45,
     fontFace: 'Aptos Display', fontSize: 22, color: COL_PPT.text, bold: true,
   });
   s.addShape(pptx.ShapeType.line, {
     x: 0.6, y: 1.0, w: 1.2, h: 0,
     line: { color: COL_PPT.brand, width: 1.5 },
   });
+  s.addText(agg.etapaTitle, {
+    x: 0.6, y: 1.05, w: 12, h: 0.3,
+    fontFace: 'Aptos', fontSize: 11, color: COL_PPT.textDim,
+  });
+  colPptAddEtapaChip(s, agg.etapaLabel);
 
   // Construir insights dinámicos basados en los datos
   const ratio = agg.sumIng > 0 ? (-agg.sumCos / agg.sumIng * 100).toFixed(1) : '0';
@@ -16933,12 +16970,22 @@ async function colDownloadPPT() {
     pptx.company = 'Modela';
     pptx.subject = 'Flujo de caja AUDP Batuco + Colina 2029-2035';
 
-    const agg = colPptComputeAgg();
-    colPptSlide1(pptx, agg);
-    colPptSlide2(pptx, agg);
-    colPptSlide3(pptx, agg);
-    colPptSlide4(pptx, agg);
-    colPptSlide5(pptx, agg);
+    // Portada (general, sin etapa)
+    colPptSlide1(pptx, null);
+
+    // Set Etapa 1 (4 slides)
+    const aggE1 = colPptComputeAgg(1);
+    colPptSlide2(pptx, aggE1);
+    colPptSlide3(pptx, aggE1);
+    colPptSlide4(pptx, aggE1);
+    colPptSlide5(pptx, aggE1);
+
+    // Set Etapa 1 + 2 consolidado (4 slides)
+    const aggE2 = colPptComputeAgg(2);
+    colPptSlide2(pptx, aggE2);
+    colPptSlide3(pptx, aggE2);
+    colPptSlide4(pptx, aggE2);
+    colPptSlide5(pptx, aggE2);
 
     const fecha = new Date().toISOString().slice(0, 10);
     await pptx.writeFile({ fileName: `Modela_FlujoCaja_${fecha}.pptx` });
