@@ -1997,58 +1997,77 @@
   .col-etapa-btn.active { background:#1d5142; color:#fff; box-shadow:0 2px 6px rgba(29,81,66,0.4); }
   .col-etapa-btn:not(.active):hover { color:#e2e8f0; background:#334155; }
 
-  /* Layout: flujo a todo ancho.
-     El chart-box y el table-box comparten min-width para alinear las columnas
-     de barras del gráfico con las columnas semestrales de la tabla.
-     Ancho tabla = 240 (concept) + 90 (total) + 14 × 72 (periodos) = 1338px */
-  .col-layout { display:flex; flex-direction:column; gap:16px;
-                overflow-x:auto; }
-  .col-chart-wrap, .col-table-wrap { min-width:1338px; }
-  .col-chart-box { background:#1e293b; border:1px solid #334155; border-radius:8px;
-                   padding:14px 16px 14px 16px; height:320px; position:relative; }
-  .col-table-box { background:#1e293b; border:1px solid #334155; border-radius:8px;
-                   padding:14px 16px; max-height:62vh; overflow:visible; }
+  /* ────────────────────────────────────────────────────────────────
+     Filosofia: shell unico, anchos calculados pixel-perfect.
+     Tabla width = 200 (concept) + 80 (total) + 14 × 70 (periodos) = 1260px.
+     Chart canvas mismo ancho, layout.padding.left = 200+80 = 280px.
+     ──────────────────────────────────────────────────────────────── */
+  .col-layout {
+    background:#1e293b;
+    border:1px solid #334155;
+    border-radius:8px;
+    overflow-x:auto;
+    overflow-y:hidden;
+  }
+  .col-content { width:max-content; min-width:1260px; }
+
+  .col-chart-wrap {
+    height:280px;
+    padding:14px 0 4px 0;
+    border-bottom:1px solid #334155;
+    position:relative;
+    box-sizing:border-box;
+  }
+  .col-chart-wrap > canvas { width:1260px !important; height:262px !important;
+                             display:block; }
+  .col-table-wrap {
+    max-height:62vh;
+    overflow-y:auto;
+  }
 
   /* Tabla con anchos fijos por columna para alineacion perfecta */
-  .col-tbl { width:100%; border-collapse:collapse; font-size:10.5px;
+  .col-tbl { width:1260px; border-collapse:collapse; font-size:10.5px;
              font-family:'Geist Mono',ui-monospace,monospace; table-layout:fixed; }
-  .col-tbl col.col-concept { width:240px; }
-  .col-tbl col.col-total   { width:90px; }
-  .col-tbl col.col-period  { width:72px; }
-  .col-tbl th { text-align:right; padding:7px 8px; font-weight:700; color:#94a3b8;
+  .col-tbl col.col-concept { width:200px; }
+  .col-tbl col.col-total   { width:80px; }
+  .col-tbl col.col-period  { width:70px; }
+  .col-tbl th { text-align:right; padding:8px 8px; font-weight:700; color:#94a3b8;
                 background:#0f172a; position:sticky; top:0; border-bottom:1px solid #475569;
                 font-size:10px; text-transform:uppercase; letter-spacing:0.3px;
-                white-space:nowrap; }
+                white-space:nowrap; z-index:2; }
   .col-tbl th:first-child, .col-tbl td:first-child {
     text-align:left;
     font-family:'Inter',system-ui,sans-serif;
     white-space:normal;
-    line-height:1.3;
-    padding-right:12px;
+    line-height:1.25;
+    padding-left:12px;
+    padding-right:4px;
   }
   .col-tbl td { padding:6px 8px; text-align:right; color:#e2e8f0;
                 border-bottom:1px solid #1e293b; white-space:nowrap;
                 overflow:hidden; text-overflow:ellipsis; }
-  .col-tbl tr.section td  { background:#0d3329; font-weight:700; color:#a7d4bb; padding-top:8px;
-                            font-size:11px; text-transform:uppercase; letter-spacing:0.4px; }
-  .col-tbl tr.subsection td { background:#142a26; font-weight:600; color:#cbd5e1;
-                              cursor:pointer; user-select:none; }
+  .col-tbl tr.section td {
+    background:#0d3329; font-weight:700; color:#a7d4bb;
+    font-size:10.5px; text-transform:uppercase; letter-spacing:0.6px;
+    padding:9px 12px; text-align:left;
+  }
+  .col-tbl tr.subsection td { background:#142a26; font-weight:600; color:#cbd5e1; }
+  .col-tbl tr.subsection td:first-child { cursor:pointer; user-select:none; }
   .col-tbl tr.subsection td:first-child:hover { color:#fff; }
-  .col-tbl tr.item td { padding-left:32px; color:#cbd5e1; }
-  .col-tbl tr.subtotal td { background:#0f1c1a; font-weight:500; color:#94a3b8;
-                            font-style:italic; border-top:1px solid #1e3a32; }
+  .col-tbl tr.item td:first-child { padding-left:24px; color:#cbd5e1; }
   .col-tbl tr.subtotal_global td { background:#0d3329; font-weight:700; color:#a7d4bb;
-                                   border-top:1px solid #475569; }
+                                   border-top:1px solid #475569; padding-top:8px; padding-bottom:8px; }
   .col-tbl tr.total td { background:#1a4a3e; color:#fff; font-weight:700;
-                         border-top:2px solid #1d5142; }
+                         border-top:2px solid #1d5142; padding-top:9px; padding-bottom:9px; }
   .col-tbl tr.total_acum td { background:#3d2817; color:#fbeede; font-weight:700;
-                              border-top:1px solid #c97b3a; }
-  .col-tbl td.pos { color:#1d5142; }
-  .col-tbl td.neg { color:#dc6a4a; }
+                              border-top:1px solid #c97b3a;
+                              padding-top:8px; padding-bottom:8px; }
+  .col-tbl td.pos { color:#5cb88e; }
+  .col-tbl td.neg { color:#e98e6e; }
   .col-tbl td:first-child { color:inherit; }
   .col-tbl tr.col-collapsed { display:none; }
-  .col-caret { display:inline-block; width:14px; color:#94a3b8;
-               font-size:9px; text-align:center; margin-right:4px; transition:transform .15s; }
+  .col-caret { display:inline-block; width:12px; color:#94a3b8;
+               font-size:8px; text-align:center; margin-right:6px; transition:transform .15s; }
   .col-caret.col-collapsed-caret { transform:rotate(-90deg); }
 </style>
 
@@ -2068,13 +2087,11 @@
     </div>
 
     <div class="col-layout">
-      <div class="col-chart-wrap">
-        <div class="col-chart-box">
+      <div class="col-content">
+        <div class="col-chart-wrap">
           <canvas id="col-chart"></canvas>
         </div>
-      </div>
-      <div class="col-table-wrap">
-        <div class="col-table-box">
+        <div class="col-table-wrap">
           <table class="col-tbl" id="col-table"></table>
         </div>
       </div>
@@ -16219,6 +16236,11 @@ function colSumByItems(rows, items) {
 
 function colMakeRow(cls, label, vals, vTotal) {
   const tr = colMk('tr', { class: cls });
+  // Section rows ("INGRESOS", "COSTOS"): un solo TD con colspan total, sin valores
+  if (cls === 'section') {
+    tr.appendChild(colMk('td', { colspan: String(COL_N + 2), text: label }));
+    return tr;
+  }
   tr.appendChild(colMk('td', { text: label }));
   const total = vTotal !== undefined ? vTotal : (vals ? vals.reduce((a, b) => a + b, 0) : null);
   tr.appendChild(colMk('td', { text: total != null ? fmtColUF(total) : '' }));
@@ -16346,11 +16368,12 @@ function colRenderChart() {
         borderDash: [6, 3], pointRadius: 0, tension: 0.1, yAxisID: 'y2' },
     ]},
     options: {
-      responsive: true, maintainAspectRatio: false,
-      // Padding para alinear las barras con las columnas semestrales de la tabla.
-      // Tabla: 240 (concept) + 90 (total) = 330px de offset desde la izquierda
-      // a la derecha hay scrollbar/borde de ~16px
-      layout: { padding: { left: 318, right: 12, top: 8, bottom: 0 } },
+      responsive: false, maintainAspectRatio: false,
+      // Alineacion pixel-perfect con la tabla: canvas 1260px, area de plot
+      // arranca en padding.left=280 (= concept 200 + total 80), termina al final.
+      // Las 14 columnas semestrales de la tabla son 70px cada una; el chart distribuye
+      // las 14 barras en 1260-280=980px → 70px cada una. Alineacion exacta.
+      layout: { padding: { left: 280, right: 0, top: 4, bottom: 0 } },
       plugins: {
         legend: { labels: { color: '#cbd5e1', font: { size: 11 } }, position: 'top', align: 'end' },
         tooltip: { callbacks: { label: c => `${c.dataset.label}: ${fmtColUF(c.parsed.y)} UF` } },
