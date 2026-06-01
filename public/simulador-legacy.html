@@ -17299,13 +17299,15 @@ function colPptSlideMercado(pptx) {
   });
 
   // ─── Curvas de regresión por sub-mercado ───
+  // Pocas segmentos largos para que se vea CONTINUA como línea dashed
+  // (no como dots independientes). 12 segmentos cubren bien la curva log.
   ['Batuco + Chicauma', 'Valle Grande'].forEach(sub => {
     const points = MKT_COMPETIDORES
       .filter(c => mktSubmercado(c[0]) === sub && !c[5])
       .map(c => [c[2], c[1]]);
     if (points.length < 2) return;
     const reg = mktRegresionLog(points);
-    const nSeg = 50;
+    const nSeg = 12;
     const x0 = MKT_RNG.xMin + 2, xN = MKT_RNG.xMax - 2;
     let prevX = null, prevY = null;
     for (let i = 0; i <= nSeg; i++) {
@@ -17316,19 +17318,22 @@ function colPptSlideMercado(pptx) {
       if (prevX !== null) {
         s.addShape(pptx.ShapeType.line, {
           x: prevX, y: prevY, w: px - prevX, h: py - prevY,
-          line: { color: MKT_SUB_COLORES[sub], width: 1.3, dashType: 'dash' },
+          line: { color: MKT_SUB_COLORES[sub], width: 1.5, dashType: 'dash' },
         });
       }
       prevX = px; prevY = py;
     }
-    // Label al final de la curva
-    let labelUF = reg.a * Math.log(xN - 3) + reg.b;
+    // Label al final de la curva, posicionado fuera de la zona de leyenda
+    let labelUF = reg.a * Math.log(xN - 5) + reg.b;
     labelUF = Math.max(MKT_RNG.yMin + 100, Math.min(MKT_RNG.yMax - 100, labelUF));
-    s.addText(sub, {
-      x: mktX(xN - 18), y: mktY(labelUF) - 0.18, w: 1.6, h: 0.22,
-      fontFace: 'Aptos', fontSize: 8.5, bold: true,
-      color: MKT_SUB_COLORES[sub], align: 'right',
-    });
+    // Solo si está dentro del rango Y y a la izquierda de la leyenda
+    if (labelUF <= MKT_RNG.yMax - 150) {
+      s.addText(sub, {
+        x: mktX(xN - 22), y: mktY(labelUF) - 0.32, w: 1.5, h: 0.22,
+        fontFace: 'Aptos', fontSize: 9, bold: true,
+        color: MKT_SUB_COLORES[sub], align: 'right',
+      });
+    }
   });
 
   // ─── Eje X ───
@@ -17360,10 +17365,11 @@ function colPptSlideMercado(pptx) {
       fontFace: 'Aptos', fontSize: 7, color: '555555', align: 'right',
     });
   }
+  // Y axis label arriba del primer tick (sin rotación)
   s.addText('Precio de venta (UF)', {
-    x: 0.05, y: MKT_PLOT.y + MKT_PLOT.h / 2 - 1.2, w: 0.3, h: 2.4,
+    x: 0.05, y: MKT_PLOT.y - 0.30, w: 1.4, h: 0.22,
     fontFace: 'Aptos', fontSize: 9, color: '333333', bold: true,
-    rotate: 270, align: 'center', valign: 'middle',
+    align: 'left',
   });
 
   // ─── Eje Y derecho (sueldo CLP/mes) ───
@@ -17380,11 +17386,11 @@ function colPptSlideMercado(pptx) {
       fontFace: 'Aptos', fontSize: 7, color: 'C97B3A', align: 'left',
     });
   }
+  // Y2 axis label arriba del primer tick derecho (sin rotación)
   s.addText('Sueldo familiar (CLP/mes)', {
-    x: MKT_PLOT.x + MKT_PLOT.w + 0.55, y: MKT_PLOT.y + MKT_PLOT.h / 2 - 1.2,
-    w: 0.3, h: 2.4,
+    x: MKT_PLOT.x + MKT_PLOT.w + 0.05, y: MKT_PLOT.y - 0.30, w: 1.8, h: 0.22,
     fontFace: 'Aptos', fontSize: 9, color: 'C97B3A', bold: true,
-    rotate: 90, align: 'center', valign: 'middle',
+    align: 'left',
   });
 
   // ─── Puntos del scatter ───
@@ -17446,19 +17452,21 @@ function colPptSlideMercado(pptx) {
     });
   });
 
-  // ─── Leyenda Desarrollador (esquina superior derecha del plot) ───
+  // ─── Leyenda Desarrollador (esquina inferior derecha del plot)
+  // Movida abajo-derecha para no chocar con las curvas de regresión que
+  // suben diagonalmente hacia el cuadrante superior derecho.
   const legDevX = MKT_PLOT.x + MKT_PLOT.w - 1.45;
-  const legDevY = MKT_PLOT.y + 0.10;
+  const legDevY = MKT_PLOT.y + MKT_PLOT.h - 1.75;
   s.addShape(pptx.ShapeType.roundRect, {
     x: legDevX - 0.08, y: legDevY - 0.04,
-    w: 1.55, h: 9 * 0.16 + 0.30,
-    fill: { color: 'FAFBFA', transparency: 25 },
+    w: 1.55, h: 9 * 0.16 + 0.35,
+    fill: { color: 'FFFFFF', transparency: 5 },
     line: { color: 'D0D5D2', width: 0.5 },
     rectRadius: 0.05,
   });
-  s.addText('DESARROLLADOR', {
+  s.addText('Desarrollador', {
     x: legDevX, y: legDevY, w: 1.4, h: 0.18,
-    fontFace: 'Aptos', fontSize: 7, color: '1D3A32', bold: true, charSpacing: 2,
+    fontFace: 'Aptos', fontSize: 8, color: '1D3A32', bold: true,
   });
   const devs = ['Modela', 'Aconcagua', 'Trayecta', 'Travecta', 'Besalco',
                 'Lo Campino', 'Bricsa', 'Rios Larrain', 'Todos los Santos'];
@@ -17477,19 +17485,20 @@ function colPptSlideMercado(pptx) {
     });
   });
 
-  // ─── Leyenda Tipología (esquina inferior izquierda del plot) ───
+  // ─── Leyenda Tipología (esquina superior izquierda del plot)
+  // Zona vacía (sin datos cerca de Y=7000, X=40-65).
   const legTipoX = MKT_PLOT.x + 0.12;
-  const legTipoY = MKT_PLOT.y + MKT_PLOT.h - 0.95;
+  const legTipoY = MKT_PLOT.y + 0.10;
   s.addShape(pptx.ShapeType.roundRect, {
     x: legTipoX - 0.08, y: legTipoY - 0.04,
-    w: 1.85, h: 4 * 0.16 + 0.30,
-    fill: { color: 'FAFBFA', transparency: 25 },
+    w: 1.85, h: 4 * 0.16 + 0.35,
+    fill: { color: 'FFFFFF', transparency: 5 },
     line: { color: 'D0D5D2', width: 0.5 },
     rectRadius: 0.05,
   });
-  s.addText('TIPOLOGÍA', {
+  s.addText('Tipología', {
     x: legTipoX, y: legTipoY, w: 1.4, h: 0.18,
-    fontFace: 'Aptos', fontSize: 7, color: '1D3A32', bold: true, charSpacing: 2,
+    fontFace: 'Aptos', fontSize: 8, color: '1D3A32', bold: true,
   });
   const tipos = [
     { shape: pptx.ShapeType.ellipse, label: 'Casa',                          dash: 'solid' },
