@@ -17248,6 +17248,68 @@ function mktMediana(arr) {
   return sorted.length % 2 ? sorted[m] : (sorted[m - 1] + sorted[m]) / 2;
 }
 
+// Helper para dibujar líneas que evita un bug de PptxGenJS 3.12:
+// addShape(line) con líneas diagonales hacia arriba (y2 < y1) emite extent
+// cy NEGATIVO en el XML → OOXML inválido → "PPT necesita reparación".
+//
+// Estrategia: líneas horizontales/verticales (un eje cambia) usan addShape line.
+// Líneas diagonales se dibujan como rectángulos delgados rotados — no disparan
+// el bug y se ven idénticas visualmente para grosor < 2pt.
+function mktLine(s, pptx, x1, y1, x2, y2, lineOpts) {
+  const dx = x2 - x1, dy = y2 - y1;
+  const isHorizontal = Math.abs(dy) < 0.002;
+  const isVertical   = Math.abs(dx) < 0.002;
+  if (isHorizontal || isVertical) {
+    const x = Math.min(x1, x2);
+    const y = Math.min(y1, y2);
+    const w = Math.max(0.001, Math.abs(dx));
+    const h = Math.max(0.001, Math.abs(dy));
+    s.addShape(pptx.ShapeType.line, { x, y, w, h, line: lineOpts });
+    return;
+  }
+  // Línea diagonal: usar rectángulo rotado (workaround del bug)
+  const length    = Math.sqrt(dx * dx + dy * dy);
+  const angle     = Math.atan2(dy, dx) * 180 / Math.PI;
+  const thickness = (lineOpts.width || 1) / 72;   // pt → in
+  // Posicion: centro de la "línea" es el midpoint
+  const cx = (x1 + x2) / 2;
+  const cy = (y1 + y2) / 2;
+  // Rectángulo CENTRADO en (cx, cy) con eje largo = length, eje corto = thickness
+  const props = {
+    x: cx - length / 2, y: cy - thickness / 2,
+    w: length, h: thickness,
+    fill: { color: lineOpts.color || '000000' },
+    line: { width: 0, color: lineOpts.color || '000000' },
+    rotate: angle,
+  };
+  // Para dashed: simular con múltiples rects cortos
+  if (lineOpts.dashType === 'dash') {
+    const dashLen = 0.08;       // longitud de cada dash en in
+    const gapLen  = 0.06;
+    const total   = dashLen + gapLen;
+    const n = Math.max(1, Math.floor(length / total));
+    for (let i = 0; i < n; i++) {
+      const t0 = i * total;
+      const t1 = Math.min(t0 + dashLen, length);
+      const tMid = (t0 + t1) / 2;
+      // Posicion en world coords del centro del dash
+      const ux = dx / length, uy = dy / length;
+      const segCx = x1 + ux * tMid;
+      const segCy = y1 + uy * tMid;
+      const segLen = t1 - t0;
+      s.addShape(pptx.ShapeType.rect, {
+        x: segCx - segLen / 2, y: segCy - thickness / 2,
+        w: segLen, h: thickness,
+        fill: { color: lineOpts.color || '000000' },
+        line: { width: 0 },
+        rotate: angle,
+      });
+    }
+  } else {
+    s.addShape(pptx.ShapeType.rect, props);
+  }
+}
+
 // ── Slide del mercado ─────────────────────────────────────────────
 function colPptSlideMercado(pptx) {
   const s = pptx.addSlide();
@@ -17258,10 +17320,8 @@ function colPptSlideMercado(pptx) {
     x: 0.5, y: 0.30, w: 12, h: 0.5,
     fontFace: 'Aptos Display', fontSize: 22, color: COL_PPT.text, bold: true,
   });
-  s.addShape(pptx.ShapeType.line, {
-    x: 0.5, y: 0.88, w: 1.4, h: 0,
-    line: { color: COL_PPT.brand, width: 1.5 },
-  });
+  mktLine(s, pptx, 0.5, 0.88, 1.9, 0.88,
+    { color: COL_PPT.brand, width: 1.5 });
   s.addText('Modela vs. mercado · casas · townhouses · edificios · precio vs. superficie útil', {
     x: 0.5, y: 0.92, w: 12, h: 0.3,
     fontFace: 'Aptos', fontSize: 11, color: COL_PPT.textDim,
@@ -17288,15 +17348,11 @@ function colPptSlideMercado(pptx) {
     line: { type: 'none' },
   });
 
-  // Líneas medianas dashed
-  s.addShape(pptx.ShapeType.line, {
-    x: mktX(medX), y: MKT_PLOT.y, w: 0, h: MKT_PLOT.h,
-    line: { color: '888888', width: 0.8, dashType: 'dash' },
-  });
-  s.addShape(pptx.ShapeType.line, {
-    x: MKT_PLOT.x, y: mktY(medY), w: MKT_PLOT.w, h: 0,
-    line: { color: '888888', width: 0.8, dashType: 'dash' },
-  });
+  // Líneas medianas dashed (usar mktLine para coords seguras)
+  mktLine(s, pptx, mktX(medX), MKT_PLOT.y, mktX(medX), MKT_PLOT.y + MKT_PLOT.h,
+    { color: '888888', width: 0.8, dashType: 'dash' });
+  mktLine(s, pptx, MKT_PLOT.x, mktY(medY), MKT_PLOT.x + MKT_PLOT.w, mktY(medY),
+    { color: '888888', width: 0.8, dashType: 'dash' });
 
   // ─── Curvas de regresión por sub-mercado ───
   // Pocas segmentos largos para que se vea CONTINUA como línea dashed
@@ -17316,10 +17372,9 @@ function colPptSlideMercado(pptx) {
       if (uf < MKT_RNG.yMin || uf > MKT_RNG.yMax) { prevX = null; continue; }
       const px = mktX(m2), py = mktY(uf);
       if (prevX !== null) {
-        s.addShape(pptx.ShapeType.line, {
-          x: prevX, y: prevY, w: px - prevX, h: py - prevY,
-          line: { color: MKT_SUB_COLORES[sub], width: 1.5, dashType: 'dash' },
-        });
+        // Curva log: Y decrece con X creciente → h sería negativo. mktLine normaliza.
+        mktLine(s, pptx, prevX, prevY, px, py,
+          { color: MKT_SUB_COLORES[sub], width: 1.5, dashType: 'dash' });
       }
       prevX = px; prevY = py;
     }
@@ -17339,10 +17394,8 @@ function colPptSlideMercado(pptx) {
   // ─── Eje X ───
   for (let m2 = 40; m2 <= 130; m2 += 10) {
     const tx = mktX(m2);
-    s.addShape(pptx.ShapeType.line, {
-      x: tx, y: MKT_PLOT.y + MKT_PLOT.h, w: 0, h: 0.06,
-      line: { color: '777777', width: 0.5 },
-    });
+    mktLine(s, pptx, tx, MKT_PLOT.y + MKT_PLOT.h, tx, MKT_PLOT.y + MKT_PLOT.h + 0.06,
+      { color: '777777', width: 0.5 });
     s.addText(String(m2), {
       x: tx - 0.25, y: MKT_PLOT.y + MKT_PLOT.h + 0.08, w: 0.5, h: 0.16,
       fontFace: 'Aptos', fontSize: 7, color: '555555', align: 'center',
@@ -17356,10 +17409,8 @@ function colPptSlideMercado(pptx) {
   // ─── Eje Y izquierdo (UF) ───
   for (let uf = 1500; uf <= 7000; uf += 500) {
     const ty = mktY(uf);
-    s.addShape(pptx.ShapeType.line, {
-      x: MKT_PLOT.x - 0.05, y: ty, w: 0.05, h: 0,
-      line: { color: '777777', width: 0.5 },
-    });
+    mktLine(s, pptx, MKT_PLOT.x - 0.05, ty, MKT_PLOT.x, ty,
+      { color: '777777', width: 0.5 });
     s.addText(uf.toLocaleString('es-CL'), {
       x: MKT_PLOT.x - 0.65, y: ty - 0.08, w: 0.55, h: 0.16,
       fontFace: 'Aptos', fontSize: 7, color: '555555', align: 'right',
@@ -17377,10 +17428,8 @@ function colPptSlideMercado(pptx) {
     const uf = (mClp * 1e6) / MKT_K_SUELDO;
     if (uf < MKT_RNG.yMin || uf > MKT_RNG.yMax) continue;
     const ty = mktY(uf);
-    s.addShape(pptx.ShapeType.line, {
-      x: MKT_PLOT.x + MKT_PLOT.w, y: ty, w: 0.05, h: 0,
-      line: { color: 'C97B3A', width: 0.5 },
-    });
+    mktLine(s, pptx, MKT_PLOT.x + MKT_PLOT.w, ty, MKT_PLOT.x + MKT_PLOT.w + 0.05, ty,
+      { color: 'C97B3A', width: 0.5 });
     s.addText(`$ ${mClp.toFixed(1).replace('.', ',')}M`, {
       x: MKT_PLOT.x + MKT_PLOT.w + 0.06, y: ty - 0.08, w: 0.5, h: 0.16,
       fontFace: 'Aptos', fontSize: 7, color: 'C97B3A', align: 'left',
