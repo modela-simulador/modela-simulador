@@ -2006,19 +2006,21 @@
     background:#1e293b;
     border:1px solid #334155;
     border-radius:8px;
-    overflow-x:auto;
-    overflow-y:hidden;
+    overflow:auto;
   }
-  .col-content { width:max-content; min-width:1260px; }
+  /* Ancho FIJO 1260 (no max-content) para que Chart.js detecte
+     el width correcto desde el primer render */
+  .col-content { width:1260px; }
 
   .col-chart-wrap {
+    width:1260px;
     height:280px;
     padding:14px 0 4px 0;
     border-bottom:1px solid #334155;
     position:relative;
     box-sizing:border-box;
-    width:1260px;
   }
+  .col-chart-wrap > canvas { display:block; }
   .col-table-wrap {
     max-height:62vh;
     overflow-y:auto;
