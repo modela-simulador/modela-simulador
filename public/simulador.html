@@ -16049,6 +16049,12 @@ const COL_MODEL = {
   ingresos_puntuales: [
     [1, 'Venta terreno Copec (Colina)', 30000, 'S1 2029'],
   ],
+  // Costos puntuales (un solo semestre, no distribuidos). Etapa 0 = común.
+  costos_puntuales: [
+    // [etapa, nombre, monto_negativo, semestre]
+    [0, 'Mejoramiento entorno Estaciones',  -2000, 'S1 2030'],
+    [0, 'Embellecimiento barrio existente',  -700, 'S1 2030'],
+  ],
   urb_uniforme: [
     [1, 'Vialidades · Batuco',           63900, 'S2 2029', 3],
     [1, 'Vialidades · Colina',           72000, 'S2 2029', 3],
@@ -16094,7 +16100,9 @@ const COL_GRUPOS_COSTO = {
   'Batuco · Etapa 2': ['Urbanización Etapa 2 · Batuco', 'Área verde Etapa 2 · Batuco'],
   'Colina · Etapa 1': ['Vialidades · Colina', 'Plazas · Colina', 'Área verde · Colina'],
   'Colina · Etapa 2': ['Urbanización Etapa 2 · Colina', 'Área verde Etapa 2 · Colina'],
-  'Comunes': ['Sanitaria', 'Sanitaria Etapa 2', 'Mitigaciones', 'Mitigaciones Etapa 2', 'Comercialización (2 % ventas)', 'Mantenimiento'],
+  'Comunes': ['Sanitaria', 'Sanitaria Etapa 2', 'Mitigaciones', 'Mitigaciones Etapa 2',
+              'Mejoramiento entorno Estaciones', 'Embellecimiento barrio existente',
+              'Comercialización (2 % ventas)', 'Mantenimiento'],
   'Inversión inmobiliaria': [
     'Placas comerciales · Batuco', 'Financiamiento · Placas Batuco', 'Dividendo · Placas Batuco',
     'Placas comerciales · Colina', 'Financiamiento · Placas Colina', 'Dividendo · Placas Colina',
@@ -16178,6 +16186,11 @@ function colBuildRows() {
     rows[n] = { etapa: e, vals: f };
   });
   COL_MODEL.ingresos_puntuales.forEach(([e, n, m, p]) => {
+    const f = new Array(COL_N).fill(0); f[colIdx(p)] = m;
+    rows[n] = { etapa: e, vals: f };
+  });
+  // Costos puntuales (puntual en un solo semestre)
+  COL_MODEL.costos_puntuales.forEach(([e, n, m, p]) => {
     const f = new Array(COL_N).fill(0); f[colIdx(p)] = m;
     rows[n] = { etapa: e, vals: f };
   });
