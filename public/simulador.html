@@ -1984,6 +1984,15 @@
                  padding-bottom:16px; border-bottom:1px solid #334155; margin-bottom:24px; }
   .col-topbar h2 { font-size:22px; font-weight:700; margin:0 0 6px 0; color:#f8fafc; }
   .col-topbar .hint { font-size:12px; color:#94a3b8; }
+  .col-topbar-actions { display:flex; gap:10px; align-items:center; }
+  .col-pptx-btn { background:#1d5142; color:#fff; border:1px solid #2d7a5e;
+                  padding:8px 16px; border-radius:6px; cursor:pointer;
+                  font-size:12px; font-weight:600; letter-spacing:0.3px;
+                  text-transform:uppercase; transition:all .2s;
+                  display:flex; align-items:center; gap:6px; }
+  .col-pptx-btn:hover { background:#236b54; border-color:#3a9676;
+                        box-shadow:0 2px 8px rgba(29,81,66,0.4); }
+  .col-pptx-btn:disabled { opacity:0.5; cursor:wait; }
   .col-close  { background:none; border:none; color:#94a3b8; font-size:24px;
                 cursor:pointer; padding:4px 12px; transition:color .2s; }
   .col-close:hover { color:#f8fafc; }
@@ -2079,7 +2088,15 @@
         <h2>Etapa de Colonización</h2>
         <div class="hint">Flujo de caja AUDP Batuco + Colina · 2029 – 2035 · semestral · UF</div>
       </div>
-      <button class="col-close" onclick="closeColonizacion()">✕</button>
+      <div class="col-topbar-actions">
+        <button class="col-pptx-btn" id="col-pptx-btn" onclick="colDownloadPPT()" title="Descargar presentación PowerPoint editable">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+          </svg>
+          Descargar PPT
+        </button>
+        <button class="col-close" onclick="closeColonizacion()">✕</button>
+      </div>
     </div>
 
     <div class="col-etapa-toggle">
@@ -16431,6 +16448,521 @@ function openColonizacion() {
 }
 function closeColonizacion() {
   document.getElementById('col-overlay').style.display = 'none';
+}
+
+/* ════════════════════════════════════════════════════════════════
+   EXPORTACIÓN A POWERPOINT
+   Genera 5 slides nativos editables (no imágenes):
+   1. Portada
+   2. KPIs ejecutivos
+   3. Gráfico nativo de PPT (barras + línea acumulada)
+   4. Tabla detallada del flujo
+   5. Conclusiones / insights
+   Paleta consistente con el simulador (verde Modela #1d5142).
+   ════════════════════════════════════════════════════════════════ */
+
+async function colLoadPptxGen() {
+  if (typeof PptxGenJS !== 'undefined') return true;
+  const sources = ['pptxgen.bundle.js',
+                   'https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js'];
+  for (const src of sources) {
+    try {
+      await new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = src; s.onload = resolve; s.onerror = reject;
+        document.head.appendChild(s);
+      });
+      if (typeof PptxGenJS !== 'undefined') return true;
+    } catch (e) { /* try next */ }
+  }
+  return typeof PptxGenJS !== 'undefined';
+}
+
+// ── Formateo numérico para PPT ──────────────────────────────────────
+function colPptFmt(v) {
+  if (v == null || isNaN(v) || v === 0) return '';
+  const sign = v < 0 ? '−' : '';
+  return sign + Math.abs(v).toLocaleString('es-CL', { maximumFractionDigits: 0 });
+}
+function colPptFmtCompact(v) {
+  if (v == null || isNaN(v)) return '0';
+  const sign = v < 0 ? '−' : '';
+  const abs = Math.abs(v);
+  if (abs >= 1000) return sign + (abs / 1000).toFixed(1) + ' K';
+  return sign + abs.toFixed(0);
+}
+
+// ── Paleta consistente ──────────────────────────────────────────────
+const COL_PPT = {
+  brand:    '1D5142',
+  brandSat: '236B54',
+  brandLt:  'A7D4BB',
+  bgLt:     'F4F7F5',
+  accent:   'C97B3A',
+  red:      'A33B2A',
+  redLt:    'E98E6E',
+  green:    '5CB88E',
+  greenLt:  'C8E0D2',
+  text:     '1A2520',
+  textDim:  '5D6975',
+  textMuted:'94A3B8',
+  rule:     'CBD5C5',
+  white:    'FFFFFF',
+};
+
+// ── Computar agregados para los slides ──────────────────────────────
+function colPptComputeAgg() {
+  const rows = COL_ROWS_CACHE;
+  const ingItems = Object.values(COL_GRUPOS_ING).flat().filter(it => rows[it]);
+  const costItems = Object.values(COL_GRUPOS_COSTO).flat().filter(it => rows[it]);
+  const totIng = colSumByItems(rows, ingItems);
+  const totCos = colSumByItems(rows, costItems);
+  const fluN = totIng.map((v, i) => v + totCos[i]);
+  const fluA = []; let acc = 0;
+  fluN.forEach(v => { acc += v; fluA.push(acc); });
+
+  const sumTotal = a => a.reduce((x, y) => x + y, 0);
+  const peakPos = Math.max(...fluA);
+  const peakPosIdx = fluA.indexOf(peakPos);
+  const peakNeg = Math.min(...fluA);
+  const peakNegIdx = fluA.indexOf(peakNeg);
+
+  return {
+    rows, totIng, totCos, fluN, fluA,
+    sumIng: sumTotal(totIng),
+    sumCos: sumTotal(totCos),
+    flujoNeto: sumTotal(fluN),
+    saldoFinal: fluA[fluA.length - 1],
+    peakPos,    peakPosLabel: COL_PERIODOS[peakPosIdx],
+    peakNeg,    peakNegLabel: COL_PERIODOS[peakNegIdx],
+  };
+}
+
+// ════════════════════════════════════════════════════════════════
+// SLIDE 1: PORTADA
+// ════════════════════════════════════════════════════════════════
+function colPptSlide1(pptx) {
+  const s = pptx.addSlide();
+  s.background = { color: COL_PPT.white };
+  // Banda verde superior delgada
+  s.addShape(pptx.ShapeType.rect, {
+    x: 0, y: 0, w: '100%', h: 0.18, fill: { color: COL_PPT.brand },
+  });
+  // Banda decorativa inferior
+  s.addShape(pptx.ShapeType.rect, {
+    x: 0, y: 7.32, w: '100%', h: 0.18, fill: { color: COL_PPT.brand },
+  });
+  // Pequeño label superior izquierdo
+  s.addText('MODELA · CREANDO TERRITORIOS INTELIGENTES', {
+    x: 0.6, y: 0.45, w: 8, h: 0.3,
+    fontFace: 'Calibri', fontSize: 9, color: COL_PPT.textDim,
+    bold: true, charSpacing: 4,
+  });
+  // Línea fina decorativa
+  s.addShape(pptx.ShapeType.line, {
+    x: 0.6, y: 2.4, w: 1.5, h: 0,
+    line: { color: COL_PPT.brand, width: 1.5 },
+  });
+  // Título grande
+  s.addText('Etapa de\nColonización', {
+    x: 0.6, y: 2.6, w: 9, h: 2.0,
+    fontFace: 'Aptos Display', fontSize: 52, color: COL_PPT.text,
+    bold: true, lineSpacing: 56,
+  });
+  // Subtítulo
+  s.addText('Flujo de caja · AUDP Batuco + Colina', {
+    x: 0.6, y: 4.7, w: 9, h: 0.5,
+    fontFace: 'Aptos', fontSize: 20, color: COL_PPT.brand,
+  });
+  // Rango temporal
+  s.addText('2029 – 2035  ·  proyección semestral  ·  cifras en UF', {
+    x: 0.6, y: 5.3, w: 9, h: 0.4,
+    fontFace: 'Aptos', fontSize: 13, color: COL_PPT.textDim,
+  });
+  // Fecha emisión (esquina inferior derecha)
+  const fecha = new Date().toLocaleDateString('es-CL', {
+    year: 'numeric', month: 'long', day: 'numeric' });
+  s.addText(`Emitido · ${fecha}`, {
+    x: 7.8, y: 6.95, w: 5, h: 0.3,
+    fontFace: 'Aptos', fontSize: 9, color: COL_PPT.textMuted,
+    align: 'right',
+  });
+}
+
+// ════════════════════════════════════════════════════════════════
+// SLIDE 2: KPIs EJECUTIVOS
+// ════════════════════════════════════════════════════════════════
+function colPptSlide2(pptx, agg) {
+  const s = pptx.addSlide();
+  s.background = { color: COL_PPT.white };
+  // Título
+  s.addText('Resumen ejecutivo', {
+    x: 0.6, y: 0.45, w: 12, h: 0.45,
+    fontFace: 'Aptos Display', fontSize: 22, color: COL_PPT.text, bold: true,
+  });
+  s.addShape(pptx.ShapeType.line, {
+    x: 0.6, y: 1.0, w: 1.2, h: 0,
+    line: { color: COL_PPT.brand, width: 1.5 },
+  });
+  s.addText('Métricas clave del horizonte 2029 – 2035', {
+    x: 0.6, y: 1.05, w: 12, h: 0.3,
+    fontFace: 'Aptos', fontSize: 11, color: COL_PPT.textDim,
+  });
+
+  // 6 KPI cards: 3 × 2
+  const kpis = [
+    { label: 'Total ingresos', value: agg.sumIng, color: COL_PPT.brand, fmt: 'uf' },
+    { label: 'Total costos',   value: agg.sumCos, color: COL_PPT.red,   fmt: 'uf' },
+    { label: 'Flujo neto',     value: agg.flujoNeto, color: agg.flujoNeto >= 0 ? COL_PPT.brand : COL_PPT.red, fmt: 'uf' },
+    { label: `Peak positivo · ${agg.peakPosLabel}`, value: agg.peakPos,
+      color: COL_PPT.brand, fmt: 'uf' },
+    { label: `Punto más bajo · ${agg.peakNegLabel}`, value: agg.peakNeg,
+      color: agg.peakNeg >= 0 ? COL_PPT.brand : COL_PPT.red, fmt: 'uf' },
+    { label: 'Saldo final 2035', value: agg.saldoFinal,
+      color: agg.saldoFinal >= 0 ? COL_PPT.brand : COL_PPT.red, fmt: 'uf' },
+  ];
+  const cardW = 4.0, cardH = 2.4;
+  const gapX = 0.2, gapY = 0.25;
+  const startX = 0.6, startY = 1.7;
+  kpis.forEach((kpi, i) => {
+    const col = i % 3, row = Math.floor(i / 3);
+    const x = startX + col * (cardW + gapX);
+    const y = startY + row * (cardH + gapY);
+    // Card background
+    s.addShape(pptx.ShapeType.roundRect, {
+      x, y, w: cardW, h: cardH,
+      fill: { color: COL_PPT.bgLt },
+      line: { color: COL_PPT.rule, width: 0.5 },
+      rectRadius: 0.08,
+    });
+    // Etiqueta superior
+    s.addText(kpi.label.toUpperCase(), {
+      x: x + 0.25, y: y + 0.2, w: cardW - 0.5, h: 0.3,
+      fontFace: 'Aptos', fontSize: 9, color: COL_PPT.textDim,
+      bold: true, charSpacing: 3,
+    });
+    // Valor grande
+    s.addText(colPptFmt(kpi.value), {
+      x: x + 0.25, y: y + 0.6, w: cardW - 0.5, h: 1.1,
+      fontFace: 'Aptos Display', fontSize: 36, color: kpi.color, bold: true,
+    });
+    // Unidad
+    s.addText('UF', {
+      x: x + 0.25, y: y + 1.75, w: cardW - 0.5, h: 0.3,
+      fontFace: 'Aptos', fontSize: 11, color: COL_PPT.textDim,
+    });
+  });
+}
+
+// ════════════════════════════════════════════════════════════════
+// SLIDE 3: GRÁFICO DE FLUJO DE CAJA (nativo PPT)
+// ════════════════════════════════════════════════════════════════
+function colPptSlide3(pptx, agg) {
+  const s = pptx.addSlide();
+  s.background = { color: COL_PPT.white };
+  s.addText('Flujo de caja semestral', {
+    x: 0.6, y: 0.45, w: 12, h: 0.45,
+    fontFace: 'Aptos Display', fontSize: 22, color: COL_PPT.text, bold: true,
+  });
+  s.addShape(pptx.ShapeType.line, {
+    x: 0.6, y: 1.0, w: 1.2, h: 0,
+    line: { color: COL_PPT.brand, width: 1.5 },
+  });
+  s.addText('Ingresos · costos · flujo acumulado en UF', {
+    x: 0.6, y: 1.05, w: 12, h: 0.3,
+    fontFace: 'Aptos', fontSize: 11, color: COL_PPT.textDim,
+  });
+
+  // Datos para chart nativo
+  const chartData = [
+    { name: 'Ingresos', labels: COL_PERIODOS, values: agg.totIng.map(v => Math.round(v)) },
+    { name: 'Costos',   labels: COL_PERIODOS, values: agg.totCos.map(v => Math.round(v)) },
+    { name: 'Flujo acumulado', labels: COL_PERIODOS,
+      values: agg.fluA.map(v => Math.round(v)) },
+  ];
+
+  s.addChart(pptx.ChartType.bar, [chartData[0], chartData[1]], {
+    x: 0.6, y: 1.6, w: 12.1, h: 5.6,
+    barDir: 'col', barGrouping: 'clustered',
+    chartColors: [COL_PPT.brand, COL_PPT.red],
+    catAxisLabelFontSize: 9, catAxisLabelFontFace: 'Aptos',
+    catAxisLabelColor: COL_PPT.textDim,
+    valAxisLabelFontSize: 9, valAxisLabelFontFace: 'Aptos',
+    valAxisLabelColor: COL_PPT.textDim,
+    valAxisLabelFormatCode: '#,##0',
+    showLegend: true, legendPos: 'b', legendFontSize: 10,
+    legendFontFace: 'Aptos', legendColor: COL_PPT.text,
+    showTitle: false,
+    plotArea: { fill: { color: COL_PPT.white } },
+    catGridLine: { style: 'none' },
+    valGridLine: { color: 'EBF0EC', size: 0.5 },
+    border: { type: 'none' },
+  });
+
+  // Nota al pie
+  s.addText(`Peak positivo: ${colPptFmt(agg.peakPos)} UF en ${agg.peakPosLabel}.  Punto más bajo: ${colPptFmt(agg.peakNeg)} UF en ${agg.peakNegLabel}.`, {
+    x: 0.6, y: 7.05, w: 12, h: 0.3,
+    fontFace: 'Aptos', fontSize: 9, color: COL_PPT.textDim, italic: true,
+  });
+}
+
+// ════════════════════════════════════════════════════════════════
+// SLIDE 4: TABLA DETALLADA DEL FLUJO (nativa)
+// ════════════════════════════════════════════════════════════════
+function colPptSlide4(pptx, agg) {
+  const s = pptx.addSlide();
+  s.background = { color: COL_PPT.white };
+  s.addText('Detalle por concepto y semestre', {
+    x: 0.3, y: 0.25, w: 12.5, h: 0.4,
+    fontFace: 'Aptos Display', fontSize: 18, color: COL_PPT.text, bold: true,
+  });
+  s.addShape(pptx.ShapeType.line, {
+    x: 0.3, y: 0.7, w: 1.0, h: 0,
+    line: { color: COL_PPT.brand, width: 1.2 },
+  });
+
+  // Construir filas de la tabla
+  const rows = agg.rows;
+  const buildRow = (label, vals, style) => {
+    const total = vals ? vals.reduce((a, b) => a + b, 0) : null;
+    const cells = [{
+      text: label,
+      options: {
+        bold: ['section','subsection','subtotal_global','total','total_acum'].includes(style),
+        fontSize: style === 'section' ? 9 : 8,
+        color: ({
+          section: COL_PPT.brand,
+          subsection: COL_PPT.brand,
+          subtotal: COL_PPT.textDim,
+          subtotal_global: COL_PPT.brand,
+          total: COL_PPT.brand,
+          total_acum: COL_PPT.accent,
+          item: COL_PPT.text,
+        })[style] || COL_PPT.text,
+        fill: {
+          color: ({
+            section: COL_PPT.brandLt,
+            subsection: 'E6EFE9',
+            subtotal: 'F4F7F5',
+            subtotal_global: COL_PPT.brandLt,
+            total: 'D5E8DC',
+            total_acum: 'F3DBC2',
+          })[style] || COL_PPT.white,
+        },
+        valign: 'middle',
+        align: 'left',
+        margin: style === 'item' ? [3, 4, 3, 16] : [3, 4, 3, 4],
+      },
+    }];
+    if (style === 'section') {
+      // colspan: rellenar resto con vacío
+      for (let i = 0; i < COL_N + 1; i++) {
+        cells.push({ text: '', options: { fill: { color: COL_PPT.brandLt } } });
+      }
+      return cells;
+    }
+    // Total
+    cells.push({
+      text: vals ? colPptFmt(total) : '',
+      options: {
+        bold: ['subsection','subtotal_global','total','total_acum','subtotal'].includes(style),
+        fontSize: 8,
+        color: COL_PPT.text,
+        fill: cells[0].options.fill,
+        align: 'right', valign: 'middle',
+        fontFace: 'Consolas',
+      },
+    });
+    // Períodos
+    (vals || new Array(COL_N).fill(null)).forEach(v => {
+      let txt = '', color = COL_PPT.text;
+      if (v != null && v !== 0) {
+        txt = colPptFmt(v);
+        if (v < 0) color = COL_PPT.red;
+        else if (v > 0 && style === 'item') color = '236B54';
+      }
+      cells.push({
+        text: txt,
+        options: {
+          fontSize: 7, color, fontFace: 'Consolas',
+          fill: cells[0].options.fill,
+          align: 'right', valign: 'middle',
+          bold: ['subsection','subtotal_global','total','total_acum'].includes(style),
+        },
+      });
+    });
+    return cells;
+  };
+
+  const tblRows = [];
+  // Header row
+  const hdrOpts = { bold: true, fontSize: 8, color: COL_PPT.white,
+                   fill: { color: COL_PPT.brand }, valign: 'middle' };
+  tblRows.push([
+    { text: 'CONCEPTO', options: { ...hdrOpts, align: 'left',  margin: [4, 6, 4, 6] } },
+    { text: 'TOTAL',    options: { ...hdrOpts, align: 'right', margin: [4, 6, 4, 6] } },
+    ...COL_PERIODOS.map(p => ({ text: p, options: { ...hdrOpts, align: 'right',
+                                                     fontSize: 7, margin: [4, 2, 4, 2] } })),
+  ]);
+
+  function addGroupRows(label, grupos) {
+    tblRows.push(buildRow(label, null, 'section'));
+    Object.entries(grupos).forEach(([grp, items]) => {
+      const exist = items.filter(it => rows[it]);
+      if (!exist.length) return;
+      const subVals = colSumByItems(rows, exist);
+      tblRows.push(buildRow(grp, subVals, 'subsection'));
+      exist.forEach(it => tblRows.push(buildRow(it, rows[it].vals, 'item')));
+    });
+  }
+
+  addGroupRows('INGRESOS', COL_GRUPOS_ING);
+  tblRows.push(buildRow('TOTAL INGRESOS', agg.totIng, 'subtotal_global'));
+  addGroupRows('COSTOS', COL_GRUPOS_COSTO);
+  tblRows.push(buildRow('TOTAL COSTOS', agg.totCos, 'subtotal_global'));
+  tblRows.push(buildRow('FLUJO NETO', agg.fluN, 'total'));
+  tblRows.push(buildRow('FLUJO ACUMULADO', agg.fluA, 'total_acum'));
+
+  // Anchos columna: concept 2.0 + total 0.7 + 14 × 0.65 = 11.8 in (formato widescreen 13.33)
+  const colW = [2.0, 0.7].concat(new Array(COL_N).fill(0.7));
+
+  s.addTable(tblRows, {
+    x: 0.3, y: 0.85, w: colW.reduce((a, b) => a + b, 0),
+    colW: colW,
+    fontFace: 'Aptos',
+    border: { type: 'solid', pt: 0.25, color: 'D9DDD9' },
+    autoPage: false,
+  });
+}
+
+// ════════════════════════════════════════════════════════════════
+// SLIDE 5: CONCLUSIONES E INSIGHTS
+// ════════════════════════════════════════════════════════════════
+function colPptSlide5(pptx, agg) {
+  const s = pptx.addSlide();
+  s.background = { color: COL_PPT.white };
+  s.addText('Lectura estratégica', {
+    x: 0.6, y: 0.45, w: 12, h: 0.45,
+    fontFace: 'Aptos Display', fontSize: 22, color: COL_PPT.text, bold: true,
+  });
+  s.addShape(pptx.ShapeType.line, {
+    x: 0.6, y: 1.0, w: 1.2, h: 0,
+    line: { color: COL_PPT.brand, width: 1.5 },
+  });
+
+  // Construir insights dinámicos basados en los datos
+  const ratio = agg.sumIng > 0 ? (-agg.sumCos / agg.sumIng * 100).toFixed(1) : '0';
+  const margin = agg.sumIng > 0 ? (agg.flujoNeto / agg.sumIng * 100).toFixed(1) : '0';
+  const insights = [
+    {
+      title: 'Estructura de ingresos',
+      body: `Total de ${colPptFmt(agg.sumIng)} UF en ventas de terreno macroloteado a lo largo de 14 semestres. Distribuidas en dos etapas — Batuco y Colina, cada una con DS19, Townhouses/Casas y Edificios de 4 pisos.`,
+    },
+    {
+      title: 'Carga financiera',
+      body: `Costos totales: ${colPptFmt(agg.sumCos)} UF. Representa un ${ratio}% sobre los ingresos. Los items más pesados son urbanización (vialidades + plazas), sanitaria, mitigaciones y áreas verdes (incluyendo equipamiento deportivo).`,
+    },
+    {
+      title: 'Flujo neto y margen',
+      body: `Flujo neto del proyecto: ${colPptFmt(agg.flujoNeto)} UF (margen ${margin}% sobre ingresos). ${agg.flujoNeto >= 0 ? 'Proyecto cierra en positivo dentro del horizonte modelado.' : 'Proyecto cierra en déficit; necesita complementarse con valor residual de activos o renegociación de costos.'}`,
+    },
+    {
+      title: 'Estrés financiero',
+      body: `Peak positivo de caja: ${colPptFmt(agg.peakPos)} UF en ${agg.peakPosLabel}. Punto más bajo del flujo acumulado: ${colPptFmt(agg.peakNeg)} UF en ${agg.peakNegLabel}. ${agg.peakNeg >= 0 ? 'El proyecto se autofinancia sin requerir capital externo.' : 'Requiere línea de crédito o capital propio para sostener la caja en el valle.'}`,
+    },
+  ];
+
+  insights.forEach((ins, i) => {
+    const col = i % 2;
+    const row = Math.floor(i / 2);
+    const x = 0.6 + col * 6.2;
+    const y = 1.6 + row * 2.8;
+    // Card
+    s.addShape(pptx.ShapeType.roundRect, {
+      x, y, w: 6.0, h: 2.6,
+      fill: { color: COL_PPT.bgLt },
+      line: { color: COL_PPT.rule, width: 0.5 },
+      rectRadius: 0.08,
+    });
+    // Acento lateral
+    s.addShape(pptx.ShapeType.rect, {
+      x, y, w: 0.08, h: 2.6, fill: { color: COL_PPT.brand },
+    });
+    // Título de card
+    s.addText(ins.title, {
+      x: x + 0.3, y: y + 0.25, w: 5.5, h: 0.4,
+      fontFace: 'Aptos Display', fontSize: 14, bold: true,
+      color: COL_PPT.text,
+    });
+    // Línea separadora
+    s.addShape(pptx.ShapeType.line, {
+      x: x + 0.3, y: y + 0.75, w: 0.6, h: 0,
+      line: { color: COL_PPT.brand, width: 1.0 },
+    });
+    // Cuerpo
+    s.addText(ins.body, {
+      x: x + 0.3, y: y + 0.85, w: 5.5, h: 1.6,
+      fontFace: 'Aptos', fontSize: 10, color: COL_PPT.text,
+      lineSpacing: 14,
+    });
+  });
+
+  // Footer
+  s.addText('MODELA · Etapa de Colonización · Confidencial', {
+    x: 0.6, y: 7.15, w: 12, h: 0.25,
+    fontFace: 'Aptos', fontSize: 8, color: COL_PPT.textMuted,
+    italic: true,
+  });
+}
+
+// ════════════════════════════════════════════════════════════════
+// FUNCIÓN PRINCIPAL DE DESCARGA
+// ════════════════════════════════════════════════════════════════
+async function colDownloadPPT() {
+  const btn = document.getElementById('col-pptx-btn');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Generando…'; }
+  try {
+    if (!COL_ROWS_CACHE) colRecalc();
+    const ok = await colLoadPptxGen();
+    if (!ok) { alert('No se pudo cargar PptxGenJS.'); return; }
+
+    const pptx = new PptxGenJS();
+    pptx.layout = 'LAYOUT_WIDE';   // 13.333 × 7.5 in
+    pptx.title = 'Etapa de Colonización · Flujo de Caja';
+    pptx.author = 'MODELA';
+    pptx.company = 'Modela';
+    pptx.subject = 'Flujo de caja AUDP Batuco + Colina 2029-2035';
+
+    const agg = colPptComputeAgg();
+    colPptSlide1(pptx, agg);
+    colPptSlide2(pptx, agg);
+    colPptSlide3(pptx, agg);
+    colPptSlide4(pptx, agg);
+    colPptSlide5(pptx, agg);
+
+    const fecha = new Date().toISOString().slice(0, 10);
+    await pptx.writeFile({ fileName: `Modela_FlujoCaja_${fecha}.pptx` });
+  } catch (e) {
+    console.error('Error generando PPT:', e);
+    alert('Error generando PPT: ' + e.message);
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      // Restablecer el contenido original del botón (con SVG)
+      btn.replaceChildren();
+      const svgNS = 'http://www.w3.org/2000/svg';
+      const svg = document.createElementNS(svgNS, 'svg');
+      svg.setAttribute('width', '14'); svg.setAttribute('height', '14');
+      svg.setAttribute('viewBox', '0 0 24 24'); svg.setAttribute('fill', 'none');
+      svg.setAttribute('stroke', 'currentColor'); svg.setAttribute('stroke-width', '2');
+      ['M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4', 'M7 10l5 5 5-5', 'M12 15V3'].forEach(d => {
+        const p = document.createElementNS(svgNS, 'path');
+        p.setAttribute('d', d); svg.appendChild(p);
+      });
+      btn.appendChild(svg);
+      btn.appendChild(document.createTextNode(' Descargar PPT'));
+    }
+  }
 }
 
 </script>
