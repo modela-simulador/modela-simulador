@@ -16025,7 +16025,8 @@ function unSel(el, evt) {
 
 const COL_PERIODOS = (() => {
   const out = [];
-  for (let a = 2029; a <= 2035; a++) for (const s of [1, 2]) out.push(`S${s} ${a}`);
+  // Horizonte: 2029 a 2033 inclusive (10 semestres)
+  for (let a = 2029; a <= 2033; a++) for (const s of [1, 2]) out.push(`S${s} ${a}`);
   return out;
 })();
 const COL_N = COL_PERIODOS.length;
@@ -16084,7 +16085,7 @@ const COL_MODEL = {
     [1, 'Construccion MUB', -20000, 'S2 2029', [0.4, 0.4, 0.2], 'MUB'],
     [1, 'Construccion MUC', -15000, 'S2 2029', [0.4, 0.4, 0.2], 'MUC'],
   ],
-  credito: { tasaFactor: 1.4, plazoMeses: 180, arriendoPct: 0.5, semestreFin: 'S2 2034' },
+  credito: { tasaFactor: 1.4, plazoMeses: 180, arriendoPct: 0.5, semestreFin: 'S2 2033' },
 };
 
 const COL_GRUPOS_ING = {
