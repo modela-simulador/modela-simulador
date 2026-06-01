@@ -1843,6 +1843,12 @@
     </svg>
     Primeras Etapas
   </button>
+  <button class="btn-un" id="btn-colonizacion" onclick="openColonizacion()">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>
+    </svg>
+    Etapa de Colonización
+  </button>
 </div>
 
 <!-- ── Unidades de Negocio overlay ── -->
@@ -1962,6 +1968,106 @@
             Ejecuta la simulacion para ver el dashboard
           </div>
         </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════
+     ETAPA DE COLONIZACIÓN — Flujo de caja AUDP Batuco + Colina
+     ════════════════════════════════════════════════════════════════ -->
+<style>
+  .col-overlay { position:fixed; inset:0; background:rgba(15,23,42,0.97); z-index:9999; display:none; overflow:auto; }
+  .col-window  { background:#0f172a; color:#e2e8f0; min-height:100vh; padding:24px 32px;
+                 font-family:'Inter',system-ui,-apple-system,sans-serif; }
+  .col-topbar  { display:flex; justify-content:space-between; align-items:flex-start;
+                 padding-bottom:16px; border-bottom:1px solid #334155; margin-bottom:24px; }
+  .col-topbar h2 { font-size:22px; font-weight:700; margin:0 0 6px 0; color:#f8fafc; }
+  .col-topbar .hint { font-size:12px; color:#94a3b8; }
+  .col-close  { background:none; border:none; color:#94a3b8; font-size:24px;
+                cursor:pointer; padding:4px 12px; transition:color .2s; }
+  .col-close:hover { color:#f8fafc; }
+
+  /* Toggle Etapa 1 / Etapa 2 */
+  .col-etapa-toggle { display:flex; gap:8px; margin-bottom:20px; padding:6px;
+                      background:#1e293b; border-radius:10px; width:fit-content; }
+  .col-etapa-btn { padding:10px 28px; font-size:13px; font-weight:700; text-transform:uppercase;
+                   letter-spacing:0.5px; background:transparent; color:#94a3b8; border:none;
+                   border-radius:6px; cursor:pointer; transition:all .2s; }
+  .col-etapa-btn.active { background:#1d5142; color:#fff; box-shadow:0 2px 6px rgba(29,81,66,0.4); }
+  .col-etapa-btn:not(.active):hover { color:#e2e8f0; background:#334155; }
+
+  /* Layout: flujo a todo ancho */
+  .col-layout { display:flex; flex-direction:column; gap:16px; }
+  .col-chart-box { background:#1e293b; border:1px solid #334155; border-radius:8px;
+                   padding:14px 16px; height:300px; position:relative; }
+  .col-table-box { background:#1e293b; border:1px solid #334155; border-radius:8px;
+                   padding:14px 16px; max-height:62vh; overflow:auto; }
+
+  /* Tabla con anchos fijos por columna para alineacion perfecta */
+  .col-tbl { width:100%; border-collapse:collapse; font-size:10.5px;
+             font-family:'Geist Mono',ui-monospace,monospace; table-layout:fixed; }
+  .col-tbl col.col-concept { width:240px; }
+  .col-tbl col.col-total   { width:90px; }
+  .col-tbl col.col-period  { width:72px; }
+  .col-tbl th { text-align:right; padding:7px 8px; font-weight:700; color:#94a3b8;
+                background:#0f172a; position:sticky; top:0; border-bottom:1px solid #475569;
+                font-size:10px; text-transform:uppercase; letter-spacing:0.3px;
+                white-space:nowrap; }
+  .col-tbl th:first-child, .col-tbl td:first-child {
+    text-align:left;
+    font-family:'Inter',system-ui,sans-serif;
+    white-space:normal;
+    line-height:1.3;
+    padding-right:12px;
+  }
+  .col-tbl td { padding:6px 8px; text-align:right; color:#e2e8f0;
+                border-bottom:1px solid #1e293b; white-space:nowrap;
+                overflow:hidden; text-overflow:ellipsis; }
+  .col-tbl tr.section td  { background:#0d3329; font-weight:700; color:#a7d4bb; padding-top:8px;
+                            font-size:11px; text-transform:uppercase; letter-spacing:0.4px; }
+  .col-tbl tr.subsection td { background:#142a26; font-weight:600; color:#cbd5e1;
+                              cursor:pointer; user-select:none; }
+  .col-tbl tr.subsection td:first-child:hover { color:#fff; }
+  .col-tbl tr.item td { padding-left:32px; color:#cbd5e1; }
+  .col-tbl tr.subtotal td { background:#0f1c1a; font-weight:500; color:#94a3b8;
+                            font-style:italic; border-top:1px solid #1e3a32; }
+  .col-tbl tr.subtotal_global td { background:#0d3329; font-weight:700; color:#a7d4bb;
+                                   border-top:1px solid #475569; }
+  .col-tbl tr.total td { background:#1a4a3e; color:#fff; font-weight:700;
+                         border-top:2px solid #1d5142; }
+  .col-tbl tr.total_acum td { background:#3d2817; color:#fbeede; font-weight:700;
+                              border-top:1px solid #c97b3a; }
+  .col-tbl td.pos { color:#1d5142; }
+  .col-tbl td.neg { color:#dc6a4a; }
+  .col-tbl td:first-child { color:inherit; }
+  .col-tbl tr.col-collapsed { display:none; }
+  .col-caret { display:inline-block; width:14px; color:#94a3b8;
+               font-size:9px; text-align:center; margin-right:4px; transition:transform .15s; }
+  .col-caret.col-collapsed-caret { transform:rotate(-90deg); }
+</style>
+
+<div id="col-overlay" class="col-overlay">
+  <div class="col-window">
+    <div class="col-topbar">
+      <div>
+        <h2>Etapa de Colonización</h2>
+        <div class="hint">Flujo de caja AUDP Batuco + Colina · 2029 – 2035 · semestral · UF</div>
+      </div>
+      <button class="col-close" onclick="closeColonizacion()">✕</button>
+    </div>
+
+    <div class="col-etapa-toggle">
+      <button class="col-etapa-btn active" data-etapa="1" onclick="colSwitchEtapa(1)">ETAPA 1</button>
+      <button class="col-etapa-btn"        data-etapa="2" onclick="colSwitchEtapa(2)">ETAPA 2</button>
+    </div>
+
+    <div class="col-layout">
+      <div class="col-chart-box">
+        <canvas id="col-chart"></canvas>
+      </div>
+      <div class="col-table-box">
+        <table class="col-tbl" id="col-table"></table>
       </div>
     </div>
   </div>
@@ -15867,6 +15973,403 @@ function unSel(el, evt) {
   }
 
   renderUnSelection();
+}
+
+/* ════════════════════════════════════════════════════════════════
+   ETAPA DE COLONIZACIÓN — flujo de caja AUDP Batuco + Colina
+   ════════════════════════════════════════════════════════════════ */
+
+const COL_PERIODOS = (() => {
+  const out = [];
+  for (let a = 2029; a <= 2035; a++) for (const s of [1, 2]) out.push(`S${s} ${a}`);
+  return out;
+})();
+const COL_N = COL_PERIODOS.length;
+const colIdx = (p) => COL_PERIODOS.indexOf(p);
+
+const COL_MODEL = {
+  ingresos_proy: [
+    [1, 'AUDP Batuco · DS19',                80049, 'S1 2029'],
+    [1, 'AUDP Batuco · Townhouses',          16660, 'S2 2029'],
+    [1, 'AUDP Batuco · Edificio 4P',         44100, 'S2 2029'],
+    [1, 'AUDP Colina · DS19',                80049, 'S1 2029'],
+    [1, 'AUDP Colina · Casas',               21490, 'S2 2029'],
+    [1, 'AUDP Colina · Edificio 4P',         44100, 'S2 2029'],
+    [2, 'AUDP Batuco · DS19 Etapa 2',        75294, 'S1 2031'],
+    [2, 'AUDP Batuco · Townhouses Etapa 2',  30151, 'S2 2030'],
+    [2, 'AUDP Batuco · Edificio 4P Etapa 2', 55687, 'S2 2031'],
+    [2, 'AUDP Colina · DS19 Etapa 2',        75294, 'S2 2031'],
+    [2, 'AUDP Colina · Casas Etapa 2',       26400, 'S2 2030'],
+    [2, 'AUDP Colina · Edificio 4P Etapa 2', 49552, 'S1 2032'],
+  ],
+  ingresos_puntuales: [
+    [1, 'Venta terreno Copec (Colina)', 30000, 'S1 2029'],
+  ],
+  urb_uniforme: [
+    [1, 'Vialidades · Batuco',           63900, 'S2 2029', 3],
+    [1, 'Vialidades · Colina',           72000, 'S2 2029', 3],
+    [1, 'Plazas · Batuco',                8000, 'S2 2029', 3],
+    [1, 'Plazas · Colina',                6000, 'S2 2029', 3],
+    [2, 'Urbanización Etapa 2 · Batuco', 66000, 'S1 2031', 3],
+    [2, 'Urbanización Etapa 2 · Colina', 44100, 'S1 2031', 3],
+  ],
+  areas_pesos: [
+    [1, 'Área verde + Eq. deportivo · Batuco', 24566, 'S1 2031', [0.5, 0.5]],
+    [1, 'Área verde · Colina',                 22754, 'S1 2031', [0.5, 0.5]],
+    [2, 'Área verde Etapa 2 · Batuco',         22855, 'S1 2031', [0.5, 0.5]],
+    [2, 'Área verde Etapa 2 · Colina',         39984, 'S1 2031', [0.5, 0.5]],
+  ],
+  sanitaria: [
+    [1, 'Sanitaria',         { 'S2 2029': -53735, 'S1 2030': -19703, 'S2 2030': -16121, 'S1 2031': 0 }],
+    [2, 'Sanitaria Etapa 2', { 'S1 2034': -28111, 'S2 2034': -28111 }],
+  ],
+  mitigaciones_anual:  { 2030: -35809, 2031: -23262, 2032: -9131, 2033: -5000, 2034: -14417, 2035: -23664 },
+  mantenimiento_anual: { 2031: -778,   2032: -1555, 2033: -2333 },
+  comercializacion_pct: 0.02,
+  placas: [
+    [1, 'Placas comerciales · Batuco', -6336, 'S1 2029', 'Placas Batuco'],
+    [1, 'Placas comerciales · Colina', -4445, 'S1 2029', 'Placas Colina'],
+  ],
+  construccion: [
+    [1, 'Construccion MUB', -20000, 'S2 2029', [0.4, 0.4, 0.2], 'MUB'],
+    [1, 'Construccion MUC', -15000, 'S2 2029', [0.4, 0.4, 0.2], 'MUC'],
+  ],
+  credito: { tasaFactor: 1.4, plazoMeses: 180, arriendoPct: 0.5, semestreFin: 'S2 2034' },
+};
+
+const COL_GRUPOS_ING = {
+  'Batuco · Etapa 1': ['AUDP Batuco · DS19', 'AUDP Batuco · Townhouses', 'AUDP Batuco · Edificio 4P'],
+  'Batuco · Etapa 2': ['AUDP Batuco · DS19 Etapa 2', 'AUDP Batuco · Townhouses Etapa 2', 'AUDP Batuco · Edificio 4P Etapa 2'],
+  'Colina · Etapa 1': ['AUDP Colina · DS19', 'AUDP Colina · Casas', 'AUDP Colina · Edificio 4P'],
+  'Colina · Etapa 2': ['AUDP Colina · DS19 Etapa 2', 'AUDP Colina · Casas Etapa 2', 'AUDP Colina · Edificio 4P Etapa 2'],
+  'Activos arrendados': ['Arriendo · Placas Batuco', 'Arriendo · Placas Colina', 'Arriendo · MUB', 'Arriendo · MUC'],
+  'Otros ingresos': ['Venta terreno Copec (Colina)'],
+};
+const COL_GRUPOS_COSTO = {
+  'Batuco · Etapa 1': ['Vialidades · Batuco', 'Plazas · Batuco', 'Área verde + Eq. deportivo · Batuco'],
+  'Batuco · Etapa 2': ['Urbanización Etapa 2 · Batuco', 'Área verde Etapa 2 · Batuco'],
+  'Colina · Etapa 1': ['Vialidades · Colina', 'Plazas · Colina', 'Área verde · Colina'],
+  'Colina · Etapa 2': ['Urbanización Etapa 2 · Colina', 'Área verde Etapa 2 · Colina'],
+  'Comunes': ['Sanitaria', 'Sanitaria Etapa 2', 'Mitigaciones', 'Comercialización (2 % ventas)', 'Mantenimiento'],
+  'Inversión inmobiliaria': [
+    'Placas comerciales · Batuco', 'Financiamiento · Placas Batuco', 'Dividendo · Placas Batuco',
+    'Placas comerciales · Colina', 'Financiamiento · Placas Colina', 'Dividendo · Placas Colina',
+    'Construccion MUB', 'Financiamiento · MUB', 'Dividendo · MUB',
+    'Construccion MUC', 'Financiamiento · MUC', 'Dividendo · MUC',
+  ],
+};
+
+let COL_ROWS_CACHE = null;
+let colChartInstance = null;
+let colActiveEtapa = 1;
+
+// ── DOM helper para evitar innerHTML ──────────────────────────────
+const COL_DOM_PROPS = new Set(['value', 'checked', 'disabled', 'readOnly', 'type', 'step', 'min', 'max', 'placeholder']);
+function colMk(tag, attrs, children) {
+  const e = document.createElement(tag);
+  if (attrs) Object.entries(attrs).forEach(([k, v]) => {
+    if (v == null) return;
+    if (k === 'class' || k === 'cls') e.className = v;
+    else if (k === 'style') e.style.cssText = v;
+    else if (k.startsWith('on')) e[k] = v;
+    else if (k === 'text') e.textContent = v;
+    else if (k.startsWith('data-')) e.setAttribute(k, v);
+    else if (COL_DOM_PROPS.has(k)) e[k] = v;
+    else e.setAttribute(k, v);
+  });
+  if (children) {
+    (Array.isArray(children) ? children : [children]).forEach(c => {
+      if (c == null) return;
+      if (typeof c === 'string' || typeof c === 'number')
+        e.appendChild(document.createTextNode(String(c)));
+      else e.appendChild(c);
+    });
+  }
+  return e;
+}
+
+// Devuelve true si el item debe mostrarse segun la etapa activa
+function colItemEnEtapa(rows, item) {
+  if (!rows[item]) return false;
+  const e = rows[item].etapa;
+  if (colActiveEtapa === 2) return true;        // Etapa 2 = todo
+  return e !== 2;                                // Etapa 1 = no items de Etapa 2
+}
+
+// Set de grupos colapsados (clave: 'ing:Batuco · Etapa 1' o 'cos:Comunes')
+const colCollapsed = new Set();
+function colToggleGroup(key) {
+  if (colCollapsed.has(key)) colCollapsed.delete(key);
+  else colCollapsed.add(key);
+  colRenderTable();
+}
+
+function fmtColUF(v) {
+  if (v == null || isNaN(v) || v === 0) return '';
+  const sign = v < 0 ? '−' : '';
+  const abs = Math.abs(v);
+  return sign + abs.toLocaleString('es-CL', { maximumFractionDigits: 0 });
+}
+
+function colDistUniforme(monto, pIni, n) {
+  const f = new Array(COL_N).fill(0);
+  const i0 = colIdx(pIni);
+  for (let k = 0; k < n && i0 + k < COL_N; k++) f[i0 + k] = monto / n;
+  return f;
+}
+function colDistPesos(monto, pIni, pesos) {
+  const f = new Array(COL_N).fill(0);
+  const i0 = colIdx(pIni);
+  pesos.forEach((p, k) => { if (i0 + k < COL_N) f[i0 + k] = monto * p; });
+  return f;
+}
+function colCuotaSem(credito) {
+  return credito / COL_MODEL.credito.plazoMeses * COL_MODEL.credito.tasaFactor * 6;
+}
+
+function colBuildRows() {
+  const rows = {};
+  COL_MODEL.ingresos_proy.forEach(([e, n, m, p]) => {
+    const f = new Array(COL_N).fill(0); f[colIdx(p)] = m;
+    rows[n] = { etapa: e, vals: f };
+  });
+  COL_MODEL.ingresos_puntuales.forEach(([e, n, m, p]) => {
+    const f = new Array(COL_N).fill(0); f[colIdx(p)] = m;
+    rows[n] = { etapa: e, vals: f };
+  });
+  COL_MODEL.urb_uniforme.forEach(([e, n, m, p, ns]) => {
+    rows[n] = { etapa: e, vals: colDistUniforme(-m, p, ns) };
+  });
+  COL_MODEL.areas_pesos.forEach(([e, n, m, p, pesos]) => {
+    rows[n] = { etapa: e, vals: colDistPesos(-m, p, pesos) };
+  });
+  COL_MODEL.sanitaria.forEach(([e, n, mapa]) => {
+    const f = new Array(COL_N).fill(0);
+    Object.entries(mapa).forEach(([p, m]) => { f[colIdx(p)] = m; });
+    rows[n] = { etapa: e, vals: f };
+  });
+  const fMit = new Array(COL_N).fill(0);
+  Object.entries(COL_MODEL.mitigaciones_anual).forEach(([a, total]) => {
+    fMit[colIdx(`S1 ${a}`)] = total / 2;
+    fMit[colIdx(`S2 ${a}`)] = total / 2;
+  });
+  rows['Mitigaciones'] = { etapa: 0, vals: fMit };
+  const fMan = new Array(COL_N).fill(0);
+  Object.entries(COL_MODEL.mantenimiento_anual).forEach(([a, total]) => {
+    fMan[colIdx(`S1 ${a}`)] = total / 2;
+    fMan[colIdx(`S2 ${a}`)] = total / 2;
+  });
+  rows['Mantenimiento'] = { etapa: 0, vals: fMan };
+  const ingPer = new Array(COL_N).fill(0);
+  Object.entries(rows).forEach(([n, obj]) => {
+    if (n.startsWith('AUDP') || n.toLowerCase().includes('terreno')) {
+      obj.vals.forEach((v, i) => { ingPer[i] += v; });
+    }
+  });
+  rows['Comercialización (2 % ventas)'] = { etapa: 0,
+    vals: ingPer.map(v => -v * COL_MODEL.comercializacion_pct) };
+  COL_MODEL.placas.forEach(([e, n, m, p, alias]) => {
+    const fComp = new Array(COL_N).fill(0); fComp[colIdx(p)] = m;
+    rows[n] = { etapa: e, vals: fComp };
+    const credito = Math.abs(m) * 0.80;
+    const fFin = new Array(COL_N).fill(0); fFin[colIdx(p)] = credito;
+    rows[`Financiamiento · ${alias}`] = { etapa: e, vals: fFin };
+    const cuota = colCuotaSem(credito);
+    const arr = cuota * COL_MODEL.credito.arriendoPct;
+    const fD = new Array(COL_N).fill(0), fA = new Array(COL_N).fill(0);
+    const i0 = colIdx('S2 2029'), iF = colIdx(COL_MODEL.credito.semestreFin);
+    for (let k = i0; k <= iF; k++) { fD[k] = -cuota; fA[k] = arr; }
+    rows[`Dividendo · ${alias}`] = { etapa: e, vals: fD };
+    rows[`Arriendo · ${alias}`]  = { etapa: e, vals: fA };
+  });
+  COL_MODEL.construccion.forEach(([e, n, m, p, pesos, alias]) => {
+    rows[n] = { etapa: e, vals: colDistPesos(m, p, pesos) };
+    const credito = Math.abs(m) * 0.80;
+    rows[`Financiamiento · ${alias}`] = { etapa: e, vals: colDistPesos(credito, p, pesos) };
+    const cuota = colCuotaSem(credito);
+    const arr = cuota * COL_MODEL.credito.arriendoPct;
+    const fD = new Array(COL_N).fill(0), fA = new Array(COL_N).fill(0);
+    const i0 = colIdx('S1 2031'), iF = colIdx(COL_MODEL.credito.semestreFin);
+    for (let k = i0; k <= iF; k++) { fD[k] = -cuota; fA[k] = arr; }
+    rows[`Dividendo · ${alias}`] = { etapa: e, vals: fD };
+    rows[`Arriendo · ${alias}`]  = { etapa: e, vals: fA };
+  });
+  return rows;
+}
+
+function colSumByItems(rows, items) {
+  return new Array(COL_N).fill(0).map((_, i) =>
+    items.reduce((sum, it) => sum + (rows[it] ? rows[it].vals[i] : 0), 0));
+}
+
+function colMakeRow(cls, label, vals, vTotal) {
+  const tr = colMk('tr', { class: cls });
+  tr.appendChild(colMk('td', { text: label }));
+  const total = vTotal !== undefined ? vTotal : (vals ? vals.reduce((a, b) => a + b, 0) : null);
+  tr.appendChild(colMk('td', { text: total != null ? fmtColUF(total) : '' }));
+  for (let i = 0; i < COL_N; i++) {
+    const v = vals ? vals[i] : null;
+    let c = '';
+    if (v != null) {
+      if (v < 0) c = 'neg';
+      else if (v > 0 && cls === 'item') c = 'pos';
+    }
+    tr.appendChild(colMk('td', { class: c, text: v != null ? fmtColUF(v) : '' }));
+  }
+  return tr;
+}
+
+function colMakeSubsectionRow(grpKey, label, vals) {
+  // vals: array de valores del subtotal del grupo (se muestran siempre, expandido o colapsado)
+  const collapsed = colCollapsed.has(grpKey);
+  const tr = colMk('tr', { class: 'subsection' });
+  // Primera celda: caret + label, click para toggle
+  const tdLabel = document.createElement('td');
+  const caret = colMk('span', {
+    class: 'col-caret' + (collapsed ? ' col-collapsed-caret' : ''),
+    text: '▼',
+  });
+  tdLabel.appendChild(caret);
+  tdLabel.appendChild(document.createTextNode(label));
+  tdLabel.onclick = () => colToggleGroup(grpKey);
+  tdLabel.style.cursor = 'pointer';
+  tr.appendChild(tdLabel);
+  // Columna TOTAL del subtotal
+  const total = vals.reduce((a, b) => a + b, 0);
+  tr.appendChild(colMk('td', { text: fmtColUF(total) }));
+  // Columnas por periodo del subtotal
+  vals.forEach(v => tr.appendChild(colMk('td', { text: fmtColUF(v) })));
+  return tr;
+}
+
+function colRenderTable() {
+  const rows = COL_ROWS_CACHE;
+  const tbl = document.getElementById('col-table');
+  if (!tbl || !rows) return;
+
+  // Filtrar items que aplican a la etapa activa
+  const ingresoItemsAll = Object.values(COL_GRUPOS_ING).flat();
+  const costoItemsAll   = Object.values(COL_GRUPOS_COSTO).flat();
+  const ingresoItems = ingresoItemsAll.filter(it => colItemEnEtapa(rows, it));
+  const costoItems   = costoItemsAll.filter(it => colItemEnEtapa(rows, it));
+  const totIng = colSumByItems(rows, ingresoItems);
+  const totCos = colSumByItems(rows, costoItems);
+  const fluN   = totIng.map((v, i) => v + totCos[i]);
+  const fluA = []; let acc = 0;
+  fluN.forEach(v => { acc += v; fluA.push(acc); });
+
+  while (tbl.firstChild) tbl.removeChild(tbl.firstChild);
+
+  // colgroup para anchos fijos
+  const cg = document.createElement('colgroup');
+  cg.appendChild(colMk('col', { class: 'col-concept' }));
+  cg.appendChild(colMk('col', { class: 'col-total' }));
+  COL_PERIODOS.forEach(() => cg.appendChild(colMk('col', { class: 'col-period' })));
+  tbl.appendChild(cg);
+
+  // Header
+  const thead = colMk('thead');
+  const trH = colMk('tr');
+  trH.appendChild(colMk('th', { text: 'Concepto' }));
+  trH.appendChild(colMk('th', { text: 'Total' }));
+  COL_PERIODOS.forEach(p => trH.appendChild(colMk('th', { text: p })));
+  thead.appendChild(trH);
+  tbl.appendChild(thead);
+
+  const tbody = colMk('tbody');
+
+  function renderGrupo(grpKeyPrefix, grupos) {
+    Object.entries(grupos).forEach(([grp, items]) => {
+      const exist = items.filter(it => colItemEnEtapa(rows, it));
+      if (!exist.length) return;
+      const grpKey = grpKeyPrefix + grp;
+      const subVals = colSumByItems(rows, exist);
+      // Fila de subsection con valores del subtotal (siempre visibles)
+      tbody.appendChild(colMakeSubsectionRow(grpKey, grp, subVals));
+      const collapsed = colCollapsed.has(grpKey);
+      if (collapsed) return; // si colapsado, no mostrar items
+      // Si expandido, mostrar items hijos
+      exist.forEach(it => tbody.appendChild(colMakeRow('item', it, rows[it].vals)));
+    });
+  }
+
+  // INGRESOS
+  tbody.appendChild(colMakeRow('section', 'INGRESOS', null));
+  renderGrupo('ing:', COL_GRUPOS_ING);
+  tbody.appendChild(colMakeRow('subtotal_global', 'TOTAL INGRESOS', totIng));
+
+  // COSTOS
+  tbody.appendChild(colMakeRow('section', 'COSTOS', null));
+  renderGrupo('cos:', COL_GRUPOS_COSTO);
+  tbody.appendChild(colMakeRow('subtotal_global', 'TOTAL COSTOS', totCos));
+
+  tbody.appendChild(colMakeRow('total', 'FLUJO NETO', fluN));
+  tbody.appendChild(colMakeRow('total_acum', 'FLUJO ACUMULADO', fluA, fluA[fluA.length - 1]));
+  tbl.appendChild(tbody);
+}
+
+function colRenderChart() {
+  const rows = COL_ROWS_CACHE;
+  if (!rows) return;
+  const ingresoItems = Object.values(COL_GRUPOS_ING).flat().filter(it => colItemEnEtapa(rows, it));
+  const costoItems   = Object.values(COL_GRUPOS_COSTO).flat().filter(it => colItemEnEtapa(rows, it));
+  const totIng = colSumByItems(rows, ingresoItems);
+  const totCos = colSumByItems(rows, costoItems);
+  const fluN   = totIng.map((v, i) => v + totCos[i]);
+  const fluA = []; let acc = 0;
+  fluN.forEach(v => { acc += v; fluA.push(acc); });
+
+  const ctx = document.getElementById('col-chart').getContext('2d');
+  if (colChartInstance) colChartInstance.destroy();
+  colChartInstance = new Chart(ctx, {
+    type: 'bar',
+    data: { labels: COL_PERIODOS, datasets: [
+      { label: 'Ingresos', data: totIng, backgroundColor: '#1d5142', borderColor: '#1d5142', borderWidth: 1, yAxisID: 'y' },
+      { label: 'Costos',   data: totCos, backgroundColor: '#a33b2a', borderColor: '#a33b2a', borderWidth: 1, yAxisID: 'y' },
+      { label: 'Flujo acumulado', data: fluA, type: 'line',
+        borderColor: '#c97b3a', backgroundColor: 'transparent', borderWidth: 2.2,
+        borderDash: [6, 3], pointRadius: 0, tension: 0.1, yAxisID: 'y2' },
+    ]},
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { labels: { color: '#cbd5e1', font: { size: 11 } }, position: 'top', align: 'end' },
+        tooltip: { callbacks: { label: c => `${c.dataset.label}: ${fmtColUF(c.parsed.y)} UF` } },
+      },
+      scales: {
+        y:  { position: 'left',  ticks: { color: '#94a3b8', callback: v => fmtColUF(v) },
+              grid: { color: 'rgba(148,163,184,0.08)' } },
+        y2: { position: 'right', ticks: { color: '#c97b3a', callback: v => fmtColUF(v) },
+              grid: { display: false } },
+        x:  { ticks: { color: '#94a3b8', font: { size: 10 } }, grid: { display: false } },
+      },
+    },
+  });
+}
+
+function colSwitchEtapa(n) {
+  colActiveEtapa = n;
+  document.querySelectorAll('.col-etapa-btn').forEach(b => {
+    b.classList.toggle('active', parseInt(b.dataset.etapa) === n);
+  });
+  colRenderTable();
+  colRenderChart();
+}
+
+function colRecalc() {
+  COL_ROWS_CACHE = colBuildRows();
+  colRenderTable();
+  colRenderChart();
+}
+
+function openColonizacion() {
+  document.getElementById('col-overlay').style.display = 'block';
+  if (!COL_ROWS_CACHE) {
+    colRecalc();
+  }
+}
+function closeColonizacion() {
+  document.getElementById('col-overlay').style.display = 'none';
 }
 
 </script>
