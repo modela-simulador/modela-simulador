@@ -16403,12 +16403,16 @@ function colRenderChart() {
   if (colChartInstance) colChartInstance.destroy();
   colChartInstance = new Chart(ctx, {
     type: 'bar',
+    // UN SOLO eje Y: barras y línea acumulada comparten escala (todas en UF).
+    // Evita el efecto óptico donde la línea parece negativa al compararla
+    // con el cero del eje izquierdo. Patrón Bloomberg/FT: dual axis sólo cuando
+    // las unidades son distintas.
     data: { labels: COL_PERIODOS, datasets: [
       { label: 'Ingresos', data: totIng, backgroundColor: '#1d5142', borderColor: '#1d5142', borderWidth: 1, yAxisID: 'y' },
       { label: 'Costos',   data: totCos, backgroundColor: '#a33b2a', borderColor: '#a33b2a', borderWidth: 1, yAxisID: 'y' },
       { label: 'Flujo acumulado', data: fluA, type: 'line',
         borderColor: '#c97b3a', backgroundColor: 'transparent', borderWidth: 2.2,
-        borderDash: [6, 3], pointRadius: 0, tension: 0.1, yAxisID: 'y2' },
+        borderDash: [6, 3], pointRadius: 0, tension: 0.1, yAxisID: 'y' },
     ]},
     options: {
       responsive: true, maintainAspectRatio: false,
@@ -16433,13 +16437,8 @@ function colRenderChart() {
           border: { display: false },
           afterFit: (s) => { s.width = 0; },
         },
-        y2: {
-          position: 'right',
-          ticks: { color: '#c97b3a', callback: v => fmtColUF(v), padding: 6 },
-          grid:   { display: false, drawTicks: false },
-          border: { display: false },
-          afterFit: (s) => { s.width = 0; },
-        },
+        // y2 eliminado: todo se renderiza en el eje y único (mismo eje para
+        // barras y línea acumulada).
         x:  { ticks: { color: '#94a3b8', font: { size: 10 } }, grid: { display: false } },
       },
     },
@@ -16730,6 +16729,10 @@ function colPptSlide3(pptx, agg) {
   const dataIng = { name: 'Ingresos', labels: COL_PERIODOS, values: agg.totIng.map(v => Math.round(v)) };
   const dataCos = { name: 'Costos',   labels: COL_PERIODOS, values: agg.totCos.map(v => Math.round(v)) };
 
+  // UN SOLO EJE Y para barras y línea acumulada (ambos en UF).
+  // Evita el bug perceptual donde la línea parece negativa al compararla
+  // con el cero del eje izquierdo (cuando en realidad está sobre el cero
+  // del eje secundario). Solo se justifica dual axis si las unidades difieren.
   const combos = [
     {
       type: pptx.ChartType.bar,
@@ -16747,8 +16750,6 @@ function colPptSlide3(pptx, agg) {
       data: [{ name: 'Flujo acumulado', labels: COL_PERIODOS, values: agg.fluA.map(v => Math.round(v)) }],
       options: {
         chartColors: [COL_PPT.accent],
-        secondaryValAxis: true,
-        secondaryCatAxis: true,
         lineSize: 3,
         lineDataSymbol: 'none',
         lineDash: 'dash',
@@ -16771,22 +16772,6 @@ function colPptSlide3(pptx, agg) {
     valGridLine: { color: 'EBF0EC', size: 0.5 },
     border: { type: 'none' },
   };
-
-  if (includeAcumulado) {
-    chartOptions.valAxes = [
-      { valAxisLabelFontSize: 9, valAxisLabelFontFace: 'Aptos',
-        valAxisLabelColor: COL_PPT.textDim, valAxisLabelFormatCode: '#,##0',
-        valGridLine: { color: 'EBF0EC', size: 0.5 } },
-      { valAxisLabelFontSize: 9, valAxisLabelFontFace: 'Aptos',
-        valAxisLabelColor: COL_PPT.accent, valAxisLabelFormatCode: '#,##0',
-        valGridLine: { style: 'none' } },
-    ];
-    chartOptions.catAxes = [
-      { catAxisLabelFontSize: 9, catAxisLabelFontFace: 'Aptos',
-        catAxisLabelColor: COL_PPT.textDim },
-      { catAxisHidden: true },
-    ];
-  }
 
   s.addChart(combos, chartOptions);
 
