@@ -2128,13 +2128,13 @@ function EerrModal({ result, inputs, lotFid, lotArea, onClose }: {
               <div className="mt-3 bg-amber-950/30 rounded-lg p-4 border border-amber-700/40">
                 <div className="text-[11px] uppercase tracking-wider text-amber-300 font-semibold mb-3 flex items-center gap-2">
                   <span>💰</span> Capital de Trabajo
-                  <span className="text-[9px] text-zinc-500 normal-case font-normal">— capital propio efectivo · 80% de la obra financiada</span>
+                  <span className="text-[9px] text-zinc-500 normal-case font-normal">— capital propio · obra financiada salvo el anticipo</span>
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   <div>
                     <div className="text-[10px] uppercase text-zinc-500">Capital de Trabajo (máx.)</div>
                     <div className="text-lg font-bold text-amber-300 tabular-nums">{fmt(capital)} <span className="text-xs text-zinc-500">UF</span></div>
-                    <div className="text-[9px] text-zinc-600 italic">capital propio (20% obra)</div>
+                    <div className="text-[9px] text-zinc-600 italic">solo anticipo de obra es propio</div>
                   </div>
                   <div>
                     <div className="text-[10px] uppercase text-zinc-500">Capital sin terreno</div>
@@ -2167,8 +2167,13 @@ function EerrModal({ result, inputs, lotFid, lotArea, onClose }: {
                     <div className="text-[9px] text-zinc-600 italic">con IVA, sin suelo</div>
                   </div>
                 </div>
+                <div className="mt-4 pt-3 border-t border-amber-800/30">
+                  <div className="text-[9px] uppercase tracking-wider text-amber-300/70 mb-1">Capital de trabajo sin terreno por semestre (UF)</div>
+                  <WorkingCapitalSemesterChart cashFlow={result.cashFlow} />
+                </div>
+
                 <div className="mt-2 text-[9px] text-zinc-600 italic">
-                  Capital propio máximo (mes {result.workingCapitalPeakMonthFinanced}), asumiendo que el 80% de la obra se financia con crédito constructor. Referencia activo puro sin financiar: {fmt(capitalPuro)} UF. Se recalcula con cada cambio de inputs.
+                  Capital propio máximo (mes {result.workingCapitalPeakMonthFinanced}): el crédito constructor financia toda la obra salvo el anticipo ({fmtPct(inputs.constructionAdvancePct, 0)}). Referencia activo puro sin financiar: {fmt(capitalPuro)} UF. Se recalcula con cada cambio de inputs.
                 </div>
               </div>
             );
@@ -2380,6 +2385,64 @@ function MiniCashFlowChart({ cashFlow }: { cashFlow: ResidualOutput["cashFlow"] 
         const y = r.netCashFlow >= 0 ? mid - barH : mid;
         const fill = r.netCashFlow >= 0 ? "#22c55e" : "#ef4444";
         return <rect key={i} x={i * (barW + 1)} y={y} width={barW} height={barH} fill={fill} opacity={0.8} />;
+      })}
+    </svg>
+  );
+}
+
+// ── Gráfico: capital de trabajo SIN TERRENO por semestre ─────
+// Reconstruye el saldo de caja acumulado excluyendo el desembolso del terreno y con
+// el 80% de la obra financiada (mismo criterio que el indicador "Capital sin terreno").
+// Agrupa por semestre calendario y grafica la máxima exposición de cada uno: la barra
+// más alta coincide con el capital de trabajo sin terreno del bloque.
+function WorkingCapitalSemesterChart({ cashFlow }: { cashFlow: ResidualOutput["cashFlow"] }) {
+  // Mismo criterio que el motor: el crédito financia toda la obra salvo el anticipo.
+  let cum = 0;
+  const semMap = new Map<string, { label: string; order: number; min: number }>();
+  for (const r of cashFlow) {
+    const obra = r.constructionCost + r.urbanizationCost + r.earthMovementCost +
+      r.indirectCosts + r.postVentaConstruction + r.constructorUtility + r.contingencies;
+    cum += r.netCashFlow + r.landCost + (obra - r.constructionAdvance);
+    if (!r.date) continue;
+    const [yStr, mStr] = r.date.split("-");
+    const year = parseInt(yStr, 10), month = parseInt(mStr, 10);
+    if (!year || !month) continue;
+    const sem = month <= 6 ? 1 : 2;
+    const key = `${year}-${sem}`;
+    const prev = semMap.get(key);
+    if (!prev) semMap.set(key, { label: `S${sem}'${yStr.slice(2)}`, order: year * 2 + sem, min: cum });
+    else if (cum < prev.min) prev.min = cum;
+  }
+  // Capital requerido del semestre = magnitud de la exposición (0 si ya se recuperó).
+  const bars = [...semMap.values()].sort((a, b) => a.order - b.order)
+    .map((b) => ({ label: b.label, cap: b.min < 0 ? -b.min : 0 }));
+  if (bars.length === 0) return null;
+
+  const w = 520, h = 170, padTop = 16, padBottom = 22;
+  const plotH = h - padTop - padBottom;
+  const maxCap = Math.max(...bars.map((b) => b.cap), 1);
+  const scale = plotH / maxCap;
+  const gap = 7;
+  const barW = Math.max(8, (w - gap * (bars.length + 1)) / bars.length);
+  const baseY = padTop + plotH;
+  const compact = (v: number) => v >= 1000
+    ? (v / 1000).toLocaleString("es-CL", { maximumFractionDigits: 0 }) + "k"
+    : Math.round(v).toString();
+
+  return (
+    <svg viewBox={`0 0 ${w} ${h}`} className="w-full" style={{ height: "auto", maxHeight: 200 }}>
+      <line x1={0} y1={baseY} x2={w} y2={baseY} stroke="#52525b" strokeWidth={0.5} />
+      {bars.map((b, i) => {
+        const x = gap + i * (barW + gap);
+        const barH = b.cap * scale;
+        const y = baseY - barH;
+        return (
+          <g key={i}>
+            <rect x={x} y={y} width={barW} height={barH} fill="#d97706" opacity={0.85} rx={1.5} />
+            {b.cap > 0 && <text x={x + barW / 2} y={y - 3} textAnchor="middle" fontSize={9} fill="#fbbf24">{compact(b.cap)}</text>}
+            <text x={x + barW / 2} y={h - 6} textAnchor="middle" fontSize={9} fill="#a1a1aa">{b.label}</text>
+          </g>
+        );
       })}
     </svg>
   );

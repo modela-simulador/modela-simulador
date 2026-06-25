@@ -201,6 +201,7 @@ export interface MonthlyCashFlowRow {
   postVentaConstruction: number;
   constructorUtility: number;
   contingencies: number;
+  constructionAdvance: number;     // anticipo al contratista (único capital propio de obra; el resto va al crédito)
   studiesPermitsCost: number;
   afrVialCost: number;
   itoCost: number;

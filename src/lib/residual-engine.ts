@@ -327,6 +327,7 @@ export function buildCashFlow(
       postVentaConstruction: 0,
       constructorUtility: 0,
       contingencies: 0,
+      constructionAdvance: 0,
       studiesPermitsCost: 0,
       afrVialCost: 0,
       itoCost: 0,
@@ -391,6 +392,7 @@ export function buildCashFlow(
     // Anticipo al contratista: paga al mes de inicio de obra
     if (m === mcStart) {
       row.constructionCost += anticipoAmount;
+      row.constructionAdvance = anticipoAmount;
     }
 
     // SoPs mensuales vía curva S (gross = % avance físico × directConstructionCost).
@@ -1042,7 +1044,7 @@ function emptyCashFlowRow(m: number): MonthlyCashFlowRow {
     landCost: 0, landContributions: 0,
     constructionCost: 0, urbanizationCost: 0, earthMovementCost: 0,
     indirectCosts: 0, postVentaConstruction: 0, constructorUtility: 0,
-    contingencies: 0, studiesPermitsCost: 0, afrVialCost: 0, itoCost: 0,
+    contingencies: 0, constructionAdvance: 0, studiesPermitsCost: 0, afrVialCost: 0, itoCost: 0,
     totalConstructionCost: 0,
     escrituracionCost: 0, salesCommission: 0, marketingCost: 0,
     adminCost: 0, postVentaGav: 0, stockMaintenance: 0, greenInsurance: 0,
@@ -1064,7 +1066,7 @@ function mergeCashFlowRows(a: MonthlyCashFlowRow, b: MonthlyCashFlowRow): Monthl
     'landCost', 'landContributions',
     'constructionCost', 'urbanizationCost', 'earthMovementCost',
     'indirectCosts', 'postVentaConstruction', 'constructorUtility',
-    'contingencies', 'studiesPermitsCost', 'afrVialCost', 'itoCost',
+    'contingencies', 'constructionAdvance', 'studiesPermitsCost', 'afrVialCost', 'itoCost',
     'totalConstructionCost', 'escrituracionCost', 'salesCommission', 'marketingCost',
     'adminCost', 'postVentaGav', 'stockMaintenance', 'greenInsurance', 'totalGAV',
     'financingInterest', 'ivaPaid', 'incomeTax',
@@ -1249,13 +1251,12 @@ export function solveResidual(inputs: ResidualInputs): ResidualOutput {
   // exige el negocio inmobiliario (obra, GAV, IVA) independiente del precio del suelo.
   let troughExLand = 0;
   let cumExLand = 0;
-  // Capital de trabajo "efectivo" (capital propio): se asume que una fracción de la
-  // OBRA (edificación + urbanización) se financia con crédito constructor a medida
-  // que se ejecuta, por lo que solo el resto sale de la caja del desarrollador.
-  // Devolvemos al flujo, mes a mes, la porción financiada del desembolso de obra. No
-  // modela el repago: el pico de exposición ocurre antes de las escrituraciones que
-  // repagan el crédito, así que el capital propio máximo no se ve afectado por él.
-  const WORKING_CAPITAL_FINANCED_PCT = 0.80;
+  // Capital de trabajo "efectivo" (capital propio): el crédito constructor financia
+  // TODA la obra salvo el anticipo al contratista. De cada desembolso de obra sale de
+  // la caja propia únicamente el anticipo (row.constructionAdvance, pagado al inicio de
+  // obra); el resto lo cubre el crédito. Devolvemos al flujo la parte financiada
+  // (obra − anticipo). No modela el repago: el pico de exposición ocurre antes de las
+  // escrituraciones que repagan el crédito, así que el capital propio máximo no varía.
   let troughEff = 0, cumEff = 0, workingCapitalPeakMonthFinanced = 0;
   let troughEffExLand = 0, cumEffExLand = 0;
   cashFlow.forEach((r, i) => {
@@ -1268,7 +1269,7 @@ export function solveResidual(inputs: ResidualInputs): ResidualOutput {
 
     const obra = r.constructionCost + r.urbanizationCost + r.earthMovementCost +
       r.indirectCosts + r.postVentaConstruction + r.constructorUtility + r.contingencies;
-    const financed = WORKING_CAPITAL_FINANCED_PCT * obra;
+    const financed = obra - r.constructionAdvance;  // crédito cubre toda la obra salvo el anticipo
     cumEff += r.netCashFlow + financed;
     if (cumEff < troughEff) { troughEff = cumEff; workingCapitalPeakMonthFinanced = i; }
     cumEffExLand += r.netCashFlow + r.landCost + financed;
