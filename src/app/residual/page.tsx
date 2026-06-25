@@ -73,13 +73,14 @@ function downloadCashFlowXLSX(result: ResidualOutput, inputs: ResidualInputs, lo
     ["Terreno / utilidad después de impuestos (×)", p.utilidadEtapa > 0 ? Number((result.totalLandCostUF / p.utilidadEtapa).toFixed(2)) : 0],
     ["Pago IVA al SII (UF)", Math.round(p.pagoIVA)],
     ["Payback (mes)", result.paybackMonth],
-    ["Capital de trabajo (máx. UF)", Math.round(result.maxCapitalRequired)],
-    ["Capital de trabajo sin terreno (UF)", Math.round(result.maxCapitalRequiredExLand)],
-    ["Mes de máxima exposición", result.workingCapitalPeakMonth],
-    ["Retorno s/ capital de trabajo (×)", result.maxCapitalRequired > 0 ? Number((p.utilidadEtapa / result.maxCapitalRequired).toFixed(2)) : 0],
-    ["Capital / ventas netas", p.totalIngresosNet > 0 ? Number((result.maxCapitalRequired / p.totalIngresosNet).toFixed(4)) : 0],
-    ["Capital / ventas brutas", p.totalIngresosGross > 0 ? Number((result.maxCapitalRequired / p.totalIngresosGross).toFixed(4)) : 0],
-    ["Capital sin terreno / ventas brutas", p.totalIngresosGross > 0 ? Number((result.maxCapitalRequiredExLand / p.totalIngresosGross).toFixed(4)) : 0],
+    ["Capital de trabajo activo puro (máx. UF)", Math.round(result.maxCapitalRequired)],
+    ["Capital propio efectivo (80% obra financiada, UF)", Math.round(result.maxCapitalRequiredFinanced)],
+    ["Capital propio efectivo sin terreno (UF)", Math.round(result.maxCapitalRequiredExLandFinanced)],
+    ["Mes de máxima exposición (capital propio)", result.workingCapitalPeakMonthFinanced],
+    ["Retorno s/ capital propio (×)", result.maxCapitalRequiredFinanced > 0 ? Number((p.utilidadEtapa / result.maxCapitalRequiredFinanced).toFixed(2)) : 0],
+    ["Capital propio / ventas netas", p.totalIngresosNet > 0 ? Number((result.maxCapitalRequiredFinanced / p.totalIngresosNet).toFixed(4)) : 0],
+    ["Capital propio / ventas brutas", p.totalIngresosGross > 0 ? Number((result.maxCapitalRequiredFinanced / p.totalIngresosGross).toFixed(4)) : 0],
+    ["Capital propio sin terreno / ventas brutas", p.totalIngresosGross > 0 ? Number((result.maxCapitalRequiredExLandFinanced / p.totalIngresosGross).toFixed(4)) : 0],
     ["Duración proyecto (meses)", result.totalMonths],
   ];
 
@@ -1893,7 +1894,9 @@ function IVABreakdown({ result, inputs }: { result: ResidualOutput; inputs: Resi
 // pero distinta duración tienen eficiencias de capital muy diferentes. Por eso,
 // además del múltiplo, se anualiza dividiendo por la ventana de exposición.
 function workingCapitalReturn(result: ResidualOutput): { multiple: number; annualizedPct: number } {
-  const capital = result.maxCapitalRequired;
+  // Retorno sobre el capital PROPIO efectivo (80% de la obra financiada), coherente
+  // con los montos del bloque de Capital de Trabajo.
+  const capital = result.maxCapitalRequiredFinanced;
   const utilidad = result.pnl.utilidadEtapa;
   const multiple = capital > 0 ? utilidad / capital : 0;
 
@@ -2112,23 +2115,26 @@ function EerrModal({ result, inputs, lotFid, lotArea, onClose }: {
 
           {/* ═══════ CAPITAL DE TRABAJO ═══════ */}
           {(() => {
-            const capital = result.maxCapitalRequired;
-            const peakRow = result.cashFlow[result.workingCapitalPeakMonth];
+            // Capital PROPIO efectivo: asume 80% de la obra financiada con crédito constructor.
+            const capital = result.maxCapitalRequiredFinanced;
+            const capitalExLand = result.maxCapitalRequiredExLandFinanced;
+            const capitalPuro = result.maxCapitalRequired; // activo puro (sin financiar) — referencia
+            const peakRow = result.cashFlow[result.workingCapitalPeakMonthFinanced];
             const intensidad = p.totalIngresosNet > 0 ? capital / p.totalIngresosNet : 0;
             const intensidadGross = p.totalIngresosGross > 0 ? capital / p.totalIngresosGross : 0;
-            const capitalExLand = result.maxCapitalRequiredExLand;
             const intensidadExLandGross = p.totalIngresosGross > 0 ? capitalExLand / p.totalIngresosGross : 0;
             const wc = workingCapitalReturn(result);
             return (
               <div className="mt-3 bg-amber-950/30 rounded-lg p-4 border border-amber-700/40">
                 <div className="text-[11px] uppercase tracking-wider text-amber-300 font-semibold mb-3 flex items-center gap-2">
                   <span>💰</span> Capital de Trabajo
-                  <span className="text-[9px] text-zinc-500 normal-case font-normal">— máxima exposición de caja del activo puro</span>
+                  <span className="text-[9px] text-zinc-500 normal-case font-normal">— capital propio efectivo · 80% de la obra financiada</span>
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   <div>
                     <div className="text-[10px] uppercase text-zinc-500">Capital de Trabajo (máx.)</div>
                     <div className="text-lg font-bold text-amber-300 tabular-nums">{fmt(capital)} <span className="text-xs text-zinc-500">UF</span></div>
+                    <div className="text-[9px] text-zinc-600 italic">capital propio (20% obra)</div>
                   </div>
                   <div>
                     <div className="text-[10px] uppercase text-zinc-500">Capital sin terreno</div>
@@ -2137,7 +2143,7 @@ function EerrModal({ result, inputs, lotFid, lotArea, onClose }: {
                   </div>
                   <div>
                     <div className="text-[10px] uppercase text-zinc-500">Máxima Exposición</div>
-                    <div className="text-lg font-bold text-zinc-200 tabular-nums">Mes {result.workingCapitalPeakMonth}</div>
+                    <div className="text-lg font-bold text-zinc-200 tabular-nums">Mes {result.workingCapitalPeakMonthFinanced}</div>
                     {peakRow?.date && <div className="text-[9px] text-zinc-600">{peakRow.date}</div>}
                   </div>
                   <div>
@@ -2162,8 +2168,7 @@ function EerrModal({ result, inputs, lotFid, lotArea, onClose }: {
                   </div>
                 </div>
                 <div className="mt-2 text-[9px] text-zinc-600 italic">
-                  Equity máximo inmovilizado en el peor momento de caja (mes {result.workingCapitalPeakMonth}). Se recalcula con cada cambio de inputs.
-                  {inputs.constructionFinancingPct > 0 && " Sobre activo puro; con financiamiento el equity propio requerido es menor."}
+                  Capital propio máximo (mes {result.workingCapitalPeakMonthFinanced}), asumiendo que el 80% de la obra se financia con crédito constructor. Referencia activo puro sin financiar: {fmt(capitalPuro)} UF. Se recalcula con cada cambio de inputs.
                 </div>
               </div>
             );

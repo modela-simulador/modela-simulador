@@ -1249,6 +1249,15 @@ export function solveResidual(inputs: ResidualInputs): ResidualOutput {
   // exige el negocio inmobiliario (obra, GAV, IVA) independiente del precio del suelo.
   let troughExLand = 0;
   let cumExLand = 0;
+  // Capital de trabajo "efectivo" (capital propio): se asume que una fracción de la
+  // OBRA (edificación + urbanización) se financia con crédito constructor a medida
+  // que se ejecuta, por lo que solo el resto sale de la caja del desarrollador.
+  // Devolvemos al flujo, mes a mes, la porción financiada del desembolso de obra. No
+  // modela el repago: el pico de exposición ocurre antes de las escrituraciones que
+  // repagan el crédito, así que el capital propio máximo no se ve afectado por él.
+  const WORKING_CAPITAL_FINANCED_PCT = 0.80;
+  let troughEff = 0, cumEff = 0, workingCapitalPeakMonthFinanced = 0;
+  let troughEffExLand = 0, cumEffExLand = 0;
   cashFlow.forEach((r, i) => {
     if (r.cumulativeCashFlow < troughValue) {
       troughValue = r.cumulativeCashFlow;
@@ -1256,9 +1265,19 @@ export function solveResidual(inputs: ResidualInputs): ResidualOutput {
     }
     cumExLand += r.netCashFlow + r.landCost;
     if (cumExLand < troughExLand) troughExLand = cumExLand;
+
+    const obra = r.constructionCost + r.urbanizationCost + r.earthMovementCost +
+      r.indirectCosts + r.postVentaConstruction + r.constructorUtility + r.contingencies;
+    const financed = WORKING_CAPITAL_FINANCED_PCT * obra;
+    cumEff += r.netCashFlow + financed;
+    if (cumEff < troughEff) { troughEff = cumEff; workingCapitalPeakMonthFinanced = i; }
+    cumEffExLand += r.netCashFlow + r.landCost + financed;
+    if (cumEffExLand < troughEffExLand) troughEffExLand = cumEffExLand;
   });
   const maxCapital = Math.abs(troughValue);
   const maxCapitalExLand = Math.abs(troughExLand);
+  const maxCapitalFinanced = Math.abs(troughEff);
+  const maxCapitalExLandFinanced = Math.abs(troughEffExLand);
   const leveredFlows = cashFlow.map(r => r.netCashFlowLevered);
   const tirMonthlyLev = computeIRR(leveredFlows) ?? tirMonthly;
   const tirAnnualLev = Math.pow(1 + tirMonthlyLev, 12) - 1;
@@ -1289,7 +1308,10 @@ export function solveResidual(inputs: ResidualInputs): ResidualOutput {
     paybackMonth: paybackMonth >= 0 ? paybackMonth : cashFlow.length,
     maxCapitalRequired: maxCapital,
     maxCapitalRequiredExLand: maxCapitalExLand,
+    maxCapitalRequiredFinanced: maxCapitalFinanced,
+    maxCapitalRequiredExLandFinanced: maxCapitalExLandFinanced,
     workingCapitalPeakMonth,
+    workingCapitalPeakMonthFinanced,
     totalMonths: cashFlow.length,
     salesMonths,
     supConstruidaTotal,

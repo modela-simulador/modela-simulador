@@ -373,9 +373,14 @@ export interface ResidualOutput {
 
   // Project metrics
   paybackMonth: number;
-  maxCapitalRequired: number;      // capital de trabajo: máxima exposición de caja (|mínimo del flujo acumulado|)
-  maxCapitalRequiredExLand: number; // capital de trabajo excluyendo el desembolso del terreno
-  workingCapitalPeakMonth: number; // mes (índice) en que ocurre esa máxima exposición de capital
+  maxCapitalRequired: number;      // capital de trabajo activo puro: máxima exposición de caja (|mínimo del flujo acumulado|)
+  maxCapitalRequiredExLand: number; // capital de trabajo activo puro excluyendo el desembolso del terreno
+  // Capital de trabajo "efectivo" (capital propio): asume que el 80% de la obra se
+  // financia con crédito constructor, por lo que solo el 20% sale de la caja propia.
+  maxCapitalRequiredFinanced: number;        // capital propio efectivo (con terreno)
+  maxCapitalRequiredExLandFinanced: number;  // capital propio efectivo sin terreno
+  workingCapitalPeakMonth: number; // mes (índice) en que ocurre la máxima exposición de capital (activo puro)
+  workingCapitalPeakMonthFinanced: number; // mes del pico del capital propio efectivo
   totalMonths: number;
   salesMonths: number;
 
