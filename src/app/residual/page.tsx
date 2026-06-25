@@ -2168,8 +2168,9 @@ function EerrModal({ result, inputs, lotFid, lotArea, onClose }: {
                   </div>
                 </div>
                 <div className="mt-4 pt-3 border-t border-amber-800/30">
-                  <div className="text-[9px] uppercase tracking-wider text-amber-300/70 mb-1">Capital de trabajo sin terreno por semestre (UF)</div>
+                  <div className="text-[9px] uppercase tracking-wider text-amber-300/70 mb-1">Aporte de capital de trabajo sin terreno por semestre (UF)</div>
                   <WorkingCapitalSemesterChart cashFlow={result.cashFlow} />
+                  <div className="text-[9px] text-zinc-600 italic mt-1">Capital parcial inmovilizado cada semestre; la suma de las barras = {fmt(capitalExLand)} UF (capital de trabajo sin terreno).</div>
                 </div>
 
                 <div className="mt-2 text-[9px] text-zinc-600 italic">
@@ -2390,32 +2391,41 @@ function MiniCashFlowChart({ cashFlow }: { cashFlow: ResidualOutput["cashFlow"] 
   );
 }
 
-// ── Gráfico: capital de trabajo SIN TERRENO por semestre ─────
-// Reconstruye el saldo de caja acumulado excluyendo el desembolso del terreno y con
-// el 80% de la obra financiada (mismo criterio que el indicador "Capital sin terreno").
-// Agrupa por semestre calendario y grafica la máxima exposición de cada uno: la barra
-// más alta coincide con el capital de trabajo sin terreno del bloque.
+// ── Gráfico: aporte PARCIAL de capital de trabajo sin terreno por semestre ─────
+// Descompone el capital de trabajo (no acumulado): cada barra es el capital propio que
+// se inmoviliza ESE semestre, sumando los meses hasta la máxima exposición. Por
+// construcción telescópica, la suma de las barras = el capital de trabajo sin terreno.
 function WorkingCapitalSemesterChart({ cashFlow }: { cashFlow: ResidualOutput["cashFlow"] }) {
-  // Mismo criterio que el motor: el crédito financia toda la obra salvo el anticipo.
+  // Serie de saldo de caja propio SIN TERRENO (crédito financia toda la obra salvo el anticipo).
   let cum = 0;
-  const semMap = new Map<string, { label: string; order: number; min: number }>();
-  for (const r of cashFlow) {
+  const pts = cashFlow.map((r) => {
     const obra = r.constructionCost + r.urbanizationCost + r.earthMovementCost +
       r.indirectCosts + r.postVentaConstruction + r.constructorUtility + r.contingencies;
     cum += r.netCashFlow + r.landCost + (obra - r.constructionAdvance);
-    if (!r.date) continue;
-    const [yStr, mStr] = r.date.split("-");
+    return { date: r.date, cum };
+  });
+  // Mes de máxima exposición (saldo mínimo).
+  let minCum = 0, peakIdx = -1;
+  pts.forEach((p, i) => { if (p.cum < minCum) { minCum = p.cum; peakIdx = i; } });
+  if (peakIdx < 0) return null;
+  // Aporte parcial de capital por semestre = caída del saldo durante el semestre, hasta el pico.
+  const semMap = new Map<string, { label: string; order: number; cap: number }>();
+  let prev = 0;
+  for (let i = 0; i <= peakIdx; i++) {
+    const p = pts[i];
+    const aporte = prev - p.cum;  // saldo baja → capital que se inmoviliza ese mes
+    prev = p.cum;
+    if (!p.date) continue;
+    const [yStr, mStr] = p.date.split("-");
     const year = parseInt(yStr, 10), month = parseInt(mStr, 10);
     if (!year || !month) continue;
     const sem = month <= 6 ? 1 : 2;
     const key = `${year}-${sem}`;
-    const prev = semMap.get(key);
-    if (!prev) semMap.set(key, { label: `S${sem}'${yStr.slice(2)}`, order: year * 2 + sem, min: cum });
-    else if (cum < prev.min) prev.min = cum;
+    const e = semMap.get(key);
+    if (!e) semMap.set(key, { label: `S${sem}'${yStr.slice(2)}`, order: year * 2 + sem, cap: aporte });
+    else e.cap += aporte;
   }
-  // Capital requerido del semestre = magnitud de la exposición (0 si ya se recuperó).
-  const bars = [...semMap.values()].sort((a, b) => a.order - b.order)
-    .map((b) => ({ label: b.label, cap: b.min < 0 ? -b.min : 0 }));
+  const bars = [...semMap.values()].sort((a, b) => a.order - b.order);
   if (bars.length === 0) return null;
 
   const w = 520, h = 170, padTop = 16, padBottom = 22;
