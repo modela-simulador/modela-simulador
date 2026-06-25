@@ -57,7 +57,7 @@ function downloadCashFlowXLSX(result: ResidualOutput, inputs: ResidualInputs, lo
     ["Land UF/m²", Number(result.landValueUFm2.toFixed(2))],
     ["Land total UF", Math.round(result.totalLandCostUF)],
     ["UF / vivienda", inputs.totalUnits > 0 ? Math.round(result.totalLandCostUF / inputs.totalUnits * 10) / 10 : 0],
-    ["Incidencia s/ viviendas", Number((result.incidencia * 100).toFixed(2)) / 100],
+    ["Incidencia s/ ventas viviendas brutas", Number((result.incidencia * 100).toFixed(2)) / 100],
     ["Land por TIR 10%", Number(result.landByTIRUFm2.toFixed(2))],
     ["Land por Utility 10%", Number(result.landByMarginUFm2.toFixed(2))],
     ["Binding", result.bindingConstraint === "TIR" ? "TIR" : "Utilidad"],
@@ -2076,7 +2076,7 @@ function EerrModal({ result, inputs, lotFid, lotArea, onClose }: {
             <div>
               <div className="text-[10px] uppercase text-blue-300">Incidencia s/ viviendas</div>
               <div className="text-lg font-bold text-white tabular-nums">{fmtPct(result.incidencia)}</div>
-              <div className="text-[9px] text-zinc-500 italic">Base: ventas viviendas NETO</div>
+              <div className="text-[9px] text-zinc-500 italic">Base: ventas viviendas BRUTO (con IVA)</div>
             </div>
             <div>
               <div className="text-[10px] uppercase text-blue-300">Terreno / Utilidad</div>

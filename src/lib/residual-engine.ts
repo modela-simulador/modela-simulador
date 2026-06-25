@@ -1300,7 +1300,7 @@ export function solveResidual(inputs: ResidualInputs): ResidualOutput {
   return {
     landValueUFm2: finalLand,
     totalLandCostUF: totalLandCost,
-    incidencia: pnl.ventasInmobiliariasNet > 0 ? totalLandCost / pnl.ventasInmobiliariasNet : 0,
+    incidencia: pnl.ventasInmobiliariasGross > 0 ? totalLandCost / pnl.ventasInmobiliariasGross : 0,
     tirMonthly,
     tirAnnual,
     tirAnnualLevered: tirAnnualLev,
