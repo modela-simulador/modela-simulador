@@ -1239,7 +1239,26 @@ export function solveResidual(inputs: ResidualInputs): ResidualOutput {
   const pnl = buildPnL(inputs, cashFlow, finalLand);
   const totalLandCost = finalLand * inputs.lotAreaM2;
   const paybackMonth = cashFlow.findIndex(r => r.cumulativeCashFlow > 0);
-  const maxCapital = Math.abs(Math.min(...cashFlow.map(r => r.cumulativeCashFlow)));
+  // Capital de trabajo = máxima exposición de caja: el punto más negativo del flujo
+  // acumulado (unlevered). Es el equity que el desarrollador debe inmovilizar en el
+  // peor momento del proyecto. Si el flujo nunca es negativo, el capital es 0.
+  let troughValue = 0;
+  let workingCapitalPeakMonth = 0;
+  // Capital de trabajo SIN terreno: misma exposición pero devolviendo al flujo el
+  // desembolso del terreno (row.landCost) mes a mes, para aislar el capital que
+  // exige el negocio inmobiliario (obra, GAV, IVA) independiente del precio del suelo.
+  let troughExLand = 0;
+  let cumExLand = 0;
+  cashFlow.forEach((r, i) => {
+    if (r.cumulativeCashFlow < troughValue) {
+      troughValue = r.cumulativeCashFlow;
+      workingCapitalPeakMonth = i;
+    }
+    cumExLand += r.netCashFlow + r.landCost;
+    if (cumExLand < troughExLand) troughExLand = cumExLand;
+  });
+  const maxCapital = Math.abs(troughValue);
+  const maxCapitalExLand = Math.abs(troughExLand);
   const leveredFlows = cashFlow.map(r => r.netCashFlowLevered);
   const tirMonthlyLev = computeIRR(leveredFlows) ?? tirMonthly;
   const tirAnnualLev = Math.pow(1 + tirMonthlyLev, 12) - 1;
@@ -1269,6 +1288,8 @@ export function solveResidual(inputs: ResidualInputs): ResidualOutput {
     vanUF,
     paybackMonth: paybackMonth >= 0 ? paybackMonth : cashFlow.length,
     maxCapitalRequired: maxCapital,
+    maxCapitalRequiredExLand: maxCapitalExLand,
+    workingCapitalPeakMonth,
     totalMonths: cashFlow.length,
     salesMonths,
     supConstruidaTotal,

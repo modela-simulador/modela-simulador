@@ -70,9 +70,16 @@ function downloadCashFlowXLSX(result: ResidualOutput, inputs: ResidualInputs, lo
     ["Impuesto renta (27%) UF", Math.round(p.impuestoRenta)],
     ["Utilidad neta etapa UF", Math.round(p.utilidadEtapa)],
     ["Utilidad % sobre ventas netas", Number(p.netProfitPct.toFixed(4))],
+    ["Terreno / utilidad después de impuestos (×)", p.utilidadEtapa > 0 ? Number((result.totalLandCostUF / p.utilidadEtapa).toFixed(2)) : 0],
     ["Pago IVA al SII (UF)", Math.round(p.pagoIVA)],
     ["Payback (mes)", result.paybackMonth],
-    ["Capital máx. requerido", Math.round(result.maxCapitalRequired)],
+    ["Capital de trabajo (máx. UF)", Math.round(result.maxCapitalRequired)],
+    ["Capital de trabajo sin terreno (UF)", Math.round(result.maxCapitalRequiredExLand)],
+    ["Mes de máxima exposición", result.workingCapitalPeakMonth],
+    ["Retorno s/ capital de trabajo (×)", result.maxCapitalRequired > 0 ? Number((p.utilidadEtapa / result.maxCapitalRequired).toFixed(2)) : 0],
+    ["Capital / ventas netas", p.totalIngresosNet > 0 ? Number((result.maxCapitalRequired / p.totalIngresosNet).toFixed(4)) : 0],
+    ["Capital / ventas brutas", p.totalIngresosGross > 0 ? Number((result.maxCapitalRequired / p.totalIngresosGross).toFixed(4)) : 0],
+    ["Capital sin terreno / ventas brutas", p.totalIngresosGross > 0 ? Number((result.maxCapitalRequiredExLand / p.totalIngresosGross).toFixed(4)) : 0],
     ["Duración proyecto (meses)", result.totalMonths],
   ];
 
@@ -1420,7 +1427,7 @@ export default function ResidualPage() {
                     <div className="grid grid-cols-3 gap-2">
                       <KPISmall label="VAN" value={`${fmt(result.vanUF)} UF`} />
                       <KPISmall label="Payback" value={`Mes ${result.paybackMonth}`} />
-                      <KPISmall label="Capital máx." value={`${fmt(result.maxCapitalRequired)} UF`} />
+                      <KPISmall label="Capital trabajo" value={`${fmt(result.maxCapitalRequired)} UF`} />
                     </div>
 
                     {/* Mini cash flow chart */}
@@ -1879,6 +1886,29 @@ function IVABreakdown({ result, inputs }: { result: ResidualOutput; inputs: Resi
   );
 }
 
+// ── Retorno sobre capital de trabajo ─────────────────────────
+// Mide cuánta utilidad genera cada UF de capital inmovilizada en el peor momento
+// de caja. El múltiplo simple (utilidad / capital) es directo pero NO considera
+// cuánto tiempo estuvo inmovilizado ese capital: dos proyectos con igual múltiplo
+// pero distinta duración tienen eficiencias de capital muy diferentes. Por eso,
+// además del múltiplo, se anualiza dividiendo por la ventana de exposición.
+function workingCapitalReturn(result: ResidualOutput): { multiple: number; annualizedPct: number } {
+  const capital = result.maxCapitalRequired;
+  const utilidad = result.pnl.utilidadEtapa;
+  const multiple = capital > 0 ? utilidad / capital : 0;
+
+  // Ventana de anualización del capital comprometido. Por defecto: desde el inicio
+  // del proyecto (compra del terreno, mes 0) hasta el payback. Es conservadora —
+  // refleja que el capital está en riesgo desde el primer desembolso.
+  // TODO(Sebastián): decide qué ventana refleja mejor tu realidad de negocio
+  // (ver alternativas en el chat) y ajústala aquí. Otra opción razonable es la
+  // ventana de exposición pico→payback: Math.max(1, paybackMonth - workingCapitalPeakMonth).
+  const exposureMonths = Math.max(1, result.paybackMonth);
+  const annualizedPct = multiple / (exposureMonths / 12);
+
+  return { multiple, annualizedPct };
+}
+
 function EerrModal({ result, inputs, lotFid, lotArea, onClose }: {
   result: ResidualOutput;
   inputs: ResidualInputs;
@@ -2025,7 +2055,7 @@ function EerrModal({ result, inputs, lotFid, lotArea, onClose }: {
           <IVABreakdown result={result} inputs={inputs} />
 
           {/* Valor del terreno — mismo cálculo que Hero del sidebar (convención chilena: sólo viviendas) */}
-          <div className="mt-6 grid grid-cols-4 gap-3 bg-blue-950/40 rounded-lg p-4 border border-blue-700/50">
+          <div className="mt-6 grid grid-cols-2 md:grid-cols-5 gap-3 bg-blue-950/40 rounded-lg p-4 border border-blue-700/50">
             <div>
               <div className="text-[10px] uppercase text-blue-300">Valor Terreno (UF/m²)</div>
               <div className="text-lg font-bold text-white tabular-nums">{result.landValueUFm2.toLocaleString("es-CL", { maximumFractionDigits: 2 })}</div>
@@ -2044,6 +2074,11 @@ function EerrModal({ result, inputs, lotFid, lotArea, onClose }: {
               <div className="text-[10px] uppercase text-blue-300">Incidencia s/ viviendas</div>
               <div className="text-lg font-bold text-white tabular-nums">{fmtPct(result.incidencia)}</div>
               <div className="text-[9px] text-zinc-500 italic">Base: ventas viviendas NETO</div>
+            </div>
+            <div>
+              <div className="text-[10px] uppercase text-blue-300">Terreno / Utilidad</div>
+              <div className="text-lg font-bold text-white tabular-nums">{p.utilidadEtapa > 0 ? fmtPct(result.totalLandCostUF / p.utilidadEtapa) : "—"}</div>
+              <div className="text-[9px] text-zinc-500 italic">s/ utilidad después de impuestos</div>
             </div>
           </div>
 
@@ -2074,6 +2109,65 @@ function EerrModal({ result, inputs, lotFid, lotArea, onClose }: {
               <div className="text-lg font-bold text-blue-400">{fmtPct(result.tirAnnualLevered)}</div>
             </div>
           </div>
+
+          {/* ═══════ CAPITAL DE TRABAJO ═══════ */}
+          {(() => {
+            const capital = result.maxCapitalRequired;
+            const peakRow = result.cashFlow[result.workingCapitalPeakMonth];
+            const intensidad = p.totalIngresosNet > 0 ? capital / p.totalIngresosNet : 0;
+            const intensidadGross = p.totalIngresosGross > 0 ? capital / p.totalIngresosGross : 0;
+            const capitalExLand = result.maxCapitalRequiredExLand;
+            const intensidadExLandGross = p.totalIngresosGross > 0 ? capitalExLand / p.totalIngresosGross : 0;
+            const wc = workingCapitalReturn(result);
+            return (
+              <div className="mt-3 bg-amber-950/30 rounded-lg p-4 border border-amber-700/40">
+                <div className="text-[11px] uppercase tracking-wider text-amber-300 font-semibold mb-3 flex items-center gap-2">
+                  <span>💰</span> Capital de Trabajo
+                  <span className="text-[9px] text-zinc-500 normal-case font-normal">— máxima exposición de caja del activo puro</span>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <div>
+                    <div className="text-[10px] uppercase text-zinc-500">Capital de Trabajo (máx.)</div>
+                    <div className="text-lg font-bold text-amber-300 tabular-nums">{fmt(capital)} <span className="text-xs text-zinc-500">UF</span></div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] uppercase text-zinc-500">Capital sin terreno</div>
+                    <div className="text-lg font-bold text-amber-200 tabular-nums">{fmt(capitalExLand)} <span className="text-xs text-zinc-500">UF</span></div>
+                    <div className="text-[9px] text-zinc-600 italic">excluye compra del suelo</div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] uppercase text-zinc-500">Máxima Exposición</div>
+                    <div className="text-lg font-bold text-zinc-200 tabular-nums">Mes {result.workingCapitalPeakMonth}</div>
+                    {peakRow?.date && <div className="text-[9px] text-zinc-600">{peakRow.date}</div>}
+                  </div>
+                  <div>
+                    <div className="text-[10px] uppercase text-zinc-500">Retorno s/ Capital</div>
+                    <div className="text-lg font-bold text-zinc-200 tabular-nums">{wc.multiple.toLocaleString("es-CL", { maximumFractionDigits: 2 })}×</div>
+                    <div className="text-[9px] text-zinc-600 italic">utilidad / capital máx. · {fmtPct(wc.annualizedPct)} anual aprox.</div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] uppercase text-zinc-500">Capital / Ventas netas</div>
+                    <div className="text-lg font-bold text-zinc-200 tabular-nums">{fmtPct(intensidad)}</div>
+                    <div className="text-[9px] text-zinc-600 italic">sin IVA</div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] uppercase text-zinc-500">Capital / Ventas brutas</div>
+                    <div className="text-lg font-bold text-zinc-200 tabular-nums">{fmtPct(intensidadGross)}</div>
+                    <div className="text-[9px] text-zinc-600 italic">con IVA</div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] uppercase text-zinc-500">Cap. sin terreno / V. brutas</div>
+                    <div className="text-lg font-bold text-zinc-200 tabular-nums">{fmtPct(intensidadExLandGross)}</div>
+                    <div className="text-[9px] text-zinc-600 italic">con IVA, sin suelo</div>
+                  </div>
+                </div>
+                <div className="mt-2 text-[9px] text-zinc-600 italic">
+                  Equity máximo inmovilizado en el peor momento de caja (mes {result.workingCapitalPeakMonth}). Se recalcula con cada cambio de inputs.
+                  {inputs.constructionFinancingPct > 0 && " Sobre activo puro; con financiamiento el equity propio requerido es menor."}
+                </div>
+              </div>
+            );
+          })()}
 
           {/* Fechas clave (como Excel EERR Consolidado col K-L) */}
           {(() => {

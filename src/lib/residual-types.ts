@@ -373,7 +373,9 @@ export interface ResidualOutput {
 
   // Project metrics
   paybackMonth: number;
-  maxCapitalRequired: number;      // max negative cumulative CF
+  maxCapitalRequired: number;      // capital de trabajo: máxima exposición de caja (|mínimo del flujo acumulado|)
+  maxCapitalRequiredExLand: number; // capital de trabajo excluyendo el desembolso del terreno
+  workingCapitalPeakMonth: number; // mes (índice) en que ocurre esa máxima exposición de capital
   totalMonths: number;
   salesMonths: number;
 
