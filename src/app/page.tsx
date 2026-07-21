@@ -250,8 +250,8 @@ function AppSelector({ username, onLogout }: { username: string; onLogout: () =>
           </a>
         </div>
 
-        {/* Tercera opción secundaria: Cabidas Automáticas */}
-        <div className="w-full max-w-5xl">
+        {/* Opciones secundarias: Cabidas + Conectividad */}
+        <div className="w-full max-w-5xl grid grid-cols-1 md:grid-cols-2 gap-4">
           <a
             href={`${BASE_PATH}/cabidas`}
             className="group relative flex items-center gap-4 bg-white/3 backdrop-blur-xl border border-white/10 rounded-xl px-6 py-4 hover:bg-white/6 hover:border-[#a89867]/40 transition-all duration-300"
@@ -270,6 +270,34 @@ function AppSelector({ username, onLogout }: { username: string; onLogout: () =>
               </div>
               <p className="text-white/40 text-xs leading-relaxed mt-0.5 truncate">
                 Generador de subdivisión automática, mix de productos, etapamiento BFS y análisis de negocio.
+              </p>
+            </div>
+            <svg className="w-5 h-5 text-white/30 group-hover:text-white/70 transition-colors shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+            </svg>
+          </a>
+
+          {/* Conectividad (app propia, servida en /conectividad/) */}
+          <a
+            href={`${BASE_PATH}/conectividad/`}
+            className="group relative flex items-center gap-4 bg-white/3 backdrop-blur-xl border border-white/10 rounded-xl px-6 py-4 hover:bg-white/6 hover:border-[#22d3ee]/40 transition-all duration-300"
+          >
+            <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-[#22d3ee] to-[#0e7490] flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+              <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <circle cx="6" cy="18" r="2.2" />
+                <circle cx="18" cy="6" r="2.2" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8 18h6a4 4 0 000-8H9a4 4 0 010-8h5" />
+              </svg>
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <h3 className="text-base font-semibold text-white group-hover:text-[#67e8f9] transition-colors">
+                  Conectividad
+                </h3>
+                <span className="text-[10px] px-2 py-0.5 bg-[#22d3ee]/10 border border-[#22d3ee]/30 rounded text-[#67e8f9] tracking-wider uppercase">Nuevo</span>
+              </div>
+              <p className="text-white/40 text-xs leading-relaxed mt-0.5 truncate">
+                Tiempo y costo puerta a puerta desde cada proyecto, hoy vs. el tren.
               </p>
             </div>
             <svg className="w-5 h-5 text-white/30 group-hover:text-white/70 transition-colors shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
