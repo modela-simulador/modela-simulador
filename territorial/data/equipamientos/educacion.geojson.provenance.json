@@ -1,0 +1,14 @@
+{
+  "fuente": "MINEDUC — Establecimientos Educacionales y Jardines Infantiles 2025 (georreferenciados, con matrícula)",
+  "institucion": "Ministerio de Educación (servicio ArcGIS oficial)",
+  "url": "https://services6.arcgis.com/LCdFQd7nnAn5xeUA/arcgis/rest/services/Establecimientos_Educacionales_y_Jardines_Infantiles_2025/FeatureServer/0",
+  "licencia": "Datos públicos — citar MINEDUC",
+  "escala": "E2/E3",
+  "clasificacion": "OBSERVADO",
+  "metodologia": "ArcGIS REST query UPPER(Comuna) LIKE %LAMPA%; incluye matrícula (CAPACIDAD §6.6), dependencia y ruralidad",
+  "limitaciones": "Existencia y capacidad; NO incluye calidad (SIMCE/Agencia) ni accesibilidad real — vacíos declarados (§6.6)",
+  "periodo": "2025",
+  "fecha_descarga": "2026-07-30T11:52:56-04:00",
+  "generado": "2026-07-30T11:52:56-04:00",
+  "artefacto": "equipamientos/educacion.geojson"
+}

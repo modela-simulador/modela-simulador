@@ -1,0 +1,14 @@
+{
+  "fuente": "GTFS Red Metropolitana de Movilidad V166 (2026-07-04)",
+  "institucion": "DTPM",
+  "url": "https://www.dtpm.cl/descargas/gtfs/GTFS_20260704.zip",
+  "licencia": "Datos abiertos DTPM",
+  "escala": "E2/E4",
+  "clasificacion": "OBSERVADO",
+  "metodologia": "Feed completo descargado (sha256 acc7705c77f5); stops.txt parseado; distancias haversine a centro referencial de Batuco (-70.808, -33.227)",
+  "limitaciones": "El centro de Batuco es referencial (±500 m); no altera la conclusión de cobertura",
+  "periodo": "V166 vigente 2026-07",
+  "fecha_descarga": "2026-07-29T08:08:13-04:00",
+  "generado": "2026-07-29T08:08:13-04:00",
+  "artefacto": "movilidad/paradas_cercanas.geojson"
+}

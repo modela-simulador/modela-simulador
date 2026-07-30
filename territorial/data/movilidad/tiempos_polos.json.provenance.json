@@ -1,0 +1,14 @@
+{
+  "fuente": "Google Routes API — Compute Route Matrix (TRAFFIC_AWARE punta AM miércoles 08:00 vs TRAFFIC_UNAWARE)",
+  "institucion": "Google Maps Platform",
+  "url": "https://routes.googleapis.com (SKU Route Matrix Pro)",
+  "licencia": "ToS GMP — resultados de análisis propios almacenables; atribución Google",
+  "escala": "E2→E4",
+  "clasificacion": "CALCULADO",
+  "metodologia": "Matriz 1 origen × 8 destinos × 2 condiciones; punta = tráfico PREDICHO para 2026-08-05T08:00:00-04:00; coordenadas de polos referenciales",
+  "limitaciones": "Solo modo auto (transporte público sin datos GTFS en Batuco); punta predicha, no observada; un solo horario",
+  "periodo": "consulta 2026-07-29",
+  "fecha_descarga": "2026-07-29T18:26:33-04:00",
+  "generado": "2026-07-29T18:26:33-04:00",
+  "artefacto": "movilidad/tiempos_polos.json"
+}

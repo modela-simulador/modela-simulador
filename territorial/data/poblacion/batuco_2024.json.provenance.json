@@ -1,0 +1,14 @@
+{
+  "institucion": "Instituto Nacional de Estadísticas (org ArcGIS oficial gisine1)",
+  "url": "https://services5.arcgis.com/hUyD8u3TeZLKPe4T/arcgis/rest/services/Censo2024_v2/FeatureServer (capas Manzanas_CPV24 y Limite_Urbano_CPV24)",
+  "licencia": "Datos públicos INE — citar 'INE, Censo de Población y Vivienda 2024'",
+  "clasificacion": "OBSERVADO",
+  "periodo": "Censo 2024 (levantamiento 2024; publicación manzana dic-2025)",
+  "fuente": "INE Censo 2024 — agregados oficiales del límite urbano de Batuco",
+  "escala": "E2",
+  "metodologia": "Suma de atributos oficiales del/los polígono(s) de límite urbano Batuco (Limite_Urbano_CPV24)",
+  "limitaciones": "Cubre el área URBANA censal; población rural dispersa del entorno no incluida. Posible supresión por secreto estadístico en variables sensibles",
+  "fecha_descarga": "2026-07-29T08:08:04-04:00",
+  "generado": "2026-07-29T08:08:04-04:00",
+  "artefacto": "poblacion/batuco_2024.json"
+}

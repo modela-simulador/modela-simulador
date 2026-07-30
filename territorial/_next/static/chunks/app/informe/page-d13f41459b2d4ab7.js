@@ -1,0 +1,1 @@
+(self.webpackChunk_N_E=self.webpackChunk_N_E||[]).push([[741],{1597:(n,r,i)=>{Promise.resolve().then(i.bind(i,2045))},2045:(n,r,i)=>{"use strict";i.d(r,{BotonImprimir:()=>e});var t=i(5155);function e(){return(0,t.jsx)("button",{className:"btn print-btn",onClick:()=>window.print(),children:"Exportar a PDF (imprimir)"})}}},n=>{n.O(0,[441,255,358],()=>n(n.s=1597)),_N_E=n.O()}]);

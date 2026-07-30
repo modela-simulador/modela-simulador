@@ -1,0 +1,14 @@
+{
+  "fuente": "CONASET — siniestros de tránsito urbanos 2024 (georreferenciados)",
+  "institucion": "CONASET (ArcGIS Hub oficial)",
+  "url": "https://mapas-conaset.opendata.arcgis.com (capa urbano_2024)",
+  "licencia": "Datos abiertos — citar CONASET",
+  "escala": "E3",
+  "clasificacion": "OBSERVADO",
+  "metodologia": "ArcGIS REST query UPPER(Comuna) LIKE %LAMPA%; puntos con tipo/causa/severidad",
+  "limitaciones": "Solo siniestros URBANOS 2024 (rurales/otras vías no incluidos); ubicación según parte policial",
+  "periodo": "2024",
+  "fecha_descarga": "2026-07-29T18:52:09-04:00",
+  "generado": "2026-07-29T18:52:09-04:00",
+  "artefacto": "seguridad/siniestros_conaset.geojson"
+}

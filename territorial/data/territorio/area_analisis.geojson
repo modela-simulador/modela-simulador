@@ -1,0 +1,1 @@
+{"type": "FeatureCollection", "features": [{"type": "Feature", "properties": {"nombre": "Área de análisis del sistema local (v1)"}, "geometry": {"type": "Polygon", "coordinates": [[[-70.7260769, -33.3017644], [-70.7260769, -33.177151900000005], [-70.86963469999999, -33.177151900000005], [-70.86963469999999, -33.3017644], [-70.7260769, -33.3017644]]]}}]}

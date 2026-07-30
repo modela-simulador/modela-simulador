@@ -1,0 +1,14 @@
+{
+  "fuente": "MINSAL/DEIS — Establecimientos de Salud vigentes (georreferenciados)",
+  "institucion": "Departamento de Estadísticas e Información de Salud (vía datos.gob.cl)",
+  "url": "https://datos.gob.cl/dataset/3bf4cf7c-f638-4735-9a01-f65faae4beca",
+  "licencia": "Datos abiertos — citar MINSAL/DEIS",
+  "escala": "E2/E3",
+  "clasificacion": "OBSERVADO",
+  "metodologia": "CSV oficial filtrado ComunaGlosa=LAMPA; tipo y nivel de atención como proxy de capacidad",
+  "limitaciones": "Sin dotación ni horas médicas (capacidad real) ni tiempos de espera; incluye públicos y privados según registro",
+  "periodo": "vigente a la descarga",
+  "fecha_descarga": "2026-07-30T11:52:56-04:00",
+  "generado": "2026-07-30T11:52:56-04:00",
+  "artefacto": "equipamientos/salud.geojson"
+}

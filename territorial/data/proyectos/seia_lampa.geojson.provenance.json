@@ -1,0 +1,14 @@
+{
+  "fuente": "SEA — puntos representativos de proyectos SEIA en Lampa",
+  "institucion": "Servicio de Evaluación Ambiental (ArcGIS REST del mapa oficial de proyectos)",
+  "url": "https://sig.sea.gob.cl/mapadeproyectos/ (endpoint EdicionPuntoRepresentativo; token público)",
+  "licencia": "Dato público — citar SEA",
+  "escala": "E3",
+  "clasificacion": "OBSERVADO",
+  "metodologia": "ArcGIS REST query UPPER(COMUNAS) LIKE %LAMPA%; incluye estado de evaluación, titular, inversión y URL del expediente",
+  "limitaciones": "Punto representativo ≠ polígono del proyecto; endpoint no documentado (monitorear cambios); proyectos multi-comuna aparecen por texto en COMUNAS",
+  "periodo": "histórico completo SEIA a la fecha de consulta",
+  "fecha_descarga": "2026-07-29T18:52:09-04:00",
+  "generado": "2026-07-29T18:52:09-04:00",
+  "artefacto": "proyectos/seia_lampa.geojson"
+}

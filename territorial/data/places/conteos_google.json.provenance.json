@@ -1,0 +1,14 @@
+{
+  "fuente": "Google Places Aggregate (Area Insights) — INSIGHT_COUNT por categoría",
+  "institucion": "Google Maps Platform",
+  "url": "https://areainsights.googleapis.com (SST §13: derivados almacenables)",
+  "licencia": "ToS GMP — Customer Values persistibles; atribución Google",
+  "escala": "E2",
+  "clasificacion": "OBSERVADO",
+  "metodologia": "Círculo radio 2500 m desde centro referencial de Batuco; 1 llamada por categoría",
+  "limitaciones": "Radio ≠ límite censal (comparar con cautela vs Overture); taxonomía de tipos Google ≠ familias propias",
+  "periodo": "consulta 2026-07-29",
+  "fecha_descarga": "2026-07-29T18:26:45-04:00",
+  "generado": "2026-07-29T18:26:45-04:00",
+  "artefacto": "places/conteos_google.json"
+}

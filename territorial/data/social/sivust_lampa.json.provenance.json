@@ -1,0 +1,14 @@
+{
+  "fuente": "SIVUST/IGVUST — Índice Global de Vulnerabilidad Socioterritorial por unidad vecinal (corte jun-2026)",
+  "institucion": "MDSF — BIDAT (datos del Registro Social de Hogares)",
+  "url": "https://bidat.gob.cl/directorio/SIVUST%20-%20Vulnerabilidad%20Socioterritorial",
+  "licencia": "Creative Commons Attribution (CC-BY) — citar MDSF/BIDAT",
+  "escala": "E2/E3 (unidad vecinal)",
+  "clasificacion": "OBSERVADO",
+  "metodologia": "CSV oficial nacional filtrado cod_com=13302; cuartil 1/rank menor = MAYOR vulnerabilidad; población = personas en RSH (no censo)",
+  "limitaciones": "Cubre solo población inscrita en RSH (sesgo hacia hogares vulnerables); sin geometría de UV en este dataset (mapas oficiales aparte); pendiente mapear qué UVs corresponden a Batuco (→ cruce con Censo/terreno)",
+  "periodo": "jun-2026 (actualización MENSUAL — columna vertebral del monitor social)",
+  "fecha_descarga": "2026-07-29T22:48:26-04:00",
+  "generado": "2026-07-29T22:48:26-04:00",
+  "artefacto": "social/sivust_lampa.json"
+}

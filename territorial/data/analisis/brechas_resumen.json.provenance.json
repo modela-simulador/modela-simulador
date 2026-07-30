@@ -1,0 +1,14 @@
+{
+  "fuente": "Detección automática de brechas — cruce Censo 2024 × equipamientos × comercio × transporte",
+  "institucion": "BatucoTerra plataforma (datos INE, MINEDUC, DEIS, Overture, DTPM)",
+  "url": "pipeline/deteccion_brechas.py",
+  "licencia": "Derivado de datos públicos — citar fuentes originales",
+  "escala": "E2/E3",
+  "clasificacion": "CALCULADO",
+  "metodologia": "Por manzana (≥5 viv ocupadas): distancia de centroide a equipamiento más cercano (salud >1.5 km, colegio >1.0 km, abastecimiento >0.8 km) + servicios básicos (alcantarillado <50%, agua <80%, hacinamiento >15%). Umbrales explícitos y editables — NO es una caja negra",
+  "limitaciones": "Distancia euclidiana centroide-a-punto (no red vial: sobreestima accesibilidad donde hay barreras como el ferrocarril); comercio desde Overture (puede omitir informal); no pondera calidad ni capacidad de los equipamientos",
+  "periodo": "Censo 2024 + capas 2025-2026",
+  "fecha_descarga": "2026-07-30T11:58:56-04:00",
+  "generado": "2026-07-30T11:58:56-04:00",
+  "artefacto": "analisis/brechas_resumen.json"
+}

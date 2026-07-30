@@ -1,0 +1,14 @@
+{
+  "fuente": "SII — Nómina de empresas personas jurídicas 2020-2024",
+  "institucion": "Servicio de Impuestos Internos",
+  "url": "https://www.sii.cl/estadisticas/nominas/PUB_EMPRESAS_PJ_2020_A_2024.zip",
+  "licencia": "Datos públicos SII — citar fuente",
+  "escala": "E3",
+  "clasificacion": "OBSERVADO",
+  "metodologia": "ZIP oficial (sha256 2d68ba953db7); filtro COMUNA=LAMPA; conteos por año/rubro/tramo (CALCULADO)",
+  "limitaciones": "Solo personas jurídicas (excluye personas naturales con giro); dirección = domicilio tributario, no necesariamente el local; sin desglose Batuco vs resto de Lampa todavía (requiere geocodificación Fase 4)",
+  "periodo": "2020-2024",
+  "fecha_descarga": "2026-07-29T08:08:22-04:00",
+  "generado": "2026-07-29T08:08:22-04:00",
+  "artefacto": "economia/sii_lampa.json"
+}

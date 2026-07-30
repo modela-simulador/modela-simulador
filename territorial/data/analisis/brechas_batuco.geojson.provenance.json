@@ -1,0 +1,14 @@
+{
+  "fuente": "Análisis propio — manzanas de Batuco con <50% de alcantarillado declarado (Censo 2024)",
+  "institucion": "BatucoTerra plataforma (datos INE)",
+  "url": "pipeline/analisis_manzanas.py",
+  "licencia": "Derivado de datos públicos INE — citar fuente",
+  "escala": "E2",
+  "clasificacion": "CALCULADO",
+  "metodologia": "Filtro <50% n_serv_hig_alc_dentro/n_vp_ocupada con ≥5 viv ocupadas, sobre Manzanas_CPV24",
+  "limitaciones": "Umbral binario; el alcantarillado censal es declaración del hogar",
+  "periodo": "Censo 2024",
+  "fecha_descarga": "2026-07-29T18:52:09-04:00",
+  "generado": "2026-07-29T18:52:09-04:00",
+  "artefacto": "analisis/brechas_batuco.geojson"
+}

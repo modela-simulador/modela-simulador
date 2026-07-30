@@ -1,0 +1,14 @@
+{
+  "fuente": "Google Air Quality API — condiciones actuales (Universal AQI + contaminantes)",
+  "institucion": "Google Maps Platform",
+  "url": "https://airquality.googleapis.com (histórico persistible según SST)",
+  "licencia": "ToS GMP — atribución Google",
+  "escala": "E1/E2/E3",
+  "clasificacion": "OBSERVADO",
+  "metodologia": "currentConditions en 3 puntos (pueblo, predio, Valle Grande); UAQI: mayor = mejor aire (escala Google 0-100)",
+  "limitaciones": "Lectura puntual al momento de la corrida (no serie continua aún); modelo Google, no estación SINCA (la más cercana real: Quilicura)",
+  "periodo": "al momento de la corrida (ver hora_utc)",
+  "fecha_descarga": "2026-07-30T10:09:11-04:00",
+  "generado": "2026-07-30T10:09:11-04:00",
+  "artefacto": "ambiente/aire_actual.json"
+}

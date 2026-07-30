@@ -1,0 +1,14 @@
+{
+  "institucion": "Instituto Nacional de Estadísticas (org ArcGIS oficial gisine1)",
+  "url": "https://services5.arcgis.com/hUyD8u3TeZLKPe4T/arcgis/rest/services/Censo2024_v2/FeatureServer (capas Manzanas_CPV24 y Limite_Urbano_CPV24)",
+  "licencia": "Datos públicos INE — citar 'INE, Censo de Población y Vivienda 2024'",
+  "clasificacion": "OBSERVADO",
+  "periodo": "Censo 2024 (levantamiento 2024; publicación manzana dic-2025)",
+  "fuente": "INE Censo 2024 — Manzanas_CPV24 (variables seleccionadas)",
+  "escala": "E2/E3",
+  "metodologia": "ArcGIS REST query CUT=13302 paginado; 19 de 189 variables (subset para mapa)",
+  "limitaciones": "Supresión por secreto estadístico en manzanas pequeñas; conteos pueden diferir levemente de tabulados comunales",
+  "fecha_descarga": "2026-07-29T08:08:05-04:00",
+  "generado": "2026-07-29T08:08:05-04:00",
+  "artefacto": "poblacion/manzanas_lampa.geojson"
+}
