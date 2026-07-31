@@ -1,0 +1,14 @@
+{
+  "fuente": "PRMS 100 — Área Rural (zonificación del Plan Regulador Metropolitano de Santiago)",
+  "institucion": "SEREMI MINVU / GORE RM (servicio ArcGIS público)",
+  "url": "https://services9.arcgis.com/kKJR3Qt68ohAWuet/arcgis/rest/services/PRMS_100_Rural/FeatureServer/0",
+  "licencia": "Dato público — citar SEREMI MINVU RM",
+  "escala": "E2/E3",
+  "clasificacion": "OBSERVADO",
+  "metodologia": "ArcGIS REST query UPPER(COMUNA) LIKE %LAMPA%; incluye usos preferentes (UPREF), permitidos (UPERM), prohibidos (UPROH) y norma aplicable",
+  "limitaciones": "Cubre el ÁREA RURAL del PRMS (donde está el suelo no urbanizado); el área urbana se rige por el límite urbano PRMS y, cuando exista, el PRC de Lampa —hoy en formulación—. La zonificación puede haber sido modificada por instrumentos posteriores: verificar vigencia antes de decidir",
+  "periodo": "PRMS 100 vigente a la consulta",
+  "fecha_descarga": "2026-07-30T20:48:32-04:00",
+  "generado": "2026-07-30T20:48:32-04:00",
+  "artefacto": "normativa/prms_resumen.json"
+}

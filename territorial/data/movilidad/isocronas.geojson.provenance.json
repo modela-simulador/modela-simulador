@@ -1,0 +1,14 @@
+{
+  "fuente": "Google Routes API — tiempos reales por red vial desde puntos clave de Batuco",
+  "institucion": "Google Maps Platform",
+  "url": "https://routes.googleapis.com (Compute Route Matrix)",
+  "licencia": "ToS GMP — resultados de análisis propios almacenables; atribución Google",
+  "escala": "E2",
+  "clasificacion": "CALCULADO",
+  "metodologia": "Grilla radial de 44 destinos por origen (anillos 0,9/1,8/3,0/5,0 km) × 2 modos; caminando y auto con tráfico. Cada punto lleva el tiempo REAL por red vial y la distancia en línea recta para comparar",
+  "limitaciones": "Puntos muestrales, no polígonos de isócrona continuos; el modo caminando de Google puede no reflejar veredas reales de Batuco (auditar en terreno M6)",
+  "periodo": "consulta 2026-07-30",
+  "fecha_descarga": "2026-07-30T20:49:03-04:00",
+  "generado": "2026-07-30T20:49:03-04:00",
+  "artefacto": "movilidad/isocronas.geojson"
+}
