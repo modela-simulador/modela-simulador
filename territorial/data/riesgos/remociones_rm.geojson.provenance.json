@@ -8,7 +8,7 @@
   "metodologia": "ArcGIS REST query Region LIKE %Metropolitana%; eventos históricos con tipo y detonante",
   "limitaciones": "Eventos REGISTRADOS (no mapa de susceptibilidad); ausencia de puntos ≠ ausencia de riesgo. INUNDACIÓN de Lampa: 17 puntos + 39 anegamientos según Plan Comunal de Emergencia 2025 (PDF, sin capa) → VACÍO declarado",
   "periodo": "histórico a la fecha de consulta",
-  "fecha_descarga": "2026-07-30T11:53:43-04:00",
-  "generado": "2026-07-30T11:53:43-04:00",
+  "fecha_descarga": "2026-07-31T07:33:37-04:00",
+  "generado": "2026-07-31T07:33:37-04:00",
   "artefacto": "riesgos/remociones_rm.geojson"
 }

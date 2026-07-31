@@ -8,7 +8,7 @@
   "metodologia": "read_parquet S3 filtrado país CL + nombre Lampa; WKB→GeoJSON (shapely)",
   "limitaciones": "Límite comunal de fuente colaborativa; contrastar con INE en Fase 4",
   "periodo": "2026-07-22.0",
-  "fecha_descarga": "2026-07-29T08:08:03-04:00",
-  "generado": "2026-07-29T08:08:03-04:00",
+  "fecha_descarga": "2026-07-31T07:31:29-04:00",
+  "generado": "2026-07-31T07:31:29-04:00",
   "artefacto": "territorio/e3_lampa.geojson"
 }

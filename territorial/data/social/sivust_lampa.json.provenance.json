@@ -8,7 +8,7 @@
   "metodologia": "CSV oficial nacional filtrado cod_com=13302; cuartil 1/rank menor = MAYOR vulnerabilidad; población = personas en RSH (no censo)",
   "limitaciones": "Cubre solo población inscrita en RSH (sesgo hacia hogares vulnerables); sin geometría de UV en este dataset (mapas oficiales aparte); pendiente mapear qué UVs corresponden a Batuco (→ cruce con Censo/terreno)",
   "periodo": "jun-2026 (actualización MENSUAL — columna vertebral del monitor social)",
-  "fecha_descarga": "2026-07-29T22:48:26-04:00",
-  "generado": "2026-07-29T22:48:26-04:00",
+  "fecha_descarga": "2026-07-31T07:33:37-04:00",
+  "generado": "2026-07-31T07:33:37-04:00",
   "artefacto": "social/sivust_lampa.json"
 }

@@ -8,7 +8,7 @@
   "escala": "E2",
   "metodologia": "ArcGIS REST query CUT=13302, filtro LOCALIDAD/ENTIDAD=Batuco; reemplaza el bbox ESTIMADO v1",
   "limitaciones": "Límite urbano censal ≠ límite funcional del sistema local (el análisis amplio usa territorio/area_analisis.geojson)",
-  "fecha_descarga": "2026-07-29T08:08:04-04:00",
-  "generado": "2026-07-29T08:08:04-04:00",
+  "fecha_descarga": "2026-07-31T07:31:30-04:00",
+  "generado": "2026-07-31T07:31:30-04:00",
   "artefacto": "territorio/e2_batuco.geojson"
 }

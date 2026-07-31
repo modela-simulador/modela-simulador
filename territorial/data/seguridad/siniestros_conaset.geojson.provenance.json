@@ -8,7 +8,7 @@
   "metodologia": "ArcGIS REST query UPPER(Comuna) LIKE %LAMPA%; puntos con tipo/causa/severidad",
   "limitaciones": "Solo siniestros URBANOS 2024 (rurales/otras vías no incluidos); ubicación según parte policial",
   "periodo": "2024",
-  "fecha_descarga": "2026-07-29T18:52:09-04:00",
-  "generado": "2026-07-29T18:52:09-04:00",
+  "fecha_descarga": "2026-07-31T07:33:29-04:00",
+  "generado": "2026-07-31T07:33:29-04:00",
   "artefacto": "seguridad/siniestros_conaset.geojson"
 }

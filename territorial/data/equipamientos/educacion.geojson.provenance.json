@@ -8,7 +8,7 @@
   "metodologia": "ArcGIS REST query UPPER(Comuna) LIKE %LAMPA%; incluye matrícula (CAPACIDAD §6.6), dependencia y ruralidad",
   "limitaciones": "Existencia y capacidad; NO incluye calidad (SIMCE/Agencia) ni accesibilidad real — vacíos declarados (§6.6)",
   "periodo": "2025",
-  "fecha_descarga": "2026-07-30T11:52:56-04:00",
-  "generado": "2026-07-30T11:52:56-04:00",
+  "fecha_descarga": "2026-07-31T07:33:35-04:00",
+  "generado": "2026-07-31T07:33:35-04:00",
   "artefacto": "equipamientos/educacion.geojson"
 }

@@ -9,7 +9,7 @@
   "clasificacion": "CALCULADO",
   "metodologia": "Consulta ArcGIS REST filtrada por comuna; empalme por identificador `t_id_uv_ca` = `uv_rsh` con el detalle SIVUST ya ingerido.",
   "limitaciones": "La cartografía UV se obtiene de un servicio redistribuido: la fuente primaria institucional está PENDIENTE DE VERIFICAR con el municipio. Los límites vecinales cambian por decreto alcaldicio y pueden no coincidir con el corte del RSH. 0 unidades quedaron sin índice.",
-  "fecha_descarga": "2026-07-30T22:28:51-04:00",
-  "generado": "2026-07-30T22:28:51-04:00",
+  "fecha_descarga": "2026-07-31T07:33:45-04:00",
+  "generado": "2026-07-31T07:33:45-04:00",
   "artefacto": "social/unidades_vecinales.geojson"
 }

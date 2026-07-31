@@ -3,13 +3,13 @@
   "institucion": "MDS · Esri Chile Solutions",
   "url": "https://services.arcgis.com/r7t1P5pnkoOLRdhr/arcgis/rest/services/Unidades_Vecinales___2024/FeatureServer/0",
   "licencia": "datos abiertos MDS + servicio ArcGIS Online",
-  "fecha_publicacion": "2026-07-30",
+  "fecha_publicacion": "2026-07-31",
   "periodo": "2026-06",
   "escala": "E3 Lampa",
   "clasificacion": "CALCULADO",
   "metodologia": "Ordenamiento por ranking nacional de vulnerabilidad; menor ranking = mayor vulnerabilidad relativa.",
   "limitaciones": "El ranking es relativo a todas las UV del país; no es una tasa de pobreza ni un puntaje absoluto.",
-  "fecha_descarga": "2026-07-30T22:28:51-04:00",
-  "generado": "2026-07-30T22:28:51-04:00",
+  "fecha_descarga": "2026-07-31T07:33:45-04:00",
+  "generado": "2026-07-31T07:33:45-04:00",
   "artefacto": "social/uv_resumen.json"
 }

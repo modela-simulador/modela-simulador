@@ -8,7 +8,7 @@
   "metodologia": "Agregación por LOCALIDAD y tasas sobre viviendas ocupadas; umbral 'sin alcantarillado mayoritario' = <50% con ≥5 viv ocupadas (excluye manzanas mínimas por secreto estadístico)",
   "limitaciones": "Supresión censal puede subestimar en manzanas chicas; 'alcantarillado' censal = declaración del hogar, no certifica red concesionada",
   "periodo": "Censo 2024",
-  "fecha_descarga": "2026-07-29T18:52:09-04:00",
-  "generado": "2026-07-29T18:52:09-04:00",
+  "fecha_descarga": "2026-07-31T07:33:37-04:00",
+  "generado": "2026-07-31T07:33:37-04:00",
   "artefacto": "analisis/manzanas_resumen.json"
 }

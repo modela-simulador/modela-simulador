@@ -8,7 +8,7 @@
   "escala": "E2/E3",
   "metodologia": "ArcGIS REST query CUT=13302 paginado; 19 de 189 variables (subset para mapa)",
   "limitaciones": "Supresión por secreto estadístico en manzanas pequeñas; conteos pueden diferir levemente de tabulados comunales",
-  "fecha_descarga": "2026-07-29T08:08:05-04:00",
-  "generado": "2026-07-29T08:08:05-04:00",
+  "fecha_descarga": "2026-07-31T07:31:32-04:00",
+  "generado": "2026-07-31T07:31:32-04:00",
   "artefacto": "poblacion/manzanas_lampa.geojson"
 }

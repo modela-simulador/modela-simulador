@@ -10,6 +10,6 @@
   "metodologia": "Conteo de celdas de 120 m: vegetada = NDVI>0,25; agua = NDWI>0,15; pérdida/ganancia = |ΔNDVI|>0,15 entre las dos escenas de verano.",
   "limitaciones": "Umbrales convencionales, no calibrados en terreno. Comparación entre dos días, no entre dos promedios anuales.",
   "fecha_descarga": "2026-07-30T23:15:16-04:00",
-  "generado": "2026-07-30T23:16:59-04:00",
+  "generado": "2026-07-31T07:33:45-04:00",
   "artefacto": "satelital/resumen.json"
 }

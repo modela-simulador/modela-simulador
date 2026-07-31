@@ -1,0 +1,15 @@
+{
+  "fuente": "MINEDUC 2025 · MINSAL-DEIS · Censo 2024 (INE) · DGA · escenarios propios",
+  "institucion": "MINEDUC · MINSAL · INE · DGA · Modela",
+  "url": "https://datosabiertos.mineduc.cl/",
+  "licencia": "datos abiertos de Gobierno de Chile",
+  "fecha_publicacion": "2026-07-31",
+  "periodo": "oferta 2025 · demanda proyectada a 2045",
+  "escala": "E2 Batuco (demanda) × E3 Lampa (oferta)",
+  "clasificacion": "CALCULADO",
+  "metodologia": "Cada escenario de población se multiplica por los estándares declarados en `estandares` para obtener salas, boxes, CESFAM y caudal. Un «colegio equivalente» son 20 salas. La tasa de escolarización es la proporción observada comunal, no una norma.",
+  "limitaciones": "Es una demanda TEÓRICA por estándar, no un estudio de capacidad: no considera la capacidad instalada real de cada establecimiento (que MINEDUC/DEIS no publican), ni la matrícula que hoy sale de la comuna, ni la estructura etaria futura, que envejecerá. Sirve para dimensionar un orden de magnitud y para negociar, no para diseñar un colegio.",
+  "fecha_descarga": "2026-07-31T07:25:33-04:00",
+  "generado": "2026-07-31T07:25:33-04:00",
+  "artefacto": "analisis/demanda_servicios.json"
+}
