@@ -1,0 +1,14 @@
+{
+  "fuente": "Masterplan BatucoTerra — áreas verdes proyectadas",
+  "institucion": "Modela (interno)",
+  "url": "insumos/ (origen: ~/Documents/Modela APP/Archivos Shape/)",
+  "licencia": "Interno Modela — no redistribuir",
+  "escala": "E1",
+  "clasificacion": "PROYECTADO",
+  "metodologia": "Reproyección EPSG:32719→4326 (pyproj); 96 features; 3 geometrías inválidas del CAD reparadas con make_valid; hash origen 7ffb9b66c035",
+  "limitaciones": "Geometrías de proyecto (masterplan), no construcción existente",
+  "periodo": "2026 (versión vigente en insumos)",
+  "fecha_descarga": "2026-07-29T08:07:43-04:00",
+  "generado": "2026-07-29T08:07:43-04:00",
+  "artefacto": "masterplan/areas_verdes.geojson"
+}
