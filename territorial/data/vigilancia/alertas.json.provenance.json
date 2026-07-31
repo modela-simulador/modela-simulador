@@ -1,0 +1,15 @@
+{
+  "fuente": "Diferencia entre corridas del pipeline BatucoTerra",
+  "institucion": "SEA · MDS · Overture · ESA",
+  "url": "https://seia.sea.gob.cl/",
+  "licencia": "según fuente vigilada (ver procedencia de cada artefacto)",
+  "fecha_publicacion": "2026-07-30",
+  "periodo": "línea base → 2026-07-30T23:17:37-04:00",
+  "escala": "E2/E3",
+  "clasificacion": "OBSERVADO",
+  "metodologia": "Se guarda una huella de cada fuente viva por corrida y se difiere contra la anterior. Un cambio se publica solo si cruza el umbral declarado en `umbrales`.",
+  "limitaciones": "Detecta cambios en la FUENTE, no en el territorio: un proyecto que desaparece del listado puede ser un desistimiento o un cambio en la consulta. Requiere corridas periódicas para tener valor.",
+  "fecha_descarga": "2026-07-30T23:17:37-04:00",
+  "generado": "2026-07-30T23:17:37-04:00",
+  "artefacto": "vigilancia/alertas.json"
+}

@@ -1,0 +1,15 @@
+{
+  "fuente": "Sentinel-2 L2A × Censo 2024 manzanas (INE) × índice territorial propio",
+  "institucion": "Copernicus/ESA · INE · Modela",
+  "url": "https://earth-search.aws.element84.com/v1",
+  "licencia": "Copernicus Open Licence + INE datos abiertos",
+  "fecha_publicacion": "2026-07-30",
+  "periodo": "2019-02-28 → 2026-02-06 × CPV 2024",
+  "escala": "E3 Lampa (manzanas censales)",
+  "clasificacion": "CALCULADO",
+  "metodologia": "Manzanas con población y viviendas ocupadas; brecha sanitaria = menos de 50.0% de viviendas con alcantarillado; sin verde = NDVI < 0.25. La correlación es de Pearson entre NDVI e índice territorial (0-100).",
+  "limitaciones": "Correlación NO es causalidad: la falta de verde y la de alcantarillado pueden compartir causa (urbanización informal, suelo barato) sin causarse entre sí. El NDVI es de un día de verano, no un promedio anual.",
+  "fecha_descarga": "2026-07-30T23:16:59-04:00",
+  "generado": "2026-07-30T23:16:59-04:00",
+  "artefacto": "analisis/cruce_ambiental.json"
+}

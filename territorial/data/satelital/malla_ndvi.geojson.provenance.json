@@ -1,0 +1,17 @@
+{
+  "fuente": "Sentinel-2 L2A · S2B_19HCD_20260206_0_L2A",
+  "institucion": "Copernicus / ESA (vía AWS Open Data · Earth Search)",
+  "url": "https://earth-search.aws.element84.com/v1",
+  "licencia": "Copernicus Open Licence (uso libre con atribución)",
+  "fecha_publicacion": "2026-02-06",
+  "periodo": "2019-02-28 vs 2026-02-06 (verano austral)",
+  "escala": "E2 Batuco + área de análisis",
+  "clasificacion": "OBSERVADO",
+  "metodologia": "Índices normalizados sobre reflectancia L2A a 10 m, enmascarando nubes/sombras con la banda SCL; promediado a celdas de 120 m. NDVI=(B08-B04)/(B08+B04), NDBI=(B11-B08)/(B11+B08), NDWI=(B03-B08)/(B03+B08). delta_ndvi = 2026 − 2019.",
+  "limitaciones": "Una escena por año, no un compuesto estacional: refleja el estado de ese día. El NDBI distingue superficie construida de vegetación, NO mide temperatura: la banda térmica (Landsat ST_B10) está en un bucket requester-pays y queda como vacío declarado.",
+  "cobertura_nubes_pct": 0.0,
+  "escena_base": "S2A_19HCD_20190228_0_L2A",
+  "fecha_descarga": "2026-07-30T23:15:16-04:00",
+  "generado": "2026-07-30T23:15:16-04:00",
+  "artefacto": "satelital/malla_ndvi.geojson"
+}

@@ -1,0 +1,15 @@
+{
+  "fuente": "Cartografía de Unidades Vecinales 2024 × SIVUST (Registro Social de Hogares)",
+  "institucion": "Ministerio de Desarrollo Social y Familia (índice) · capa UV publicada en ArcGIS Online por Esri Chile Solutions",
+  "url": "https://services.arcgis.com/r7t1P5pnkoOLRdhr/arcgis/rest/services/Unidades_Vecinales___2024/FeatureServer/0",
+  "licencia": "Servicio público de ArcGIS Online (uso con atribución) + datos abiertos MDS",
+  "fecha_publicacion": "2024",
+  "periodo": "2026-06",
+  "escala": "E3 Lampa (unidad vecinal)",
+  "clasificacion": "CALCULADO",
+  "metodologia": "Consulta ArcGIS REST filtrada por comuna; empalme por identificador `t_id_uv_ca` = `uv_rsh` con el detalle SIVUST ya ingerido.",
+  "limitaciones": "La cartografía UV se obtiene de un servicio redistribuido: la fuente primaria institucional está PENDIENTE DE VERIFICAR con el municipio. Los límites vecinales cambian por decreto alcaldicio y pueden no coincidir con el corte del RSH. 0 unidades quedaron sin índice.",
+  "fecha_descarga": "2026-07-30T22:28:51-04:00",
+  "generado": "2026-07-30T22:28:51-04:00",
+  "artefacto": "social/unidades_vecinales.geojson"
+}
