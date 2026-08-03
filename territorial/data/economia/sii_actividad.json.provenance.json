@@ -1,0 +1,15 @@
+{
+  "fuente": "Estadísticas de empresas por comuna (PUB_COMU, PUB_COMU_RUBR, PUB_GEN_COMU)",
+  "institucion": "Servicio de Impuestos Internos (SII)",
+  "url": "https://www.sii.cl/sobre_el_sii/estadisticas_de_empresas.html",
+  "licencia": "datos abiertos de Gobierno de Chile",
+  "fecha_publicacion": "2024",
+  "periodo": "2005–2024",
+  "escala": "E3 Lampa",
+  "clasificacion": "OBSERVADO",
+  "metodologia": "Agregados tributarios oficiales. La renta mensual por trabajador se calcula como renta neta anual en UF dividida por (trabajadores ponderados por meses trabajados × 12), que es la forma correcta: usar el conteo simple de trabajadores infla el denominador con empleo parcial y subestima la renta.",
+  "limitaciones": "El domicilio es el de la CASA MATRIZ, no el del establecimiento: una empresa con matriz fuera de Lampa y operación en Lampa NO suma aquí, y viceversa. Mide la economía DOMICILIADA en la comuna, no la que ocurre en su territorio. Excluye informalidad, que en una comuna con feria y comercio ambulante no es menor. No baja de comuna: no existe por localidad ni por manzana.",
+  "fecha_descarga": "2026-08-03T09:04:38-04:00",
+  "generado": "2026-08-03T09:04:38-04:00",
+  "artefacto": "economia/sii_actividad.json"
+}
