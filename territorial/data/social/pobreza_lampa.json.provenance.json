@@ -1,15 +1,15 @@
 {
-  "fuente": "Estimaciones comunales de pobreza 2022 (SAE)",
+  "fuente": "Estimaciones comunales de pobreza 2024 (SAE)",
   "institucion": "Ministerio de Desarrollo Social y Familia — Observatorio Social",
-  "url": "https://observatorio.ministeriodesarrollosocial.gob.cl/storage/docs/pobreza-comunal/2022/",
+  "url": "https://observatorio.ministeriodesarrollosocial.gob.cl/storage/docs/pobreza-comunal/2024/",
   "licencia": "datos abiertos de Gobierno de Chile",
-  "fecha_publicacion": "2024",
-  "periodo": "CASEN 2022",
+  "fecha_publicacion": "2026",
+  "periodo": "CASEN 2024",
   "escala": "E3 Lampa",
   "clasificacion": "ESTIMADO",
   "metodologia": "Estimación de área pequeña (SAE) oficial del MDS; cada tasa lleva su intervalo de confianza al 90%, que se publica junto al valor.",
-  "limitaciones": "La estimación es COMUNAL: no existe por localidad, y el intervalo de la multidimensional es ancho (19,1%–32,1%). CASEN 2024 ya tiene resultados nacionales/regionales publicados, pero la desagregación comunal SAE 2024 aún no aparece: cuando salga, este adaptador la toma (vigilar Observatorio Social).",
-  "fecha_descarga": "2026-08-03T08:49:46-04:00",
-  "generado": "2026-08-03T08:49:46-04:00",
+  "limitaciones": "La estimación es COMUNAL: no existe por localidad. Cada tasa lleva su intervalo de confianza y el de la multidimensional es ancho — leer siempre el rango, no el punto. Para bajar de comuna, la vía es el Registro Social de Hogares por unidad vecinal (BIDAT), que sí llega a ese nivel.",
+  "fecha_descarga": "2026-08-03T10:17:29-04:00",
+  "generado": "2026-08-03T10:17:29-04:00",
   "artefacto": "social/pobreza_lampa.json"
 }
