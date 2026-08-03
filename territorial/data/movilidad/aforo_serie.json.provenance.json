@@ -1,0 +1,15 @@
+{
+  "fuente": "Plan Nacional de Censos de Volúmenes de Tránsito (serie 2014–2025)",
+  "institucion": "Dirección de Vialidad, MOP",
+  "url": "https://rest-sit.mop.gob.cl/arcgis/rest/services/VIALIDAD/Plan_Nacional_de_Censos/MapServer",
+  "licencia": "Servicio público del MOP sin licencia declarada; uso analítico con atribución.",
+  "fecha_publicacion": "2025",
+  "periodo": "2014–2025",
+  "escala": "E3 Lampa",
+  "clasificacion": "OBSERVADO",
+  "metodologia": "Recorrido de las 7 capas del servicio (una por levantamiento) filtrando por comuna.",
+  "limitaciones": "Las capas mezclan zona norte y sur en años distintos: la etiqueta de cada levantamiento lo declara. No todas las estaciones aparecen en todas las capas.",
+  "fecha_descarga": "2026-08-03T10:09:15-04:00",
+  "generado": "2026-08-03T10:09:15-04:00",
+  "artefacto": "movilidad/aforo_serie.json"
+}

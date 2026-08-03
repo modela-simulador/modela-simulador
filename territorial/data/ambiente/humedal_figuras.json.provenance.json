@@ -1,0 +1,15 @@
+{
+  "fuente": "SIMBIO — Áreas Protegidas y Humedales (MMA) × Áreas de Restricción y Zonas de Prohibición (DGA)",
+  "institucion": "Ministerio del Medio Ambiente · Dirección General de Aguas (MOP)",
+  "url": "https://arcgis.mma.gob.cl/server/rest/services/SIMBIO/SIMBIO_AP/MapServer",
+  "licencia": "datos abiertos de Gobierno de Chile",
+  "fecha_publicacion": "capa DGA actualizada 2025-11-15; MMA vigente 2026-08",
+  "periodo": "Res. DGA 286/2005 vigente · Santuario desde 2021",
+  "escala": "E2 Batuco (humedal) · E3-SHAC (acuífero)",
+  "clasificacion": "OBSERVADO",
+  "metodologia": "Consultas ArcGIS REST a las capas oficiales del MMA (envolvente de Batuco) y de la DGA (filtro por nombre de sector hidrogeológico).",
+  "limitaciones": "Las cuatro figuras del humedal NO son comparables entre sí: son objetos jurídicos distintos con superficies distintas (274 / ~1.194 / 14.787 ha y el inventario del geoportal con otra cifra más). Además dos capas del propio Estado se contradicen: en geoportal.cl los humedales de Lampa figuran sin área protegida pese al Santuario designado en 2021 — ante la duda prevalece SIMBIO, que es la autoritativa en designaciones. El SHAC no coincide con el límite comunal.",
+  "fecha_descarga": "2026-08-03T10:06:10-04:00",
+  "generado": "2026-08-03T10:06:10-04:00",
+  "artefacto": "ambiente/humedal_figuras.json"
+}

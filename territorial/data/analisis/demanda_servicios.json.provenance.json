@@ -9,7 +9,7 @@
   "clasificacion": "CALCULADO",
   "metodologia": "Cada escenario de población se multiplica por los estándares declarados en `estandares` para obtener salas, boxes, CESFAM y caudal. Un «colegio equivalente» son 20 salas. La tasa de escolarización es la proporción observada comunal, no una norma.",
   "limitaciones": "Es una demanda TEÓRICA por estándar, no un estudio de capacidad: no considera la capacidad instalada real de cada establecimiento (que MINEDUC/DEIS no publican), ni la matrícula que hoy sale de la comuna, ni la estructura etaria futura, que envejecerá. Sirve para dimensionar un orden de magnitud y para negociar, no para diseñar un colegio.",
-  "fecha_descarga": "2026-08-03T07:31:55-04:00",
-  "generado": "2026-08-03T07:31:55-04:00",
+  "fecha_descarga": "2026-08-03T10:06:57-04:00",
+  "generado": "2026-08-03T10:06:57-04:00",
   "artefacto": "analisis/demanda_servicios.json"
 }

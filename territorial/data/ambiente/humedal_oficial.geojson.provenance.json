@@ -1,0 +1,15 @@
+{
+  "fuente": "Inventario Nacional de Humedales — Sistema de humedal Sector Batuco 1 (HUR-13-110)",
+  "institucion": "Ministerio del Medio Ambiente (SIMBIO)",
+  "url": "https://arcgis.mma.gob.cl/server/rest/services/SIMBIO/SIMBIO_HUMEDALES/MapServer/0",
+  "licencia": "datos abiertos MMA (el mismo inventario se publica en CKAN con licencia CC0)",
+  "fecha_publicacion": "2024-07",
+  "periodo": "inventario vigente 2026-08",
+  "escala": "E2 Batuco",
+  "clasificacion": "OBSERVADO",
+  "metodologia": "Consulta ArcGIS REST filtrada por el código maestro del humedal, geometría en EPSG:4326.",
+  "limitaciones": "Esta es UNA de cuatro figuras oficiales con superficies distintas (ver ambiente/humedal_figuras.json). El endpoint del MMA ya se mudó una vez: el SBAP asume la publicación de datos de biodiversidad desde febrero 2026 y puede volver a moverse — está en la vigilancia de fuentes.",
+  "fecha_descarga": "2026-08-03T10:06:09-04:00",
+  "generado": "2026-08-03T10:06:09-04:00",
+  "artefacto": "ambiente/humedal_oficial.geojson"
+}

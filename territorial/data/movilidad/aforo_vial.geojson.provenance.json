@@ -1,0 +1,15 @@
+{
+  "fuente": "Plan Nacional de Censos de Volúmenes de Tránsito",
+  "institucion": "Dirección de Vialidad, Ministerio de Obras Públicas",
+  "url": "https://rest-sit.mop.gob.cl/arcgis/rest/services/VIALIDAD/Plan_Nacional_de_Censos/MapServer",
+  "licencia": "Servicio ArcGIS público del MOP, SIN licencia declarada y fuera de los catálogos de datos abiertos. Copyright «Dirección de Vialidad, MOP». Uso analítico con atribución; verificar antes de redistribuir.",
+  "fecha_publicacion": "2025",
+  "periodo": "2024 sur / 2025 norte",
+  "escala": "E3 Lampa (estaciones de censo)",
+  "clasificacion": "OBSERVADO",
+  "metodologia": "Consulta ArcGIS REST filtrada por comuna. TMDA = tránsito medio diario anual por rama de la intersección, medido en terreno por el MOP.",
+  "limitaciones": "Son 3 puntos de la comuna, no una cobertura de la red: miden las intersecciones censadas, no cada calle. El servicio no está catalogado como dato abierto y podría cambiar sin aviso — está en la vigilancia de fuentes.",
+  "fecha_descarga": "2026-08-03T10:09:15-04:00",
+  "generado": "2026-08-03T10:09:15-04:00",
+  "artefacto": "movilidad/aforo_vial.geojson"
+}
