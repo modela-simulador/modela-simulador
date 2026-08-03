@@ -8,7 +8,7 @@
   "metodologia": "Reproyección EPSG:32719→4326 (pyproj); 104 features; 8 geometrías inválidas del CAD reparadas con make_valid; hash origen e88b664c8982",
   "limitaciones": "Geometrías de proyecto (masterplan), no construcción existente",
   "periodo": "2026 (versión vigente en insumos)",
-  "fecha_descarga": "2026-07-31T07:31:09-04:00",
-  "generado": "2026-07-31T07:31:09-04:00",
+  "fecha_descarga": "2026-08-03T07:30:06-04:00",
+  "generado": "2026-08-03T07:30:06-04:00",
   "artefacto": "masterplan/vial.geojson"
 }

@@ -8,7 +8,7 @@
   "metodologia": "Cifras comunales oficiales verificadas en investigación 2026-07-28 (docs/research/raw/dossier-batuco.md §5 y fuentes-chile-socioeconomico.md §1); variación % CALCULADO de 145.160/102.034",
   "limitaciones": "NIVEL COMUNAL. El desglose por manzana (189 variables + cartografía SHP/GDB, dic-2025) está disponible y en cola de ingesta Fase 4; hasta entonces Batuco 2024 = dato ausente (MISSING), no cero",
   "periodo": "2017 y 2024",
-  "fecha_descarga": "2026-07-31T07:33:28-04:00",
-  "generado": "2026-07-31T07:33:28-04:00",
+  "fecha_descarga": "2026-08-03T07:31:32-04:00",
+  "generado": "2026-08-03T07:31:32-04:00",
   "artefacto": "poblacion/censo_lampa.json"
 }

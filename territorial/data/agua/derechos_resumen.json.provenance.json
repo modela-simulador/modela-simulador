@@ -9,7 +9,7 @@
   "clasificacion": "CALCULADO",
   "metodologia": "Planilla oficial de la RM filtrada por comuna; caudales normalizados a l/s (Lt/min ÷60, Lt/h ÷3600, m3/año repartido sobre el año); coordenadas UTM reproyectadas a WGS84 respetando el datum declarado (PSAD56 / SAD69 / WGS84). Los puntos fuera del recuadro de la RM se descartan como error de la fuente. El resumen agrega por uso, naturaleza y titular; los titulares que no son razón social se anonimizan como «titular particular» (§11).",
   "limitaciones": "Un derecho concedido NO es agua disponible ni transferible a uso urbano: es un título privado sobre un acuífero que puede estar sobreotorgado. Los registros sin datum declarado se proyectan como WGS84 y pueden desviarse ~300 m. No incluye derechos en trámite, renunciados ni el caudal efectivamente extraído, que nadie mide.",
-  "fecha_descarga": "2026-07-31T07:22:49-04:00",
-  "generado": "2026-07-31T07:22:49-04:00",
+  "fecha_descarga": "2026-08-03T07:31:48-04:00",
+  "generado": "2026-08-03T07:31:48-04:00",
   "artefacto": "agua/derechos_resumen.json"
 }

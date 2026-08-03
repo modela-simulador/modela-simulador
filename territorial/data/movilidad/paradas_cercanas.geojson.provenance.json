@@ -8,7 +8,7 @@
   "metodologia": "Feed completo descargado (sha256 acc7705c77f5); stops.txt parseado; distancias haversine a centro referencial de Batuco (-70.808, -33.227)",
   "limitaciones": "El centro de Batuco es referencial (±500 m); no altera la conclusión de cobertura",
   "periodo": "V166 vigente 2026-07",
-  "fecha_descarga": "2026-07-31T07:31:42-04:00",
-  "generado": "2026-07-31T07:31:42-04:00",
+  "fecha_descarga": "2026-08-03T07:30:35-04:00",
+  "generado": "2026-08-03T07:30:35-04:00",
   "artefacto": "movilidad/paradas_cercanas.geojson"
 }

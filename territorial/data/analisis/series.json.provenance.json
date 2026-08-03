@@ -3,13 +3,13 @@
   "institucion": "SEA · INE",
   "url": "https://seia.sea.gob.cl/",
   "licencia": "datos abiertos de Gobierno de Chile",
-  "fecha_publicacion": "2026-07-31",
+  "fecha_publicacion": "2026-08-03",
   "periodo": "1995–2026",
   "escala": "E3 Lampa",
   "clasificacion": "CALCULADO",
   "metodologia": "Agregación por año de presentación de los expedientes SEIA de la comuna; la inversión declarada viene en dólares y se convierte a MMUS$. La tipología se toma de la letra del RSEIA sin la letra.",
   "limitaciones": "La inversión es la DECLARADA al ingresar, no la ejecutada, y no está deflactada: comparar años distantes es indicativo. Un proyecto puede reingresar y contarse dos veces.",
-  "fecha_descarga": "2026-07-31T07:33:45-04:00",
-  "generado": "2026-07-31T07:33:45-04:00",
+  "fecha_descarga": "2026-08-03T07:31:55-04:00",
+  "generado": "2026-08-03T07:31:55-04:00",
   "artefacto": "analisis/series.json"
 }

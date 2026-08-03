@@ -8,7 +8,7 @@
   "metodologia": "ArcGIS REST query UPPER(COMUNA) LIKE %LAMPA%; incluye usos preferentes (UPREF), permitidos (UPERM), prohibidos (UPROH) y norma aplicable",
   "limitaciones": "Cubre el ÁREA RURAL del PRMS (donde está el suelo no urbanizado); el área urbana se rige por el límite urbano PRMS y, cuando exista, el PRC de Lampa —hoy en formulación—. La zonificación puede haber sido modificada por instrumentos posteriores: verificar vigencia antes de decidir",
   "periodo": "PRMS 100 vigente a la consulta",
-  "fecha_descarga": "2026-07-31T07:33:39-04:00",
-  "generado": "2026-07-31T07:33:39-04:00",
+  "fecha_descarga": "2026-08-03T07:31:49-04:00",
+  "generado": "2026-08-03T07:31:49-04:00",
   "artefacto": "normativa/prms_lampa.geojson"
 }

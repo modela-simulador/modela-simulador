@@ -1,0 +1,15 @@
+{
+  "fuente": "Censo 2017 (capa oficial Ciudades) × CPV 2024 (límite urbano censal)",
+  "institucion": "INE",
+  "url": "https://services5.arcgis.com/hUyD8u3TeZLKPe4T/arcgis/rest/services/Ciudades_2017/FeatureServer",
+  "licencia": "datos abiertos INE",
+  "fecha_publicacion": "2017 / 2024",
+  "periodo": "2017 → 2024",
+  "escala": "E2 Batuco",
+  "clasificacion": "CALCULADO",
+  "metodologia": "Población y viviendas de la ciudad de Batuco según ambos censos; tasa anual compuesta sobre 7 años.",
+  "limitaciones": "El polígono 'ciudad' 2017 y el 'límite urbano censal' 2024 no son idénticos: se comparan las definiciones urbanas oficiales de cada censo, no recintos iguales. La diferencia de perímetro puede explicar parte de la variación.",
+  "fecha_descarga": "2026-08-03T08:49:42-04:00",
+  "generado": "2026-08-03T08:49:42-04:00",
+  "artefacto": "poblacion/intercensal.json"
+}

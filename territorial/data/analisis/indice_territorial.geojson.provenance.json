@@ -8,7 +8,7 @@
   "metodologia": "5 dimensiones normalizadas 0-100 con pesos EXPLÍCITOS {'servicios_basicos': 30, 'acceso_equipamiento': 25, 'acceso_comercio': 15, 'habitabilidad': 20, 'conectividad': 10}; distancias euclidianas centroide→equipamiento (salud óptimo 1 km/malo 4; colegio 0,6/2,5; abasto 0,4/2,0); habitabilidad penaliza hacinamiento ×3 y déficit ×2; cada dimensión se publica por separado para auditar el compuesto (anti caja negra §3)",
   "limitaciones": "Distancia euclidiana (no red vial); pesos son un juicio metodológico declarado, NO una verdad; manzanas con <5 viviendas ocupadas excluidas por secreto estadístico",
   "periodo": "Censo 2024 + capas 2025-2026",
-  "fecha_descarga": "2026-07-31T07:33:43-04:00",
-  "generado": "2026-07-31T07:33:43-04:00",
+  "fecha_descarga": "2026-08-03T07:31:52-04:00",
+  "generado": "2026-08-03T07:31:52-04:00",
   "artefacto": "analisis/indice_territorial.geojson"
 }

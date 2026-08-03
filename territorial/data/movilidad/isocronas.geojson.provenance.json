@@ -8,7 +8,7 @@
   "metodologia": "Grilla radial de 44 destinos por origen (anillos 0,9/1,8/3,0/5,0 km) × 2 modos; caminando y auto con tráfico. Cada punto lleva el tiempo REAL por red vial y la distancia en línea recta para comparar",
   "limitaciones": "Puntos muestrales, no polígonos de isócrona continuos; el modo caminando de Google puede no reflejar veredas reales de Batuco (auditar en terreno M6)",
   "periodo": "consulta 2026-07-30",
-  "fecha_descarga": "2026-07-31T07:33:40-04:00",
-  "generado": "2026-07-31T07:33:40-04:00",
+  "fecha_descarga": "2026-08-03T07:31:50-04:00",
+  "generado": "2026-08-03T07:31:50-04:00",
   "artefacto": "movilidad/isocronas.geojson"
 }

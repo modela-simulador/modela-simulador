@@ -8,7 +8,7 @@
   "metodologia": "Filtro <50% n_serv_hig_alc_dentro/n_vp_ocupada con ≥5 viv ocupadas, sobre Manzanas_CPV24",
   "limitaciones": "Umbral binario; el alcantarillado censal es declaración del hogar",
   "periodo": "Censo 2024",
-  "fecha_descarga": "2026-07-31T07:33:37-04:00",
-  "generado": "2026-07-31T07:33:37-04:00",
+  "fecha_descarga": "2026-08-03T07:31:48-04:00",
+  "generado": "2026-08-03T07:31:48-04:00",
   "artefacto": "analisis/brechas_batuco.geojson"
 }

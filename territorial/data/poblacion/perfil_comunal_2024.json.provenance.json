@@ -1,0 +1,15 @@
+{
+  "fuente": "CPV 2024 — hitos 2, 3 y 4 (indicadores comunales)",
+  "institucion": "INE",
+  "url": "https://services5.arcgis.com/hUyD8u3TeZLKPe4T/arcgis/rest/services/CENSO2024_H4_gdb/FeatureServer",
+  "licencia": "datos abiertos INE",
+  "fecha_publicacion": "2025-2026",
+  "periodo": "levantamiento 2024",
+  "escala": "E3 Lampa",
+  "clasificacion": "OBSERVADO",
+  "metodologia": "Fila comunal de Lampa en los servicios oficiales de hitos del CPV 2024.",
+  "limitaciones": "Indicadores SOLO comunales: no existen por localidad. No trasladar automáticamente a Batuco (regla E2≠E3). El microdato por localidad/manzana del servicio CPV2024_Microdato_gdb está perturbado y NO se usa (ver catálogo).",
+  "fecha_descarga": "2026-08-03T08:49:44-04:00",
+  "generado": "2026-08-03T08:49:44-04:00",
+  "artefacto": "poblacion/perfil_comunal_2024.json"
+}

@@ -1,0 +1,15 @@
+{
+  "fuente": "Órdenes de compra de la Municipalidad de Lampa en Mercado Público",
+  "institucion": "ChileCompra / Dirección de Compras y Contratación Pública",
+  "url": "https://api.mercadopublico.cl/",
+  "licencia": "Datos abiertos de Gobierno de Chile (API pública con ticket gratuito)",
+  "fecha_publicacion": "2026-07-31",
+  "periodo": "2025-08-05 a 2026-07-31",
+  "escala": "E3 Lampa",
+  "clasificacion": "OBSERVADO",
+  "metodologia": "La API no permite filtrar por comprador. Se identifican las unidades compradoras del municipio en un directorio construido una vez (prefijo del código de orden = código de unidad, verificado), se filtra el listado diario por ese prefijo y solo entonces se pide el detalle de cada orden para obtener monto y proveedor.",
+  "limitaciones": "Refleja lo que el municipio COMPRA, no todo lo que hace: quedan fuera el gasto de personal, las transferencias y los programas ejecutados por convenio. Los montos son los declarados en la plataforma, no los efectivamente pagados. El campo `pct_sin_detalle` dice qué porcentaje de las órdenes encontradas no entregó monto: el total es un PISO, no una cifra cerrada. El rango de fechas es el observado en `FechaEnvio`, que puede no coincidir con los meses solicitados. No reemplaza la solicitud de transparencia por el PLADECO.",
+  "fecha_descarga": "2026-07-31T12:11:59-04:00",
+  "generado": "2026-07-31T12:11:59-04:00",
+  "artefacto": "economia/compras_municipales.json"
+}

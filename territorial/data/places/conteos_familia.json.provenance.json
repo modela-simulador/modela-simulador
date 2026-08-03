@@ -8,7 +8,7 @@
   "metodologia": "read_parquet S3 con filtro bbox del área de análisis; familia por mapeo v2 de categorías (CALCULADO); 'en Batuco' = point-in-polygon contra el límite urbano censal INE 2024 (CALCULADO)",
   "limitaciones": "El área de análisis incluye localidades vecinas (Santa Sara, Valle Grande sur): usar el subconjunto 'en Batuco' (límite censal) para afirmaciones sobre el pueblo. Cobertura colaborativa/Meta: puede omitir comercio informal y nuevo; validar en terreno (Fase 6)",
   "periodo": "2026-07-22.0",
-  "fecha_descarga": "2026-07-31T07:31:42-04:00",
-  "generado": "2026-07-31T07:31:42-04:00",
+  "fecha_descarga": "2026-08-03T07:30:35-04:00",
+  "generado": "2026-08-03T07:30:35-04:00",
   "artefacto": "places/conteos_familia.json"
 }

@@ -8,7 +8,7 @@
   "metodologia": "ArcGIS REST query UPPER(COMUNAS) LIKE %LAMPA%; incluye estado de evaluación, titular, inversión y URL del expediente",
   "limitaciones": "Punto representativo ≠ polígono del proyecto; endpoint no documentado (monitorear cambios); proyectos multi-comuna aparecen por texto en COMUNAS",
   "periodo": "histórico completo SEIA a la fecha de consulta",
-  "fecha_descarga": "2026-07-31T07:33:34-04:00",
-  "generado": "2026-07-31T07:33:34-04:00",
+  "fecha_descarga": "2026-08-03T07:31:44-04:00",
+  "generado": "2026-08-03T07:31:44-04:00",
   "artefacto": "proyectos/seia_lampa.geojson"
 }
