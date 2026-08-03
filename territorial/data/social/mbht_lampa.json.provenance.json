@@ -1,0 +1,15 @@
+{
+  "fuente": "Matriz de Bienestar Humano Territorial (MBHT) — 18 indicadores, 4 dimensiones, por manzana",
+  "institucion": "Centro de Inteligencia Territorial, Universidad Adolfo Ibáñez · SUBDERE (Programa Nacional de Fortalecimiento de Capacidades Regionales)",
+  "url": "https://matrizbht.cl/",
+  "licencia": "Plataforma de acceso público y gratuito que ofrece descarga de datos en su vista de análisis. Uso con atribución a CIT-UAI y SUBDERE. Para uso institucional intensivo: contactocit@uai.cl",
+  "fecha_publicacion": "2022 (plataforma) · notas metodológicas 2021",
+  "periodo": "insumos principalmente Censo 2017",
+  "escala": "E3 Lampa (agregado ponderado por población de sus manzanas)",
+  "clasificacion": "CALCULADO",
+  "metodologia": "Promedios ponderados por población, calculados por la misma API que alimenta la vista pública de matrizbht.cl. Los índices están normalizados de 0 a 1 sobre todas las manzanas del país, por lo que el valor de Lampa es su posición relativa nacional, no una nota absoluta.",
+  "limitaciones": "La base demográfica es el CENSO 2017, no el 2024: no recoge el crecimiento ni los cambios de los últimos siete años. El agregado comunal promedia Batuco con Lampa pueblo, Valle Grande y el área rural, que son realidades distintas — no trasladar a Batuco sin desagregar (regla E2≠E3). La dimensión de seguridad se construye con denuncias, que dependen de la propensión a denunciar y no solo del delito.",
+  "fecha_descarga": "2026-08-03T09:25:41-04:00",
+  "generado": "2026-08-03T09:25:41-04:00",
+  "artefacto": "social/mbht_lampa.json"
+}
