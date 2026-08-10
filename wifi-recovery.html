@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Recuperador de Claves WiFi</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
+      color: #e2e8f0;
+      min-height: 100vh;
+      padding: 2rem 1rem;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 2.5rem;
+    }
+
+    header .icon {
+      font-size: 3rem;
+      margin-bottom: 0.5rem;
+    }
+
+    header h1 {
+      font-size: 2rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, #38bdf8, #818cf8);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    header p {
+      color: #94a3b8;
+      margin-top: 0.5rem;
+      font-size: 0.95rem;
+    }
+
+    .os-tabs {
+      display: flex;
+      gap: 0.5rem;
+      justify-content: center;
+      margin-bottom: 2rem;
+      flex-wrap: wrap;
+    }
+
+    .os-tab {
+      padding: 0.75rem 1.5rem;
+      border: 2px solid #334155;
+      background: #1e293b;
+      color: #94a3b8;
+      border-radius: 12px;
+      cursor: pointer;
+      font-size: 0.95rem;
+      font-weight: 500;
+      transition: all 0.2s;
+      font-family: inherit;
+    }
+
+    .os-tab:hover {
+      border-color: #475569;
+      color: #e2e8f0;
+    }
+
+    .os-tab.active {
+      border-color: #38bdf8;
+      background: rgba(56, 189, 248, 0.1);
+      color: #38bdf8;
+    }
+
+    .card {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 16px;
+      padding: 2rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .card h2 {
+      font-size: 1.25rem;
+      font-weight: 600;
+      margin-bottom: 1rem;
+      color: #f1f5f9;
+    }
+
+    .card h3 {
+      font-size: 1rem;
+      font-weight: 600;
+      margin: 1.5rem 0 0.75rem;
+      color: #38bdf8;
+    }
+
+    .step {
+      display: flex;
+      gap: 1rem;
+      margin-bottom: 1.25rem;
+      align-items: flex-start;
+    }
+
+    .step-number {
+      flex-shrink: 0;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #38bdf8, #818cf8);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 0.85rem;
+      color: #0f172a;
+    }
+
+    .step-content {
+      flex: 1;
+    }
+
+    .step-content p {
+      color: #cbd5e1;
+      line-height: 1.6;
+      font-size: 0.95rem;
+    }
+
+    .code-block {
+      position: relative;
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 10px;
+      padding: 1rem 1.25rem;
+      margin: 0.75rem 0;
+      font-family: 'Courier New', monospace;
+      font-size: 0.9rem;
+      color: #38bdf8;
+      overflow-x: auto;
+      white-space: pre-wrap;
+      word-break: break-all;
+      line-height: 1.6;
+    }
+
+    .copy-btn {
+      position: absolute;
+      top: 0.5rem;
+      right: 0.5rem;
+      padding: 0.35rem 0.75rem;
+      background: #334155;
+      border: none;
+      border-radius: 6px;
+      color: #94a3b8;
+      cursor: pointer;
+      font-size: 0.8rem;
+      font-family: inherit;
+      transition: all 0.2s;
+    }
+
+    .copy-btn:hover {
+      background: #475569;
+      color: #e2e8f0;
+    }
+
+    .copy-btn.copied {
+      background: #065f46;
+      color: #6ee7b7;
+    }
+
+    .os-section {
+      display: none;
+    }
+
+    .os-section.active {
+      display: block;
+    }
+
+    .note {
+      background: rgba(251, 191, 36, 0.1);
+      border: 1px solid rgba(251, 191, 36, 0.3);
+      border-radius: 10px;
+      padding: 1rem 1.25rem;
+      margin-top: 1rem;
+      font-size: 0.9rem;
+      color: #fbbf24;
+      line-height: 1.6;
+    }
+
+    .note strong {
+      color: #fcd34d;
+    }
+
+    .info-banner {
+      background: rgba(56, 189, 248, 0.08);
+      border: 1px solid rgba(56, 189, 248, 0.2);
+      border-radius: 12px;
+      padding: 1.25rem;
+      margin-bottom: 2rem;
+      text-align: center;
+      color: #7dd3fc;
+      font-size: 0.9rem;
+      line-height: 1.6;
+    }
+
+    .script-area {
+      width: 100%;
+      min-height: 120px;
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 10px;
+      padding: 1rem;
+      color: #38bdf8;
+      font-family: 'Courier New', monospace;
+      font-size: 0.85rem;
+      resize: vertical;
+      outline: none;
+      line-height: 1.5;
+    }
+
+    .script-area:focus {
+      border-color: #38bdf8;
+    }
+
+    .generate-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.75rem 1.5rem;
+      background: linear-gradient(135deg, #38bdf8, #818cf8);
+      border: none;
+      border-radius: 10px;
+      color: #0f172a;
+      font-weight: 600;
+      font-size: 0.95rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: inherit;
+      margin-top: 0.75rem;
+    }
+
+    .generate-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 15px rgba(56, 189, 248, 0.3);
+    }
+
+    .result-area {
+      margin-top: 1.5rem;
+      display: none;
+    }
+
+    .result-area.visible {
+      display: block;
+    }
+
+    .result-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 0.75rem;
+    }
+
+    .result-table th,
+    .result-table td {
+      padding: 0.75rem 1rem;
+      text-align: left;
+      border-bottom: 1px solid #334155;
+      font-size: 0.9rem;
+    }
+
+    .result-table th {
+      color: #94a3b8;
+      font-weight: 500;
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .result-table td {
+      color: #e2e8f0;
+    }
+
+    .result-table td.password {
+      color: #34d399;
+      font-family: 'Courier New', monospace;
+      font-weight: 600;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 0.2rem 0.6rem;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      font-weight: 500;
+    }
+
+    .badge-secure {
+      background: rgba(52, 211, 153, 0.15);
+      color: #34d399;
+    }
+
+    .badge-open {
+      background: rgba(251, 191, 36, 0.15);
+      color: #fbbf24;
+    }
+
+    footer {
+      text-align: center;
+      margin-top: 3rem;
+      color: #475569;
+      font-size: 0.85rem;
+    }
+
+    @media (max-width: 600px) {
+      body { padding: 1rem 0.5rem; }
+      .card { padding: 1.25rem; }
+      header h1 { font-size: 1.5rem; }
+      .os-tab { padding: 0.6rem 1rem; font-size: 0.85rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="icon">&#128274;</div>
+      <h1>Recuperador de Claves WiFi</h1>
+      <p>Recupera las contrase&ntilde;as de redes WiFi guardadas en tu computadora</p>
+    </header>
+
+    <div class="info-banner">
+      Esta herramienta te muestra los comandos nativos de tu sistema operativo para ver las
+      contrase&ntilde;as WiFi que tu computadora ya tiene guardadas. No hackea ni descifra nada.
+    </div>
+
+    <div class="os-tabs">
+      <button class="os-tab active" onclick="switchOS('windows')">&#127987;&#65039; Windows</button>
+      <button class="os-tab" onclick="switchOS('mac')">&#127822; macOS</button>
+      <button class="os-tab" onclick="switchOS('linux')">&#128039; Linux</button>
+    </div>
+
+    <!-- WINDOWS -->
+    <div id="os-windows" class="os-section active">
+      <div class="card">
+        <h2>Ver todas las redes WiFi guardadas</h2>
+        <div class="step">
+          <div class="step-number">1</div>
+          <div class="step-content">
+            <p>Abre <strong>CMD</strong> o <strong>PowerShell</strong> como Administrador (clic derecho &rarr; Ejecutar como administrador)</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-number">2</div>
+          <div class="step-content">
+            <p>Copia y pega este comando para ver la lista de todas las redes guardadas:</p>
+            <div class="code-block" id="win-cmd-1">netsh wlan show profiles<button class="copy-btn" onclick="copyCode('win-cmd-1')">Copiar</button></div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-number">3</div>
+          <div class="step-content">
+            <p>Para ver la contrase&ntilde;a de una red espec&iacute;fica, usa este comando reemplazando <strong>NOMBRE_RED</strong>:</p>
+            <div class="code-block" id="win-cmd-2">netsh wlan show profile name="NOMBRE_RED" key=clear<button class="copy-btn" onclick="copyCode('win-cmd-2')">Copiar</button></div>
+            <p style="margin-top:0.5rem; color:#94a3b8; font-size:0.85rem;">La contrase&ntilde;a aparece en la l&iacute;nea "Contenido de la clave" o "Key Content"</p>
+          </div>
+        </div>
+
+        <h3>Script para ver TODAS las claves de una vez</h3>
+        <p style="color:#cbd5e1; font-size:0.95rem; margin-bottom:0.75rem;">Copia este script completo en CMD (como Administrador):</p>
+        <div class="code-block" id="win-cmd-all">for /f "tokens=2 delims=:" %a in ('netsh wlan show profiles ^| findstr "Perfil de todos los usuarios"') do @(echo Red: %~a &amp; netsh wlan show profile name="%~a" key=clear | findstr "Contenido de la clave")<button class="copy-btn" onclick="copyCode('win-cmd-all')">Copiar</button></div>
+
+        <div class="note">
+          <strong>Nota:</strong> Si tu Windows est&aacute; en ingl&eacute;s, usa este comando alternativo:
+          <div class="code-block" id="win-cmd-en" style="margin-top:0.5rem;">for /f "tokens=2 delims=:" %a in ('netsh wlan show profiles ^| findstr "All User Profile"') do @(echo Network: %~a &amp; netsh wlan show profile name="%~a" key=clear | findstr "Key Content")<button class="copy-btn" onclick="copyCode('win-cmd-en')">Copiar</button></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Script PowerShell (alternativa avanzada)</h2>
+        <p style="color:#cbd5e1; font-size:0.95rem; margin-bottom:0.75rem;">Abre PowerShell como Administrador y pega esto:</p>
+        <div class="code-block" id="win-ps">(netsh wlan show profiles) |
+  Select-String "\:(.+)$" |
+  ForEach-Object {
+    $name = $_.Matches.Groups[1].Value.Trim()
+    $result = netsh wlan show profile name="$name" key=clear
+    $pass = ($result | Select-String "Contenido de la clave\W+\:(.+)$")
+    if ($pass) { $pass = $pass.Matches.Groups[1].Value.Trim() }
+    else { $pass = "(sin clave / red abierta)" }
+    [PSCustomObject]@{
+      Red = $name
+      Clave = $pass
+    }
+  } | Format-Table -AutoSize<button class="copy-btn" onclick="copyCode('win-ps')">Copiar</button></div>
+      </div>
+    </div>
+
+    <!-- macOS -->
+    <div id="os-mac" class="os-section">
+      <div class="card">
+        <h2>Recuperar claves WiFi en macOS</h2>
+        <div class="step">
+          <div class="step-number">1</div>
+          <div class="step-content">
+            <p>Abre la <strong>Terminal</strong> (Aplicaciones &rarr; Utilidades &rarr; Terminal)</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-number">2</div>
+          <div class="step-content">
+            <p>Para ver la contrase&ntilde;a de una red espec&iacute;fica, usa:</p>
+            <div class="code-block" id="mac-cmd-1">security find-generic-password -wa "NOMBRE_RED"<button class="copy-btn" onclick="copyCode('mac-cmd-1')">Copiar</button></div>
+            <p style="margin-top:0.5rem; color:#94a3b8; font-size:0.85rem;">Se te pedir&aacute; tu contrase&ntilde;a de usuario de macOS para autorizar</p>
+          </div>
+        </div>
+
+        <h3>Ver todas las redes guardadas</h3>
+        <div class="code-block" id="mac-cmd-list">networksetup -listpreferredwirelessnetworks en0<button class="copy-btn" onclick="copyCode('mac-cmd-list')">Copiar</button></div>
+
+        <h3>Script para ver todas las claves</h3>
+        <p style="color:#cbd5e1; font-size:0.95rem; margin-bottom:0.75rem;">Pega esto en Terminal (te pedir&aacute; la contrase&ntilde;a de admin por cada red):</p>
+        <div class="code-block" id="mac-cmd-all">networksetup -listpreferredwirelessnetworks en0 | tail -n +2 | while IFS= read -r network; do
+  network=$(echo "$network" | xargs)
+  pass=$(security find-generic-password -wa "$network" 2>/dev/null)
+  if [ -z "$pass" ]; then pass="(no disponible)"; fi
+  echo "Red: $network | Clave: $pass"
+done<button class="copy-btn" onclick="copyCode('mac-cmd-all')">Copiar</button></div>
+
+        <div class="note">
+          <strong>Nota:</strong> En macOS Sonoma y versiones recientes, tambi&eacute;n puedes ver las claves WiFi desde
+          <strong>Ajustes del Sistema &rarr; Wi-Fi &rarr; clic en (i) junto a la red &rarr; Contrase&ntilde;a</strong>.
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Usando Acceso a Llaveros (m&eacute;todo gr&aacute;fico)</h2>
+        <div class="step">
+          <div class="step-number">1</div>
+          <div class="step-content"><p>Abre <strong>Acceso a Llaveros</strong> (Keychain Access) desde Spotlight</p></div>
+        </div>
+        <div class="step">
+          <div class="step-number">2</div>
+          <div class="step-content"><p>En el buscador, escribe el nombre de tu red WiFi</p></div>
+        </div>
+        <div class="step">
+          <div class="step-number">3</div>
+          <div class="step-content"><p>Haz doble clic en la red encontrada</p></div>
+        </div>
+        <div class="step">
+          <div class="step-number">4</div>
+          <div class="step-content"><p>Marca la casilla <strong>"Mostrar contrase&ntilde;a"</strong> e ingresa tu clave de administrador</p></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- LINUX -->
+    <div id="os-linux" class="os-section">
+      <div class="card">
+        <h2>Recuperar claves WiFi en Linux</h2>
+        <div class="step">
+          <div class="step-number">1</div>
+          <div class="step-content">
+            <p>Abre una <strong>Terminal</strong></p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-number">2</div>
+          <div class="step-content">
+            <p>Las contrase&ntilde;as se guardan en archivos de NetworkManager. Para ver todas:</p>
+            <div class="code-block" id="linux-cmd-1">sudo grep -rH "psk=" /etc/NetworkManager/system-connections/<button class="copy-btn" onclick="copyCode('linux-cmd-1')">Copiar</button></div>
+          </div>
+        </div>
+
+        <h3>Ver redes guardadas</h3>
+        <div class="code-block" id="linux-cmd-list">nmcli connection show<button class="copy-btn" onclick="copyCode('linux-cmd-list')">Copiar</button></div>
+
+        <h3>Ver contrase&ntilde;a de una red espec&iacute;fica</h3>
+        <div class="code-block" id="linux-cmd-one">nmcli -s -g 802-11-wireless-security.psk connection show "NOMBRE_RED"<button class="copy-btn" onclick="copyCode('linux-cmd-one')">Copiar</button></div>
+
+        <h3>Script para ver todas las claves</h3>
+        <div class="code-block" id="linux-cmd-all">nmcli -t -f NAME,TYPE connection show | grep wireless | cut -d: -f1 | while IFS= read -r net; do
+  pass=$(nmcli -s -g 802-11-wireless-security.psk connection show "$net" 2>/dev/null)
+  if [ -z "$pass" ]; then pass="(sin clave)"; fi
+  echo "Red: $net | Clave: $pass"
+done<button class="copy-btn" onclick="copyCode('linux-cmd-all')">Copiar</button></div>
+
+        <h3>M&eacute;todo alternativo (archivos directos)</h3>
+        <p style="color:#cbd5e1; font-size:0.95rem; margin-bottom:0.75rem;">Cada red tiene un archivo de configuraci&oacute;n con la clave:</p>
+        <div class="code-block" id="linux-cmd-cat">sudo cat /etc/NetworkManager/system-connections/"NOMBRE_RED.nmconnection"<button class="copy-btn" onclick="copyCode('linux-cmd-cat')">Copiar</button></div>
+        <p style="margin-top:0.5rem; color:#94a3b8; font-size:0.85rem;">Busca la l&iacute;nea <code>psk=</code> en la secci&oacute;n [wifi-security]</p>
+
+        <div class="note">
+          <strong>Nota:</strong> Si usas una distro con <code>wpa_supplicant</code> en lugar de NetworkManager:
+          <div class="code-block" id="linux-cmd-wpa" style="margin-top:0.5rem;">sudo cat /etc/wpa_supplicant/wpa_supplicant.conf<button class="copy-btn" onclick="copyCode('linux-cmd-wpa')">Copiar</button></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Simulador interactivo</h2>
+      <p style="color:#cbd5e1; font-size:0.95rem; margin-bottom:1rem;">
+        Prueba c&oacute;mo funcionar&iacute;a el proceso con datos de ejemplo:
+      </p>
+      <button class="generate-btn" onclick="simulateRecovery()">
+        &#9889; Simular recuperaci&oacute;n de claves
+      </button>
+      <div class="result-area" id="sim-results">
+        <h3 style="color:#34d399; margin-bottom:0.5rem;">Redes WiFi encontradas:</h3>
+        <table class="result-table">
+          <thead>
+            <tr>
+              <th>Red</th>
+              <th>Seguridad</th>
+              <th>Clave</th>
+            </tr>
+          </thead>
+          <tbody id="sim-table-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <footer>
+      <p>Recuperador de Claves WiFi &mdash; Solo recupera claves guardadas en tu propio equipo</p>
+    </footer>
+  </div>
+
+  <script>
+    function switchOS(os) {
+      document.querySelectorAll('.os-section').forEach(s => s.classList.remove('active'));
+      document.querySelectorAll('.os-tab').forEach(t => t.classList.remove('active'));
+      document.getElementById('os-' + os).classList.add('active');
+      event.target.classList.add('active');
+    }
+
+    function copyCode(id) {
+      const block = document.getElementById(id);
+      const btn = block.querySelector('.copy-btn');
+      const text = block.textContent.replace('Copiar', '').replace('Copiado!', '').trim();
+
+      navigator.clipboard.writeText(text).then(() => {
+        btn.textContent = 'Copiado!';
+        btn.classList.add('copied');
+        setTimeout(() => {
+          btn.textContent = 'Copiar';
+          btn.classList.remove('copied');
+        }, 2000);
+      }).catch(() => {
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+        btn.textContent = 'Copiado!';
+        btn.classList.add('copied');
+        setTimeout(() => {
+          btn.textContent = 'Copiar';
+          btn.classList.remove('copied');
+        }, 2000);
+      });
+    }
+
+    const sampleNetworks = [
+      { name: 'MiCasa_WiFi', security: 'WPA2', password: 'F4m1l14#2024' },
+      { name: 'Oficina_5G', security: 'WPA3', password: 'Tr4b4j0$Segur0!' },
+      { name: 'Casa_Abuela', security: 'WPA2', password: 'galletas123' },
+      { name: 'CafeDelParque', security: 'WPA2', password: 'cafe2024wifi' },
+      { name: 'Hotel_Playa', security: 'WPA2', password: 'habitacion*302' },
+      { name: 'Vecino_Red', security: 'Abierta', password: '(sin clave)' },
+      { name: 'Aeropuerto_Free', security: 'Abierta', password: '(sin clave)' },
+      { name: 'Biblioteca_Municipal', security: 'WPA2', password: 'L33r&Aprender' },
+    ];
+
+    function simulateRecovery() {
+      const tbody = document.getElementById('sim-table-body');
+      const results = document.getElementById('sim-results');
+      tbody.innerHTML = '';
+      results.classList.remove('visible');
+
+      const count = 3 + Math.floor(Math.random() * 4);
+      const shuffled = sampleNetworks.sort(() => 0.5 - Math.random()).slice(0, count);
+
+      setTimeout(() => {
+        results.classList.add('visible');
+        shuffled.forEach((net, i) => {
+          setTimeout(() => {
+            const row = document.createElement('tr');
+            const isOpen = net.security === 'Abierta';
+            row.innerHTML = `
+              <td>${net.name}</td>
+              <td><span class="badge ${isOpen ? 'badge-open' : 'badge-secure'}">${net.security}</span></td>
+              <td class="password">${net.password}</td>
+            `;
+            row.style.animation = 'fadeIn 0.3s ease';
+            tbody.appendChild(row);
+          }, i * 300);
+        });
+      }, 800);
+    }
+  </script>
+
+  <style>
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</body>
+</html>
