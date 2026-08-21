@@ -14037,15 +14037,27 @@ function _renderPE() {
 async function downloadPEPptx() {
   if (!lastResults) { alert('Ejecute la simulacion primero.'); return; }
 
-  // Load pptxgenjs from CDN if not loaded
+  // Cargar PptxGenJS dinámicamente
   if (typeof PptxGenJS === 'undefined') {
-    await new Promise((resolve, reject) => {
-      const s = document.createElement('script');
-      s.src = 'https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgenjs.bundle.js';
-      s.onload = resolve;
-      s.onerror = () => reject(new Error('No se pudo cargar pptxgenjs'));
-      document.head.appendChild(s);
-    });
+    const urls = [
+      'pptxgen.bundle.js',  // local fallback
+      'https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js',
+    ];
+    let loaded = false;
+    for (const url of urls) {
+      if (loaded) break;
+      try {
+        await new Promise((resolve, reject) => {
+          const s = document.createElement('script');
+          s.src = url;
+          s.onload = resolve;
+          s.onerror = reject;
+          document.head.appendChild(s);
+        });
+        loaded = typeof PptxGenJS !== 'undefined';
+      } catch(e) { /* siguiente */ }
+    }
+    if (!loaded) { alert('No se pudo cargar PptxGenJS. Verifica tu conexión.'); return; }
   }
 
   const U = 40000 / 900;
