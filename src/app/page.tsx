@@ -250,8 +250,8 @@ function AppSelector({ username, onLogout }: { username: string; onLogout: () =>
           </a>
         </div>
 
-        {/* Opciones secundarias: Cabidas + Conectividad */}
-        <div className="w-full max-w-5xl grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Opciones secundarias: Cabidas + Conectividad + Integración */}
+        <div className="w-full max-w-5xl grid grid-cols-1 md:grid-cols-3 gap-4">
           <a
             href={`${BASE_PATH}/cabidas`}
             className="group relative flex items-center gap-4 bg-white/3 backdrop-blur-xl border border-white/10 rounded-xl px-6 py-4 hover:bg-white/6 hover:border-[#a89867]/40 transition-all duration-300"
@@ -298,6 +298,32 @@ function AppSelector({ username, onLogout }: { username: string; onLogout: () =>
               </div>
               <p className="text-white/40 text-xs leading-relaxed mt-0.5 truncate">
                 Tiempo y costo puerta a puerta desde cada proyecto, hoy vs. el tren.
+              </p>
+            </div>
+            <svg className="w-5 h-5 text-white/30 group-hover:text-white/70 transition-colors shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+            </svg>
+          </a>
+
+          {/* Integración Vertical — modelo del Directorio */}
+          <a
+            href={`${BASE_PATH}/integracion`}
+            className="group relative flex items-center gap-4 bg-white/3 backdrop-blur-xl border border-white/10 rounded-xl px-6 py-4 hover:bg-white/6 hover:border-[#6366f1]/40 transition-all duration-300"
+          >
+            <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-[#6366f1] to-[#4338ca] flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+              <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 3v11.25A2.25 2.25 0 006 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0118 16.5h-2.25m-7.5 0h7.5m-7.5 0l-1 3m8.5-3l1 3m0 0l.5 1.5m-.5-1.5h-9.5m0 0l-.5 1.5M9 11.25v1.5M12 9v3.75m3-6v6" />
+              </svg>
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <h3 className="text-base font-semibold text-white group-hover:text-[#a5b4fc] transition-colors">
+                  Integración Vertical
+                </h3>
+                <span className="text-[10px] px-2 py-0.5 bg-white/5 border border-white/10 rounded text-white/40 tracking-wider uppercase">Directorio</span>
+              </div>
+              <p className="text-white/40 text-xs leading-relaxed mt-0.5 truncate">
+                Del suelo al negocio inmobiliario, capa por capa: flujo, capital de trabajo y equity.
               </p>
             </div>
             <svg className="w-5 h-5 text-white/30 group-hover:text-white/70 transition-colors shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
