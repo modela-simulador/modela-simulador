@@ -39,7 +39,8 @@ python3 -m http.server 8000    # abrir http://localhost:8000/
 ## Estado real (según código, 2026-07-03)
 - HEAD `c854f29` "Add redirect stubs for legacy /modela-simulador/ URL", 2026-05-19.
 - **Este repo (`modela-simulador/modela-simulador.github.io`) y `modela-simulador/modela-simulador` son idénticos byte a byte**: mismo commit HEAD, mismo árbol de trabajo (`diff -rq` vacío), mismas ramas (`main`, `gh-pages`, `feature/nextjs-app`, `claude/wifi-password-recovery-*`).
-- Relación: **este repo `.github.io` es el sitio publicado** (GitHub Pages user/org site). **El repo hermano `modela-simulador` es la fuente/duplicado** con el mismo contenido. No son mirrors automáticos: si divergen, hay que empujar a ambos manualmente.
+- Relación: **este repo `.github.io` es el sitio publicado** (GitHub Pages user/org site).
+- ⚠️ **`modela-simulador/modela-simulador.git` y `modela-simulador/modela-simulador.github.io.git` son EL MISMO repo en GitHub** (la primera URL redirige a la segunda; verificado 2026-08-21 con `git ls-remote`: ambas devuelven el mismo SHA). **Un solo `git push` publica**. No commitear el mismo cambio en las dos copias locales: crea commits duplicados y el segundo push se rechaza por non-fast-forward. Si la copia local `~/Proyectos/modela-simulador` quedó atrasada, sincronizarla con `git fetch && git reset --hard origin/main`.
 
 ## Notas / gotchas
 - Edita **solo `simulador.html`** (raíz). Los otros `*.html` son redirects; no dupliques lógica ahí.
