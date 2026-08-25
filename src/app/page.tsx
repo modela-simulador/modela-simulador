@@ -330,6 +330,32 @@ function AppSelector({ username, onLogout }: { username: string; onLogout: () =>
               <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
             </svg>
           </a>
+
+          {/* Consolidado por unidad de negocio */}
+          <a
+            href={`${BASE_PATH}/consolidado`}
+            className="group relative flex items-center gap-4 bg-white/3 backdrop-blur-xl border border-white/10 rounded-xl px-6 py-4 hover:bg-white/6 hover:border-[#10b981]/40 transition-all duration-300"
+          >
+            <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-[#10b981] to-[#047857] flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+              <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />
+              </svg>
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <h3 className="text-base font-semibold text-white group-hover:text-[#6ee7b7] transition-colors">
+                  Consolidado
+                </h3>
+                <span className="text-[10px] px-2 py-0.5 bg-white/5 border border-white/10 rounded text-white/40 tracking-wider uppercase">Directorio</span>
+              </div>
+              <p className="text-white/40 text-xs leading-relaxed mt-0.5 truncate">
+                Tierra y Sanitaria en un solo flujo anual: VAN, TIR, capital de trabajo y payback.
+              </p>
+            </div>
+            <svg className="w-5 h-5 text-white/30 group-hover:text-white/70 transition-colors shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+            </svg>
+          </a>
         </div>
       </main>
 

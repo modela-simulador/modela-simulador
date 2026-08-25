@@ -20,18 +20,18 @@ import {
 } from "./integracion-model";
 
 // ── paleta Modela (ARGB) ─────────────────────────────────────
-const VERDE = "FF2C4A3B"; // cabecera de tabla, igual que el deck
-const VERDE_CLARO = "FFD9E5DD"; // bandas de sección
-const ZEBRA = "FFF5F8F6";
-const BORDE = "FFD5DDD8";
-const TINTA = "FF1B2A22";
-const GRIS = "FF7C8A83";
+export const VERDE = "FF2C4A3B"; // cabecera de tabla, igual que el deck
+export const VERDE_CLARO = "FFD9E5DD"; // bandas de sección
+export const ZEBRA = "FFF5F8F6";
+export const BORDE = "FFD5DDD8";
+export const TINTA = "FF1B2A22";
+export const GRIS = "FF7C8A83";
 
-const FUENTE = "Arial";
-const N_UF = "#,##0;[Red]-#,##0";
+export const FUENTE = "Arial";
+export const N_UF = "#,##0;[Red]-#,##0";
 /** Solo para el FLUJO NETO: positivo en verde y negativo en rojo, como en pantalla. */
-const N_NETO = "[Green]#,##0;[Red]-#,##0";
-const LINEA_ABAJO: Partial<Borders> = { bottom: { style: "hair", color: { argb: BORDE } } };
+export const N_NETO = "[Green]#,##0;[Red]-#,##0";
+export const LINEA_ABAJO: Partial<Borders> = { bottom: { style: "hair", color: { argb: BORDE } } };
 
 /** UF enteras; las celdas nulas quedan en blanco, como el "·" de la tabla. */
 const n0 = (v: number): number | null => (Math.abs(v) > 0.5 ? Math.round(v) : null);
@@ -87,13 +87,13 @@ export async function descargarFlujos(cfg: ExportFlujosConfig) {
 // ── piezas de diseño compartidas ─────────────────────────────
 
 /** Título y bajada de cada hoja, sobre el ancho de la tabla. */
-function portada(ws: Worksheet, subtitulo: string, escenario: string, ancho: number) {
+export function portada(ws: Worksheet, subtitulo: string, escenario: string, ancho: number, titulo = "Integración Vertical — AUDP Batuco + Colina") {
   // Que al imprimir entre a lo ancho: si no, las columnas de semestres se parten en dos hojas.
   ws.pageSetup = { orientation: "landscape", fitToPage: true, fitToWidth: 1, fitToHeight: 0 };
 
   ws.mergeCells(1, 1, 1, ancho);
   const t = ws.getCell(1, 1);
-  t.value = "Integración Vertical — AUDP Batuco + Colina";
+  t.value = titulo;
   t.font = { name: FUENTE, size: 14, bold: true, color: { argb: VERDE } };
 
   ws.mergeCells(2, 1, 2, ancho);
@@ -106,7 +106,7 @@ function portada(ws: Worksheet, subtitulo: string, escenario: string, ancho: num
 }
 
 /** Banda de sección: verde claro a todo el ancho, como los "INGRESOS / COSTOS" del deck. */
-function banda(ws: Worksheet, texto: string, ancho: number) {
+export function banda(ws: Worksheet, texto: string, ancho: number) {
   const row = ws.addRow([texto]);
   ws.mergeCells(row.number, 1, row.number, ancho);
   const c = ws.getCell(row.number, 1);
@@ -118,7 +118,7 @@ function banda(ws: Worksheet, texto: string, ancho: number) {
 }
 
 /** Fila de encabezado de columnas: fondo verde, texto blanco. */
-function cabecera(ws: Worksheet, cols: string[]) {
+export function cabecera(ws: Worksheet, cols: string[]) {
   const row = ws.addRow(cols);
   row.height = 18;
   row.eachCell((c, i) => {
