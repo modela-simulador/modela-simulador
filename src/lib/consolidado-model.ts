@@ -153,9 +153,9 @@ export function computeConsolidado(): { tierra: Unidad; sanitaria: Unidad; conso
   const comercializacion = ingTierra.map((v) => -COMISION * v);
   const equip = SEM.equipamiento;
 
-  // tierra devengada proporcional a la venta (sin COPEC, que es un terreno aparte)
-  const ingSinCopec = ingTierra.slice();
-  ingSinCopec[iy(2030)] -= 30000;
+  // COPEC es la venta de un terreno aparte: línea propia, fuera del devengo de tierra
+  const copec = serie({ 2030: 30000 });
+  const ingSinCopec = addv(ingTierra, copec.map((v) => -v));
   const baseTierra = suma(ingSinCopec);
   const tierraDev = ingSinCopec.map((v) => (-TIERRA_AUDP * v) / baseTierra);
 
@@ -167,7 +167,10 @@ export function computeConsolidado(): { tierra: Unidad; sanitaria: Unidad; conso
   const tierra: Unidad = {
     id: "tierra",
     nombre: "Venta de Tierra",
-    ingresos: [{ label: "Ingresos Venta de Tierra (incl. COPEC)", arr: ingTierra, total: suma(ingTierra) }],
+    ingresos: [
+      { label: "Ingresos Venta de Tierra", arr: ingSinCopec, total: suma(ingSinCopec) },
+      { label: "Venta terreno COPEC", arr: copec, total: suma(copec) },
+    ],
     costos: [
       { label: "Costos Infraestructura", arr: infra, total: suma(infra) },
       { label: "Costos Mitigaciones", arr: mitig, total: suma(mitig) },
@@ -175,8 +178,8 @@ export function computeConsolidado(): { tierra: Unidad; sanitaria: Unidad; conso
       { label: "Mantención y seguridad", arr: mant, total: suma(mant) },
       { label: "Equipamiento comercial (neto)", arr: equip, total: suma(equip) },
       { label: "Inversiones Sanitarias (asumidas)", arr: sanInv, total: suma(sanInv) },
-      { label: "Factibilización AUDP por gastar", arr: AN_T.factibPorGastar, total: suma(AN_T.factibPorGastar) },
-      { label: "Factibilización AUDP gastada (al 2026)", arr: AN_T.factibGastada, total: suma(AN_T.factibGastada) },
+      { label: "Factibilización por gastar", arr: AN_T.factibPorGastar, total: suma(AN_T.factibPorGastar) },
+      { label: "Factibilización gastada (al 2026)", arr: AN_T.factibGastada, total: suma(AN_T.factibGastada) },
       { label: "Costo de la Tierra (aporte, devengado)", arr: tierraDev, total: suma(tierraDev) },
     ],
     flujo: tFlujo,
@@ -212,8 +215,8 @@ export function computeConsolidado(): { tierra: Unidad; sanitaria: Unidad; conso
     costos: [
       { label: "Costos Operacionales", arr: AN_S.costOp, total: suma(AN_S.costOp) },
       { label: "Inversiones Sanitarias", arr: sInv, total: suma(sInv) },
-      { label: "Factibilización Sanitaria por gastar", arr: AN_S.factibPorGastar, total: suma(AN_S.factibPorGastar) },
-      { label: "Factibilización Sanitaria gastada (al 2026)", arr: AN_S.factibGastada, total: suma(AN_S.factibGastada) },
+      { label: "Factibilización por gastar", arr: AN_S.factibPorGastar, total: suma(AN_S.factibPorGastar) },
+      { label: "Factibilización gastada (al 2026)", arr: AN_S.factibGastada, total: suma(AN_S.factibGastada) },
     ],
     flujo: sFlujo,
     resultado: sRes,
@@ -240,7 +243,21 @@ export function computeConsolidado(): { tierra: Unidad; sanitaria: Unidad; conso
     id: "consolidado",
     nombre: "Consolidado",
     ingresos: [...tierra.ingresos, ...sanitaria.ingresos],
-    costos: [...tierra.costos.filter((c) => !c.label.startsWith("Costo de la Tierra")), ...sanitaria.costos, tierra.costos[tierra.costos.length - 1]],
+    costos: [
+      ...tierra.costos.filter((c) => !c.label.startsWith("Costo de la Tierra") && !c.label.startsWith("Factibilización")),
+      ...sanitaria.costos.filter((c) => !c.label.startsWith("Factibilización")),
+      {
+        label: "Factibilización por gastar",
+        arr: addv(AN_T.factibPorGastar, AN_S.factibPorGastar),
+        total: suma(AN_T.factibPorGastar) + suma(AN_S.factibPorGastar),
+      },
+      {
+        label: "Factibilización gastada (al 2026)",
+        arr: addv(AN_T.factibGastada, AN_S.factibGastada),
+        total: suma(AN_T.factibGastada) + suma(AN_S.factibGastada),
+      },
+      tierra.costos.find((c) => c.label.startsWith("Costo de la Tierra"))!,
+    ],
     flujo: cFlujo,
     resultado: cRes,
     resultadoAcum: cResAcum,
