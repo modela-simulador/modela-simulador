@@ -8,6 +8,7 @@ import {
   PARIDAD_PLANILLAS,
   TIERRA_AUDP,
   VAN_RATE,
+  VAN_RATE_SAN,
   YEARS,
   type Unidad,
 } from "@/lib/consolidado-model";
@@ -100,8 +101,16 @@ function UnidadCard({ u, destacada }: { u: Unidad; destacada?: boolean }) {
         </span>
       </div>
       <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
-        <Kpi label={`VAN ${VAN_RATE * 100}% c/ tierra`} value={uf(u.van)} color={u.van >= 0 ? "text-green-400" : "text-red-400"} />
-        <Kpi label="TIR c/ tierra" value={pct(u.tir)} color={(u.tir ?? 0) >= VAN_RATE ? "text-green-400" : "text-red-400"} />
+        <Kpi
+          label={u.id === "sanitaria" ? `VAN ${VAN_RATE_SAN * 100}%` : u.id === "consolidado" ? "VAN · T 8% / S 7%" : `VAN ${VAN_RATE * 100}% c/ tierra`}
+          value={uf(u.van)}
+          color={u.van >= 0 ? "text-green-400" : "text-red-400"}
+        />
+        <Kpi
+          label={u.id === "sanitaria" ? "TIR (incl. f. gastada)" : "TIR c/ tierra (incl. f. gastada)"}
+          value={pct(u.tir)}
+          color={(u.tir ?? 0) >= (u.id === "sanitaria" ? VAN_RATE_SAN : VAN_RATE) ? "text-green-400" : "text-red-400"}
+        />
         <Kpi label="Capital de Trabajo" value={uf(-u.capitalTrabajo)} color="text-red-400" />
         <Kpi label="Payback" value={String(u.payback ?? "—")} color="text-amber-400" />
         <Kpi label="Flujos (+) permanentes" value={String(u.flujosPermanentes)} color="text-zinc-200" />
@@ -207,6 +216,14 @@ function Legend({ color, label }: { color: string; label: string }) {
 // ── tabla anual por unidad de negocio ────────────────────────
 function FlujoTable({ unidades }: { unidades: Unidad[] }) {
   const cols = YEARS;
+  const [abiertas, setAbiertas] = useState<Set<string>>(new Set());
+  const toggleFila = (k: string) =>
+    setAbiertas((prev) => {
+      const n = new Set(prev);
+      if (n.has(k)) n.delete(k);
+      else n.add(k);
+      return n;
+    });
   const cell = (v: number) =>
     Math.abs(v) > 0.5 ? (
       <span className={v < -0.5 ? "text-red-400" : "text-zinc-300"}>{sg(v)}</span>
@@ -242,17 +259,44 @@ function FlujoTable({ unidades }: { unidades: Unidad[] }) {
                       Unidad {u.nombre}
                     </td>
                   </tr>
-                  {[...u.ingresos, ...u.costos.filter((c) => !c.label.startsWith("Costo de la Tierra"))].map((l) => (
-                    <tr key={`${u.id}·${l.label}`} className="border-b border-zinc-800/70 hover:bg-zinc-800/30">
-                      <td className="px-3 py-1 text-left text-zinc-300 sticky left-0 bg-zinc-950/95">{l.label}</td>
-                      {l.arr.map((v, i) => (
-                        <td key={i} className="px-2 py-1 text-right">{cell(v)}</td>
-                      ))}
-                      <td className={`px-3 py-1 text-right font-semibold ${l.total < -0.5 ? "text-red-400" : "text-zinc-200"}`}>
-                        {sg(l.total)}
-                      </td>
-                    </tr>
-                  ))}
+                  {[...u.ingresos, ...u.costos.filter((c) => !c.label.startsWith("Costo de la Tierra"))].map((l) => {
+                    const k = `${u.id}·${l.label}`;
+                    const abierta = abiertas.has(k);
+                    return (
+                      <Fragment key={k}>
+                        <tr className="border-b border-zinc-800/70 hover:bg-zinc-800/30">
+                          <td className="px-3 py-1 text-left text-zinc-300 sticky left-0 bg-zinc-950/95">
+                            {l.detalle ? (
+                              <button onClick={() => toggleFila(k)} className="flex items-center gap-1 hover:text-white transition-colors">
+                                <span className={`inline-block text-[9px] text-zinc-500 transition-transform ${abierta ? "rotate-90" : ""}`}>▶</span>
+                                {l.label}
+                              </button>
+                            ) : (
+                              l.label
+                            )}
+                          </td>
+                          {l.arr.map((v, i) => (
+                            <td key={i} className="px-2 py-1 text-right">{cell(v)}</td>
+                          ))}
+                          <td className={`px-3 py-1 text-right font-semibold ${l.total < -0.5 ? "text-red-400" : "text-zinc-200"}`}>
+                            {sg(l.total)}
+                          </td>
+                        </tr>
+                        {abierta &&
+                          l.detalle?.map((h) => (
+                            <tr key={`${k}·${h.label}`} className="border-b border-zinc-800/50">
+                              <td className="pl-8 pr-3 py-0.5 text-left text-[10px] text-zinc-500 italic sticky left-0 bg-zinc-950/95">{h.label}</td>
+                              {h.arr.map((v, i) => (
+                                <td key={i} className="px-2 py-0.5 text-right text-[10px] italic text-zinc-500">
+                                  {Math.abs(v) > 0.5 ? sg(v) : "·"}
+                                </td>
+                              ))}
+                              <td className="px-3 py-0.5 text-right text-[10px] italic text-zinc-500">{sg(h.total)}</td>
+                            </tr>
+                          ))}
+                      </Fragment>
+                    );
+                  })}
                   <tr className="bg-zinc-800/60 border-t border-zinc-700">
                     <td className="px-3 py-1.5 text-left font-bold sticky left-0 bg-zinc-800">FLUJO NETO</td>
                     {u.resultado.map((v, i) => (
@@ -314,6 +358,11 @@ function Criterios() {
         <span className="text-zinc-300 font-semibold">Capital de trabajo:</span> Tierra y Consolidado sobre el resultado
         acumulado (incluye factibilización gastada); Sanitaria sobre el flujo futuro — el pago del desarrollador ya netea
         las inversiones (criterio del simulador).
+      </p>
+      <p>
+        <span className="text-zinc-300 font-semibold">Tasas y TIR:</span> la TIR corre desde 2026 e incluye la
+        factibilización gastada. El VAN la excluye (costo hundido): tierra al {VAN_RATE * 100}%, sanitaria al {VAN_RATE_SAN * 100}%,
+        y el consolidado suma los VAN por unidad. La etapa 6 de la planta cierra completa en 2041.
       </p>
     </div>
   );

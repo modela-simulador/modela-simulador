@@ -61,10 +61,15 @@ const AN_T = {
   infra: serie({ 2030: -89447, 2031: -80246, 2032: -66157, 2033: -87138, 2034: -80446, 2035: -55352, 2036: -31247, 2037: -22647, 2038: -18036, 2039: -14991, 2040: -12728, 2041: -4855 }),
   mitigaciones: serie({ 2030: -35809, 2031: -23262, 2032: -9131, 2033: -5000, 2034: -14417, 2035: -23664, 2036: -20103, 2037: -14924, 2038: -8731, 2039: -7880, 2040: -8695, 2041: -13459 }),
   mantencion: serie({ 2031: -778, 2032: -1555, 2033: -2333, 2034: -2415, 2035: -3234, 2036: -4170, 2037: -6335, 2038: -7716, 2039: -9495, 2040: -4736 }),
-  sanitariaInv: serie({ 2031: -53735, 2032: -19703, 2033: -16121, 2035: -56222, 2036: -83480, 2037: -30666, 2039: -19358, 2040: -15838, 2041: -12905, 2042: -10559 }),
+  // la etapa 6 de la planta cierra completa en 2041: sin flujo negativo en un año sin venta
+  sanitariaInv: serie({ 2031: -53735, 2032: -19703, 2033: -16121, 2035: -56222, 2036: -83480, 2037: -30666, 2039: -19358, 2040: -15838, 2041: -23464 }),
   factibPorGastar: serie({ 2026: -58923, 2027: -34641, 2028: -24350, 2029: -4909, 2030: -2813, 2031: -1139, 2032: -133 }),
   factibGastada: serie({ 2026: -132513 }),
 };
+
+// apertura de la factibilización por gastar de la tierra, por AUDP (planilla del simulador)
+const FACTIB_T_BATUCO = serie({ 2026: -26496, 2027: -15577, 2028: -10949, 2029: -2207, 2030: -1265, 2031: -512, 2032: -60 });
+const FACTIB_T_COLINA = serie({ 2026: -32427, 2027: -19064, 2028: -13401, 2029: -2702, 2030: -1548, 2031: -627, 2032: -73 });
 
 // ── planilla anual Primeras Etapas SAN AUDP (sanitaria) ──
 const AN_S = {
@@ -78,6 +83,7 @@ const AN_S = {
 export const TIERRA_AUDP = 343000; // AUDP_TIERRA_TOTAL del simulador
 const COMISION = 0.02;
 export const VAN_RATE = 0.08;
+export const VAN_RATE_SAN = 0.07; // la sanitaria se descuenta al 7%
 export const VENTA_SANITARIA = 147433;
 
 /** Semestral tal cual hasta 2034 (2035 el equipamiento); residuo 2035+ con la forma anual. */
@@ -96,6 +102,8 @@ export interface Linea {
   label: string;
   arr: number[];
   total: number;
+  /** Sub-filas de apertura (p. ej. factibilización por zona o por unidad). */
+  detalle?: Linea[];
 }
 export interface Unidad {
   id: "tierra" | "sanitaria" | "consolidado";
@@ -178,7 +186,15 @@ export function computeConsolidado(): { tierra: Unidad; sanitaria: Unidad; conso
       { label: "Mantención y seguridad", arr: mant, total: suma(mant) },
       { label: "Equipamiento comercial (neto)", arr: equip, total: suma(equip) },
       { label: "Inversiones Sanitarias (asumidas)", arr: sanInv, total: suma(sanInv) },
-      { label: "Factibilización por gastar", arr: AN_T.factibPorGastar, total: suma(AN_T.factibPorGastar) },
+      {
+        label: "Factibilización por gastar",
+        arr: AN_T.factibPorGastar,
+        total: suma(AN_T.factibPorGastar),
+        detalle: [
+          { label: "AUDP Batuco", arr: FACTIB_T_BATUCO, total: suma(FACTIB_T_BATUCO) },
+          { label: "AUDP Colina", arr: FACTIB_T_COLINA, total: suma(FACTIB_T_COLINA) },
+        ],
+      },
       { label: "Factibilización gastada (al 2026)", arr: AN_T.factibGastada, total: suma(AN_T.factibGastada) },
       { label: "Costo de la Tierra (aporte, devengado)", arr: tierraDev, total: suma(tierraDev) },
     ],
@@ -187,7 +203,8 @@ export function computeConsolidado(): { tierra: Unidad; sanitaria: Unidad; conso
     resultadoAcum: tResAcum,
     flujoVan: tVanFlow,
     van: npvAt(tVanFlow, VAN_RATE),
-    tir: tirDe(tVanFlow),
+    // la TIR corre desde hoy e incluye la factibilización gastada
+    tir: tirDe(addv(tVanFlow, AN_T.factibGastada)),
     capitalTrabajo: Math.abs(Math.min(...tResAcum, 0)),
     payback: paybackDe(tResAcum),
     flujosPermanentes: permanentesDe(tRes),
@@ -222,8 +239,8 @@ export function computeConsolidado(): { tierra: Unidad; sanitaria: Unidad; conso
     resultado: sRes,
     resultadoAcum: sResAcum,
     flujoVan: sFlujo,
-    van: npvAt(sFlujo, VAN_RATE),
-    tir: tirDe(sFlujo),
+    van: npvAt(sFlujo, VAN_RATE_SAN),
+    tir: tirDe(sRes),
     // criterio simulador para modos sanitarios: el valle del flujo futuro
     capitalTrabajo: Math.abs(Math.min(...sFlujoAcum, 0)),
     payback: paybackDe(sResAcum),
@@ -250,11 +267,19 @@ export function computeConsolidado(): { tierra: Unidad; sanitaria: Unidad; conso
         label: "Factibilización por gastar",
         arr: addv(AN_T.factibPorGastar, AN_S.factibPorGastar),
         total: suma(AN_T.factibPorGastar) + suma(AN_S.factibPorGastar),
+        detalle: [
+          { label: "Tierra", arr: AN_T.factibPorGastar, total: suma(AN_T.factibPorGastar) },
+          { label: "Sanitaria", arr: AN_S.factibPorGastar, total: suma(AN_S.factibPorGastar) },
+        ],
       },
       {
         label: "Factibilización gastada (al 2026)",
         arr: addv(AN_T.factibGastada, AN_S.factibGastada),
         total: suma(AN_T.factibGastada) + suma(AN_S.factibGastada),
+        detalle: [
+          { label: "Tierra", arr: AN_T.factibGastada, total: suma(AN_T.factibGastada) },
+          { label: "Sanitaria", arr: AN_S.factibGastada, total: suma(AN_S.factibGastada) },
+        ],
       },
       tierra.costos.find((c) => c.label.startsWith("Costo de la Tierra"))!,
     ],
@@ -262,8 +287,9 @@ export function computeConsolidado(): { tierra: Unidad; sanitaria: Unidad; conso
     resultado: cRes,
     resultadoAcum: cResAcum,
     flujoVan: cVanFlow,
-    van: npvAt(cVanFlow, VAN_RATE),
-    tir: tirDe(cVanFlow),
+    // VAN consolidado = suma de los VAN por unidad (tierra al 8%, sanitaria al 7%)
+    van: npvAt(tVanFlow, VAN_RATE) + npvAt(sFlujo, VAN_RATE_SAN),
+    tir: tirDe(addv(cVanFlow, AN_T.factibGastada, AN_S.factibGastada)),
     capitalTrabajo: Math.abs(Math.min(...cResAcum, 0)),
     payback: paybackDe(cResAcum),
     flujosPermanentes: permanentesDe(cRes),
