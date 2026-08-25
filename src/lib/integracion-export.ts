@@ -2,8 +2,13 @@
 // Tres hojas: el resumen del escenario, el flujo consolidado tal como se ve en
 // pantalla, y el desglose partida por partida. Los importes van como NÚMEROS
 // (no texto) para que el que reciba el archivo pueda sumarlos y pivotearlos.
+//
+// El diseño es el mismo del deck del Directorio: cabecera verde con texto
+// blanco, bandas de sección en verde claro, Arial, miles con punto y negativos
+// en rojo. ExcelJS y no SheetJS porque la versión libre de SheetJS no escribe
+// estilos — es la razón por la que el archivo salía en blanco y negro.
 
-import * as XLSX from "xlsx";
+import type { Workbook, Worksheet, Borders } from "exceljs";
 import {
   CONTEXTO,
   LAYERS,
@@ -14,11 +19,22 @@ import {
   type LayerState,
 } from "./integracion-model";
 
-type Cell = string | number;
-type Row = Cell[];
+// ── paleta Modela (ARGB) ─────────────────────────────────────
+const VERDE = "FF2C4A3B"; // cabecera de tabla, igual que el deck
+const VERDE_CLARO = "FFD9E5DD"; // bandas de sección
+const ZEBRA = "FFF5F8F6";
+const BORDE = "FFD5DDD8";
+const TINTA = "FF1B2A22";
+const GRIS = "FF7C8A83";
+
+const FUENTE = "Arial";
+const N_UF = "#,##0;[Red]-#,##0";
+/** Solo para el FLUJO NETO: positivo en verde y negativo en rojo, como en pantalla. */
+const N_NETO = "[Green]#,##0;[Red]-#,##0";
+const LINEA_ABAJO: Partial<Borders> = { bottom: { style: "hair", color: { argb: BORDE } } };
 
 /** UF enteras; las celdas nulas quedan en blanco, como el "·" de la tabla. */
-const n0 = (v: number): Cell => (Math.abs(v) > 0.5 ? Math.round(v) : "");
+const n0 = (v: number): number | null => (Math.abs(v) > 0.5 ? Math.round(v) : null);
 
 export interface ExportFlujosConfig {
   r: FlujoResult;
@@ -30,111 +46,268 @@ export interface ExportFlujosConfig {
   paridad: keyof typeof PARIDAD_PPTX | null;
 }
 
-export function descargarFlujos({ r, layers, share, escenario, paridad }: ExportFlujosConfig) {
+/** Arma el libro. Separado de la descarga para poder inspeccionarlo fuera del navegador. */
+export async function construirLibro({
+  r,
+  layers,
+  share,
+  escenario,
+  paridad,
+}: ExportFlujosConfig): Promise<Workbook> {
+  // Carga diferida: son ~900 KB que no tienen por qué pesar en el primer render.
+  const ExcelJS = (await import("exceljs")).default;
   const sems = Array.from({ length: r.nfv }, (_, i) => SEM(i));
-  const vertical = layers.inmobiliario;
-  const wb = XLSX.utils.book_new();
 
-  // ── hoja 1 · Resumen ───────────────────────────────────────
-  const resumen: Row[] = [
-    ["Integración Vertical — AUDP Batuco + Colina"],
-    [`Flujo semestral en UF · ${sems[0]} – ${sems[r.nfv - 1]}`],
-    ["Escenario", escenario],
-    [],
-    ["CAPAS DEL NEGOCIO"],
-    ...LAYERS.map((l): Row => [`${l.n}. ${l.nombre}`, layers[l.id] ? "Encendida" : "Apagada"]),
-  ];
-  let filaShare = -1;
-  if (vertical) {
-    filaShare = resumen.length;
-    resumen.push(["Participación en el negocio inmobiliario", share]);
-  }
-  resumen.push(
-    [],
-    ["RESULTADO"],
-    ["Ingresos", Math.round(r.ingresos)],
-    ["Costos", Math.round(r.costos)],
-    ["Resultado neto", Math.round(r.neto)],
-  );
-  if (vertical) {
-    resumen.push(
-      ["Utilidad inmobiliaria", Math.round(r.utilidadInmob)],
-      ["Caja máxima del macroloteador", Math.round(r.valleMacro)],
-      ["Máximo financiamiento de capital de trabajo", Math.round(r.valleInmob)],
-    );
-  } else {
-    resumen.push([`Máximo financiamiento · ${SEM(r.valleIdx)}`, Math.round(r.valle)]);
-  }
-  resumen.push(
-    [],
-    ["CONTEXTO DEL PROYECTO"],
-    ["Ventas brutas", Math.round(CONTEXTO.pxq)],
-    ["Unidades", Math.round(CONTEXTO.unidades)],
-    ["Valor del suelo", Math.round(CONTEXTO.suelo)],
-    ["Capital de trabajo", Math.round(CONTEXTO.capitalTrabajo)],
-  );
+  const wb = new ExcelJS.Workbook();
+  wb.creator = "Modela";
+  wb.company = "Modela";
 
-  if (paridad) {
-    const p = PARIDAD_PPTX[paridad];
-    const fila = (label: string, vivo: number, deck: number): Row => [
-      label,
-      Math.round(vivo),
-      deck,
-      Math.round(vivo - deck),
-    ];
-    resumen.push(
-      [],
-      [`PARIDAD CON EL DECK DEL DIRECTORIO · láminas ${p.slide}`],
-      ["Concepto", "Modelo en vivo", "Presentacion_Directorio.pptx", "Diferencia"],
-      fila("Ingresos", r.ingresos, p.ingresos),
-      fila("Costos", r.costos, p.costos),
-      fila("Resultado neto", r.neto, p.neto),
-      fila("Valle de caja", r.valle, p.valle),
-    );
-    if (paridad === "vertical") {
-      const pv = PARIDAD_PPTX.vertical;
-      resumen.push(
-        fila("Valle del macroloteador", r.valleMacro, pv.valleMacro),
-        fila("Valle de capital de trabajo", r.valleInmob, pv.valleInmob),
-      );
+  hojaResumen(wb, { r, layers, share, escenario, paridad, vertical: layers.inmobiliario, sems });
+  hojaFlujo(wb, r, sems, escenario);
+  hojaDetalle(wb, r, sems, escenario);
+  return wb;
+}
+
+export async function descargarFlujos(cfg: ExportFlujosConfig) {
+  const wb = await construirLibro(cfg);
+  const { escenario } = cfg;
+  const buf = await wb.xlsx.writeBuffer();
+  const blob = new Blob([buf], {
+    type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  const slug = escenario.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  a.download = `flujo-integracion-${slug}-${new Date().toISOString().slice(0, 10)}.xlsx`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ── piezas de diseño compartidas ─────────────────────────────
+
+/** Título y bajada de cada hoja, sobre el ancho de la tabla. */
+function portada(ws: Worksheet, subtitulo: string, escenario: string, ancho: number) {
+  // Que al imprimir entre a lo ancho: si no, las columnas de semestres se parten en dos hojas.
+  ws.pageSetup = { orientation: "landscape", fitToPage: true, fitToWidth: 1, fitToHeight: 0 };
+
+  ws.mergeCells(1, 1, 1, ancho);
+  const t = ws.getCell(1, 1);
+  t.value = "Integración Vertical — AUDP Batuco + Colina";
+  t.font = { name: FUENTE, size: 14, bold: true, color: { argb: VERDE } };
+
+  ws.mergeCells(2, 1, 2, ancho);
+  const s = ws.getCell(2, 1);
+  s.value = `${subtitulo} · escenario ${escenario}`;
+  s.font = { name: FUENTE, size: 9, color: { argb: GRIS } };
+
+  ws.getRow(1).height = 21;
+  ws.getRow(2).height = 14;
+}
+
+/** Banda de sección: verde claro a todo el ancho, como los "INGRESOS / COSTOS" del deck. */
+function banda(ws: Worksheet, texto: string, ancho: number) {
+  const row = ws.addRow([texto]);
+  ws.mergeCells(row.number, 1, row.number, ancho);
+  const c = ws.getCell(row.number, 1);
+  c.font = { name: FUENTE, size: 9, bold: true, color: { argb: VERDE } };
+  c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: VERDE_CLARO } };
+  c.alignment = { vertical: "middle" };
+  row.height = 16;
+  return row;
+}
+
+/** Fila de encabezado de columnas: fondo verde, texto blanco. */
+function cabecera(ws: Worksheet, cols: string[]) {
+  const row = ws.addRow(cols);
+  row.height = 18;
+  row.eachCell((c, i) => {
+    c.font = { name: FUENTE, size: 9, bold: true, color: { argb: "FFFFFFFF" } };
+    c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: VERDE } };
+    c.alignment = { horizontal: i === 1 ? "left" : "right", vertical: "middle" };
+  });
+  return row;
+}
+
+// ── hoja 1 · Resumen ─────────────────────────────────────────
+
+function hojaResumen(
+  wb: Workbook,
+  ctx: ExportFlujosConfig & { vertical: boolean; sems: string[] },
+) {
+  const { r, layers, share, escenario, paridad, vertical, sems } = ctx;
+  const ws = wb.addWorksheet("Resumen", { views: [{ showGridLines: false }] });
+  ws.columns = [{ width: 46 }, { width: 18 }, { width: 30 }, { width: 14 }];
+  portada(ws, `Flujo semestral en UF · ${sems[0]} – ${sems[r.nfv - 1]}`, escenario, 4);
+  ws.addRow([]);
+
+  /** Fila etiqueta/valor; el valor va como número con formato de miles. */
+  const dato = (label: string, valor: number | string, destacar = false) => {
+    const row = ws.addRow([label, valor]);
+    row.getCell(1).font = { name: FUENTE, size: 10, bold: destacar, color: { argb: TINTA } };
+    row.getCell(1).border = LINEA_ABAJO;
+    const v = row.getCell(2);
+    v.font = { name: FUENTE, size: 10, bold: destacar, color: { argb: TINTA } };
+    v.alignment = { horizontal: "right" };
+    v.border = LINEA_ABAJO;
+    if (typeof valor === "number") v.numFmt = N_UF;
+    return row;
+  };
+
+  banda(ws, "CAPAS DEL NEGOCIO", 4);
+  for (const l of LAYERS) {
+    const row = dato(`${l.n}. ${l.nombre}`, layers[l.id] ? "Encendida" : "Apagada");
+    row.getCell(2).alignment = { horizontal: "right" };
+    if (!layers[l.id]) {
+      row.getCell(1).font = { name: FUENTE, size: 10, color: { argb: GRIS } };
+      row.getCell(2).font = { name: FUENTE, size: 10, color: { argb: GRIS } };
     }
   }
-
-  const wsResumen = XLSX.utils.aoa_to_sheet(resumen);
-  wsResumen["!cols"] = [{ wch: 42 }, { wch: 16 }, { wch: 28 }, { wch: 13 }];
-  formatoMiles(wsResumen);
-  if (filaShare >= 0) {
-    const c = wsResumen[XLSX.utils.encode_cell({ r: filaShare, c: 1 })];
-    if (c) c.z = "0%";
+  if (vertical) {
+    const row = dato("Participación en el negocio inmobiliario", share);
+    row.getCell(2).numFmt = "0%";
   }
-  XLSX.utils.book_append_sheet(wb, wsResumen, "Resumen");
 
-  // ── hoja 2 · Flujo consolidado ─────────────────────────────
-  const flujo: Row[] = [["Concepto", ...sems, "Total"]];
+  ws.addRow([]);
+  banda(ws, "RESULTADO", 4);
+  dato("Ingresos", Math.round(r.ingresos));
+  dato("Costos", Math.round(r.costos));
+  dato("Resultado neto", Math.round(r.neto), true);
+  if (vertical) {
+    dato("Utilidad inmobiliaria", Math.round(r.utilidadInmob));
+    dato("Caja máxima del macroloteador", Math.round(r.valleMacro));
+    dato("Máximo financiamiento de capital de trabajo", Math.round(r.valleInmob));
+  } else {
+    dato(`Máximo financiamiento · ${SEM(r.valleIdx)}`, Math.round(r.valle));
+  }
+
+  ws.addRow([]);
+  banda(ws, "CONTEXTO DEL PROYECTO", 4);
+  dato("Ventas brutas", Math.round(CONTEXTO.pxq));
+  dato("Unidades", Math.round(CONTEXTO.unidades));
+  dato("Valor del suelo", Math.round(CONTEXTO.suelo));
+  dato("Capital de trabajo", Math.round(CONTEXTO.capitalTrabajo));
+
+  if (!paridad) return;
+
+  const p = PARIDAD_PPTX[paridad];
+  ws.addRow([]);
+  banda(ws, `PARIDAD CON EL DECK DEL DIRECTORIO · láminas ${p.slide}`, 4);
+  cabecera(ws, ["Concepto", "Modelo en vivo", "Presentacion_Directorio.pptx", "Diferencia"]);
+  const comparar = (label: string, vivo: number, deck: number) => {
+    const row = ws.addRow([label, Math.round(vivo), deck, Math.round(vivo - deck)]);
+    row.eachCell((c, i) => {
+      c.font = { name: FUENTE, size: 10, color: { argb: TINTA } };
+      c.border = LINEA_ABAJO;
+      if (i > 1) {
+        c.numFmt = N_UF;
+        c.alignment = { horizontal: "right" };
+      }
+    });
+    // La diferencia es el semáforo: verde si cuadra, rojo si el modelo se desvió.
+    const d = row.getCell(4);
+    const cuadra = Math.abs(vivo - deck) < 1;
+    d.font = { name: FUENTE, size: 10, bold: true, color: { argb: cuadra ? "FF1D7A45" : "FFB91C1C" } };
+  };
+  comparar("Ingresos", r.ingresos, p.ingresos);
+  comparar("Costos", r.costos, p.costos);
+  comparar("Resultado neto", r.neto, p.neto);
+  comparar("Valle de caja", r.valle, p.valle);
+  if (paridad === "vertical") {
+    comparar("Valle del macroloteador", r.valleMacro, PARIDAD_PPTX.vertical.valleMacro);
+    comparar("Valle de capital de trabajo", r.valleInmob, PARIDAD_PPTX.vertical.valleInmob);
+  }
+}
+
+// ── hoja 2 · Flujo consolidado ───────────────────────────────
+
+function hojaFlujo(wb: Workbook, r: FlujoResult, sems: string[], escenario: string) {
+  const ws = wb.addWorksheet("Flujo", { views: [{ showGridLines: false }] });
+  const ancho = sems.length + 2;
+  ws.columns = [{ width: 34 }, ...sems.map(() => ({ width: 11 })), { width: 13 }];
+  portada(ws, "Flujo consolidado por concepto · UF", escenario, ancho);
+  ws.addRow([]);
+
+  cabecera(ws, ["Concepto", ...sems, "Total"]);
+  ws.views = [{ state: "frozen", xSplit: 1, ySplit: 4, showGridLines: false }];
+
   let sec = "";
+  let z = 0;
   for (const g of r.groups) {
     if (g.sec !== sec) {
       sec = g.sec;
-      flujo.push([sec]);
+      banda(ws, sec, ancho);
+      z = 0;
     }
-    flujo.push([g.name, ...g.arr.map(n0), Math.round(g.total)]);
+    const row = ws.addRow([g.name, ...g.arr.map(n0), Math.round(g.total)]);
+    pintarFila(row, ancho, z++ % 2 === 1);
+    const total = row.getCell(ancho);
+    total.font = { name: FUENTE, size: 9.5, bold: true, color: { argb: TINTA } };
   }
-  flujo.push(
-    ["FLUJO NETO", ...r.net.map(n0), Math.round(r.neto)],
-    ["Caja acumulada", ...r.caja.map(n0), Math.round(r.caja[r.nfv - 1])],
-  );
-  const wsFlujo = XLSX.utils.aoa_to_sheet(flujo);
-  wsFlujo["!cols"] = [{ wch: 32 }, ...sems.map(() => ({ wch: 11 })), { wch: 12 }];
-  formatoMiles(wsFlujo);
-  XLSX.utils.book_append_sheet(wb, wsFlujo, "Flujo");
 
-  // ── hoja 3 · Detalle por partida ───────────────────────────
+  // FLUJO NETO — la fila que se lee primero, con el mismo peso que en el deck.
+  const neto = ws.addRow(["FLUJO NETO", ...r.net.map(n0), Math.round(r.neto)]);
+  neto.height = 17;
+  neto.eachCell((c, i) => {
+    c.font = { name: FUENTE, size: 10, bold: true, color: { argb: TINTA } };
+    c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: VERDE_CLARO } };
+    c.border = { top: { style: "thin", color: { argb: VERDE } } };
+    if (i > 1) {
+      c.numFmt = N_NETO;
+      c.alignment = { horizontal: "right" };
+    }
+  });
+
+  const caja = ws.addRow(["Caja acumulada", ...r.caja.map(n0), Math.round(r.caja[r.nfv - 1])]);
+  caja.eachCell((c, i) => {
+    c.font = { name: FUENTE, size: 9.5, italic: true, color: { argb: GRIS } };
+    c.border = LINEA_ABAJO;
+    if (i > 1) {
+      c.numFmt = N_UF;
+      c.alignment = { horizontal: "right" };
+    }
+  });
+}
+
+/** Fila de datos: Arial 9,5, números a la derecha con miles y negativos en rojo. */
+function pintarFila(row: import("exceljs").Row, ancho: number, zebra: boolean) {
+  row.eachCell({ includeEmpty: true }, (c, i) => {
+    if (i > ancho) return;
+    c.font = { name: FUENTE, size: 9.5, color: { argb: TINTA } };
+    c.border = LINEA_ABAJO;
+    if (zebra) c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: ZEBRA } };
+    if (i > 1) {
+      c.numFmt = N_UF;
+      c.alignment = { horizontal: "right" };
+    }
+  });
+}
+
+// ── hoja 3 · Detalle por partida ─────────────────────────────
+
+function hojaDetalle(wb: Workbook, r: FlujoResult, sems: string[], escenario: string) {
+  const ws = wb.addWorksheet("Detalle", { views: [{ showGridLines: false }] });
   const CAP = { macro: "Macroloteador", inmob: "Inmobiliario" } as const;
-  const detalle: Row[] = [["Grupo", "Partida", "Cuenta", "Capa", ...sems, "Total"]];
-  for (const l of r.lines) {
+  const ancho = sems.length + 5;
+  ws.columns = [
+    { width: 24 },
+    { width: 34 },
+    { width: 15 },
+    { width: 24 },
+    ...sems.map(() => ({ width: 11 })),
+    { width: 13 },
+  ];
+  portada(ws, "Detalle partida por partida · UF", escenario, ancho);
+  ws.addRow([]);
+
+  cabecera(ws, ["Grupo", "Partida", "Cuenta", "Capa", ...sems, "Total"]);
+  ws.views = [{ state: "frozen", xSplit: 2, ySplit: 4, showGridLines: false }];
+  ws.autoFilter = { from: { row: 4, column: 1 }, to: { row: 4, column: ancho } };
+
+  r.lines.forEach((l, i) => {
     const arr = trunc(l.arr, r.nfv);
     const capa = LAYERS.find((x) => x.id === l.layer);
-    detalle.push([
+    const row = ws.addRow([
       l.grp,
       l.label,
       CAP[l.cap],
@@ -142,32 +315,16 @@ export function descargarFlujos({ r, layers, share, escenario, paridad }: Export
       ...arr.map(n0),
       Math.round(arr.reduce((a, b) => a + b, 0)),
     ]);
-  }
-  const wsDetalle = XLSX.utils.aoa_to_sheet(detalle);
-  wsDetalle["!cols"] = [
-    { wch: 24 },
-    { wch: 34 },
-    { wch: 15 },
-    { wch: 24 },
-    ...sems.map(() => ({ wch: 11 })),
-    { wch: 12 },
-  ];
-  formatoMiles(wsDetalle);
-  XLSX.utils.book_append_sheet(wb, wsDetalle, "Detalle");
-
-  const slug = escenario.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-  XLSX.writeFile(wb, `flujo-integracion-${slug}-${new Date().toISOString().slice(0, 10)}.xlsx`);
-}
-
-/** Miles con punto y negativos con signo, como en la tabla y en el deck. */
-function formatoMiles(ws: XLSX.WorkSheet) {
-  const ref = ws["!ref"];
-  if (!ref) return;
-  const range = XLSX.utils.decode_range(ref);
-  for (let R = range.s.r; R <= range.e.r; R++) {
-    for (let C = range.s.c; C <= range.e.c; C++) {
-      const cell = ws[XLSX.utils.encode_cell({ r: R, c: C })];
-      if (cell && cell.t === "n") cell.z = "#,##0;-#,##0";
-    }
-  }
+    row.eachCell({ includeEmpty: true }, (c, j) => {
+      if (j > ancho) return;
+      c.font = { name: FUENTE, size: 9.5, color: { argb: TINTA } };
+      c.border = LINEA_ABAJO;
+      if (i % 2 === 1) c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: ZEBRA } };
+      if (j > 4) {
+        c.numFmt = N_UF;
+        c.alignment = { horizontal: "right" };
+      }
+    });
+    row.getCell(ancho).font = { name: FUENTE, size: 9.5, bold: true, color: { argb: TINTA } };
+  });
 }

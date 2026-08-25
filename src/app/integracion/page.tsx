@@ -51,14 +51,21 @@ export default function IntegracionPage() {
   const toggle = (id: LayerId) => setLayers((s) => ({ ...s, [id]: !s[id] }));
 
   const escenario = esVertical ? "Vertical integrado" : esTerceros ? "Venta a terceros" : "Personalizado";
-  const exportar = () =>
-    descargarFlujos({
-      r,
-      layers,
-      share,
-      escenario,
-      paridad: esVertical ? "vertical" : esTerceros ? "terceros" : null,
-    });
+  const [bajando, setBajando] = useState(false);
+  const exportar = async () => {
+    setBajando(true);
+    try {
+      await descargarFlujos({
+        r,
+        layers,
+        share,
+        escenario,
+        paridad: esVertical ? "vertical" : esTerceros ? "terceros" : null,
+      });
+    } finally {
+      setBajando(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-zinc-950 text-white">
@@ -91,8 +98,9 @@ export default function IntegracionPage() {
           <div className="h-5 w-px bg-zinc-800" />
           <button
             onClick={exportar}
+            disabled={bajando}
             title="Descargar el flujo en Excel: resumen, flujo consolidado y detalle por partida"
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium border border-zinc-700 text-zinc-300 hover:text-white hover:border-zinc-500 transition-colors"
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium border border-zinc-700 text-zinc-300 hover:text-white hover:border-zinc-500 disabled:opacity-50 transition-colors"
           >
             <svg viewBox="0 0 16 16" className="w-3.5 h-3.5" aria-hidden="true" fill="none">
               <path
@@ -103,7 +111,7 @@ export default function IntegracionPage() {
                 strokeLinejoin="round"
               />
             </svg>
-            Excel
+            {bajando ? "Generando…" : "Excel"}
           </button>
         </div>
       </header>
