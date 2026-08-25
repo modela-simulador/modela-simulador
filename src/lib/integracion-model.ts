@@ -111,7 +111,8 @@ const cum = (a: number[]) => {
 const sum = (a: number[]) => a.reduce((x, y) => x + y, 0);
 
 /** Trunca a n semestres concentrando el residuo posterior en la última columna (preserva el total). */
-const trunc = (a: number[], n: number) => {
+/** Trunca al horizonte visible concentrando el residuo posterior en la última columna. */
+export const trunc = (a: number[], n: number) => {
   if (n >= a.length) return a.slice();
   const r = a.slice(0, n);
   r[n - 1] = a.slice(n - 1).reduce((x, y) => x + y, 0);
